@@ -1,5 +1,6 @@
 <!-- An event as a tile: the whole tile opens the editor; photos open the viewer. -->
 <script lang="ts">
+	import { diaryId, photoUrl } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import PhotoViewer from './PhotoViewer.svelte';
@@ -27,7 +28,9 @@
 		<div>
 			<time datetime={event.date}>{formatDate(event.date)}</time>
 			<!-- Covers the whole tile (see .open::after); the other controls sit above it. -->
-			<a class="open" href={resolve('/events/[id]/edit', { id: String(event.id) })}
+			<a
+				class="open"
+				href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(event.id) })}
 				><strong>{event.typeName}</strong></a
 			>
 			{#if event.milestone}<span class="badge milestone" title={t.events.milestone}>★</span>{/if}
@@ -40,7 +43,11 @@
 
 	{#if showPlant}
 		<p>
-			<a class="above" href={resolve('/plants/[id]', { id: event.plantId })}>{event.plantName}</a>
+			<a
+				class="above"
+				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: event.plantId })}
+				>{event.plantName}</a
+			>
 			<span class="muted small">{event.plantId}</span>
 		</p>
 	{/if}
@@ -65,7 +72,7 @@
 						onclick={() => viewer?.open(i)}
 						aria-label="{p.label}, {p.date}"
 					>
-						<img src="/photos/{p.id}?size=s" alt="" loading="lazy" />
+						<img src={photoUrl(p.id, 's')} alt="" loading="lazy" />
 						{#if canSetCover && p.id === coverPhotoId}
 							<span class="cover" title={t.plants.isCover}>★</span>
 						{/if}
@@ -77,7 +84,9 @@
 	{/if}
 
 	<footer class="row">
-		<a class="button small above" href={resolve(`/events/new?from=${event.id}`)}
+		<a
+			class="button small above"
+			href={resolve(`/[diary]/events/new?from=${event.id}`, { diary: diaryId() })}
 			>{t.common.repeat}</a
 		>
 		<form

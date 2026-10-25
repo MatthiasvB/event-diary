@@ -1,12 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { config } from './config.ts';
-
 export type Db = DatabaseSync;
 
-// Append-only list; the index + 1 is stored in PRAGMA user_version.
-const migrations = [
+// Schema of a diary. Append-only list; the index + 1 is stored in PRAGMA user_version.
+const DIARY_SCHEMA = [
 	`
 	CREATE TABLE photos (
 		id TEXT PRIMARY KEY,            -- also the file name stem in photos/
@@ -95,15 +93,15 @@ const migrations = [
 	`
 ];
 
-export function openDb(file: string): Db {
+export function openDb(file: string, schema = DIARY_SCHEMA): Db {
 	if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
 	const db = new DatabaseSync(file, { timeout: 5000 });
 	db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
-	migrate(db);
+	migrate(db, schema);
 	return db;
 }
 
-function migrate(db: Db) {
+function migrate(db: Db, migrations: string[]) {
 	const { user_version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
 	for (let v = user_version; v < migrations.length; v++) {
 		transaction(db, () => {
@@ -123,12 +121,4 @@ export function transaction<T>(db: Db, fn: () => T): T {
 		db.exec('ROLLBACK');
 		throw e;
 	}
-}
-
-let instance: Db | undefined;
-
-/** The app's database, opened on first use. */
-export function db(): Db {
-	instance ??= openDb(config.dbFile);
-	return instance;
 }

@@ -216,7 +216,29 @@ export const t = {
 		saved: 'Gespeichert.'
 	},
 	more: {
-		title: 'Mehr'
+		title: 'Mehr',
+		switchDiary: 'Tagebuch wechseln'
+	},
+	diaries: {
+		title: 'Tagebücher',
+		empty: 'Noch kein Tagebuch vorhanden.',
+		new: 'Neues Tagebuch',
+		name: 'Name',
+		nameRequired: 'Bitte einen Namen angeben.',
+		type: 'Art',
+		types: { plants: 'Pflanzentagebuch' },
+		create: 'Anlegen',
+		shareHint: 'Für welches Tagebuch sind die geteilten Fotos?'
+	},
+	claim: {
+		title: 'Bestehende Daten zuordnen',
+		intro: (name: string) =>
+			`Es gibt Daten aus der Zeit, bevor jedes Konto eigene Tagebücher hatte. Wem sollen sie gehören? Sie werden dort zum Tagebuch „${name}“. Das geht nur einmal.`,
+		me: (user: string) => `Mir (${user})`,
+		other: 'Einem anderen Konto',
+		submit: 'Zuordnen',
+		invalidUser: 'Ungültiger Benutzername.',
+		notAllowed: 'Dieses Konto darf sich nicht anmelden.'
 	},
 	shortcuts: {
 		title: 'Tastenkürzel',

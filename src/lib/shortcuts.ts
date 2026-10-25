@@ -1,20 +1,24 @@
 // Desktop keyboard shortcuts: Ctrl (⌘ on macOS) + key. While the app has focus, they take
-// precedence over the browser's own shortcuts for the same keys.
+// precedence over the browser's own shortcuts for the same keys. They act within the
+// current diary; outside a diary (login, diary list) they do nothing.
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { t } from './i18n.ts';
+import { diaryId } from './paths.ts';
 
 type Shortcut = { key: string; label: string; run: () => unknown };
 
 /** The plant whose page (or edit page) is open, if any. */
 function currentPlant(): string | undefined {
 	const route = page.route.id;
-	return route === '/plants/[id]' || route === '/plants/[id]/edit' ? page.params.id : undefined;
+	return route === '/[diary]/plants/[id]' || route === '/[diary]/plants/[id]/edit'
+		? page.params.id
+		: undefined;
 }
 
 async function focusSearch() {
-	if (page.route.id !== '/') await goto(resolve('/'));
+	if (page.route.id !== '/[diary]') await goto(resolve('/[diary]', { diary: diaryId() }));
 	document.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
 }
 
@@ -25,15 +29,22 @@ function submitForm() {
 }
 
 export const shortcuts: Shortcut[] = [
-	{ key: 'h', label: t.shortcuts.home, run: () => goto(resolve('/')) },
-	{ key: 'p', label: t.shortcuts.newPlant, run: () => goto(resolve('/plants/new')) },
+	{ key: 'h', label: t.shortcuts.home, run: () => goto(resolve('/[diary]', { diary: diaryId() })) },
+	{
+		key: 'p',
+		label: t.shortcuts.newPlant,
+		run: () => goto(resolve('/[diary]/plants/new', { diary: diaryId() }))
+	},
 	{
 		key: 'e',
 		label: t.shortcuts.newEvent,
 		run: () => {
 			const plant = currentPlant();
+			const diary = diaryId();
 			return goto(
-				plant ? resolve(`/events/new?plant=${encodeURIComponent(plant)}`) : resolve('/events/new')
+				plant
+					? resolve(`/[diary]/events/new?plant=${encodeURIComponent(plant)}`, { diary })
+					: resolve('/[diary]/events/new', { diary })
 			);
 		}
 	},
@@ -43,7 +54,7 @@ export const shortcuts: Shortcut[] = [
 
 export function handleShortcut(e: KeyboardEvent) {
 	if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.repeat || e.isComposing) return;
-	if (page.route.id === '/login') return;
+	if (!page.params.diary) return;
 	const shortcut = shortcuts.find((s) => s.key.toLowerCase() === e.key.toLowerCase());
 	if (!shortcut) return;
 	e.preventDefault();

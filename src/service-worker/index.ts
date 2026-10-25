@@ -18,7 +18,10 @@ async function receiveShare(request: Request): Promise<Response> {
 	await storeSharedPhotos(files);
 	// Then continue like the camera shortcut: photo mode of the event form.
 	return Response.redirect(
-		new URL(`/events/new?photo=1&shared=${files.length}`, self.location.origin),
+		new URL(
+			`/?then=${encodeURIComponent(`events/new?photo=1&shared=${files.length}`)}`,
+			self.location.origin
+		),
 		303
 	);
 }

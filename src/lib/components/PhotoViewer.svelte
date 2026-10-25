@@ -3,9 +3,9 @@
 	so the back button or gesture closes the viewer instead of leaving the page.
 -->
 <script lang="ts">
+	import { photoUrl } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from '#lib/i18n.ts';
 
@@ -66,7 +66,7 @@
 	{ontouchend}
 >
 	{#if isOpen && photo}
-		<img src="/photos/{photo.id}?size=l" alt="{photo.label}, {photo.date}" />
+		<img src={photoUrl(photo.id, 'l')} alt="{photo.label}, {photo.date}" />
 		<div class="bar">
 			{#if photos.length > 1}
 				<button type="button" aria-label={t.gallery.previous} onclick={() => step(-1)}>‹</button>
@@ -91,9 +91,7 @@
 				{/if}
 			{/if}
 			<!-- Served as a download, so it doesn't leave the app. -->
-			<a class="button small" href={resolve('/photos/[id]?size=original', { id: photo.id })}
-				>⬇ {t.gallery.original}</a
-			>
+			<a class="button small" href={photoUrl(photo.id, 'original')}>⬇ {t.gallery.original}</a>
 			<button type="button" class="small" onclick={close}>{t.gallery.close}</button>
 		</div>
 	{/if}

@@ -1,5 +1,6 @@
 <!-- Thumbnail grid; a tap opens the photo viewer. -->
 <script lang="ts">
+	import { photoUrl } from '#lib/paths.ts';
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import PhotoViewer, { type ViewerPhoto } from './PhotoViewer.svelte';
@@ -77,7 +78,7 @@
 				onpointerleave={pressEnd}
 				oncontextmenu={(e) => (timer || longPressed) && e.preventDefault()}
 			>
-				<img src="/photos/{p.id}?size=s" alt="" loading="lazy" />
+				<img src={photoUrl(p.id, 's')} alt="" loading="lazy" />
 				{#if p.id === coverPhotoId}<span class="cover" title={t.plants.isCover}>★</span>{/if}
 			</button>
 		</li>

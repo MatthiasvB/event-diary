@@ -10,7 +10,7 @@
 	let { children, data }: LayoutProps = $props();
 
 	type NavItem = {
-		href: '/' | '/events' | '/events/new' | '/more';
+		href: '/[diary]' | '/[diary]/events' | '/[diary]/events/new' | '/[diary]/more';
 		label: string;
 		icon: string;
 		primary?: boolean;
@@ -19,31 +19,35 @@
 	};
 	const items: NavItem[] = [
 		{
-			href: '/',
+			href: '/[diary]',
 			key: 'h',
 			label: t.nav.plants,
 			icon: 'M12 21v-8m0 0c0-4 3-7 7-7 0 4-3 7-7 7Zm0 0c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z'
 		},
-		{ href: '/events', label: t.nav.events, icon: 'M4 6h16M4 12h16M4 18h10' },
+		{ href: '/[diary]/events', label: t.nav.events, icon: 'M4 6h16M4 12h16M4 18h10' },
 		{
-			href: '/events/new',
+			href: '/[diary]/events/new',
 			key: 'e',
 			label: t.nav.add,
 			icon: 'M12 5v14M5 12h14',
 			primary: true
 		},
-		{ href: '/more', label: t.nav.more, icon: 'M5 12h.01M12 12h.01M19 12h.01' }
+		{ href: '/[diary]/more', label: t.nav.more, icon: 'M5 12h.01M12 12h.01M19 12h.01' }
 	];
 
-	const showNav = $derived(page.url.pathname !== '/login');
+	// The navigation belongs to a diary; login and the diary list have none.
+	const diary = $derived(page.data.diary as { id: string; name: string } | undefined);
 
-	function isCurrent(href: string) {
-		const path = page.url.pathname;
-		if (href === '/') return path === '/' || path.startsWith('/plants');
-		if (href === '/events') return path.startsWith('/events') && !path.startsWith('/events/new');
-		if (href === '/more')
-			return ['/more', '/types', '/maintenance', '/settings'].some((p) => path.startsWith(p));
-		return path === href;
+	function isCurrent(href: NavItem['href']) {
+		const route = page.route.id ?? '';
+		if (href === '/[diary]') return route === '/[diary]' || route.startsWith('/[diary]/plants');
+		if (href === '/[diary]/events')
+			return route === '/[diary]/events' || route === '/[diary]/events/[id]/edit';
+		if (href === '/[diary]/more')
+			return ['more', 'types', 'maintenance', 'settings'].some((p) =>
+				route.startsWith(`/[diary]/${p}`)
+			);
+		return route === href;
 	}
 </script>
 
@@ -55,7 +59,7 @@
 />
 
 <svelte:head>
-	<title>{data.appName}</title>
+	<title>{diary?.name ?? data.appName}</title>
 	<link rel="manifest" href="/manifest.webmanifest" />
 	<link rel="icon" href="/icon.svg" type="image/svg+xml" />
 	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -65,12 +69,12 @@
 	<meta name="theme-color" content="#2e7a4d" />
 </svelte:head>
 
-{#if showNav}
+{#if diary}
 	<nav class="nav" aria-label="Hauptnavigation">
-		<a class="brand" href={resolve('/')}>{data.appName}</a>
+		<a class="brand" href={resolve('/[diary]', { diary: diary.id })}>{diary.name}</a>
 		{#each items as item (item.href)}
 			<a
-				href={resolve(item.href)}
+				href={resolve(item.href, { diary: diary.id })}
 				class:primary={item.primary}
 				aria-current={isCurrent(item.href) ? 'page' : undefined}
 				title={item.key && shortcutLabel(item.key)}

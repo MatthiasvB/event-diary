@@ -1,9 +1,9 @@
 // Checks system account passwords through PAM, using a small helper binary
-// (pam-helper/pam_auth.c) so that no native Node module is needed.
+// (pam-helper/, a small Rust program) so that no native Node module is needed.
 import { spawn } from 'node:child_process';
 import type { AuthBackend } from './index.ts';
 
-const USERNAME = /^[a-z_][a-z0-9_.-]{0,31}\$?$/i;
+export const USERNAME = /^[a-z_][a-z0-9_.-]{0,31}\$?$/i;
 
 export function pamBackend(helper: string, service: string): AuthBackend {
 	return {

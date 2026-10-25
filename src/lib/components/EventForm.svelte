@@ -3,6 +3,7 @@
 	optional fields, note and photos → save. Used for new events, repeats and edits.
 -->
 <script lang="ts">
+	import { photoUrl } from '#lib/paths.ts';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Combobox from './Combobox.svelte';
@@ -211,7 +212,7 @@
 				<ul class="kept">
 					{#each keptPhotos as id (id)}
 						<li>
-							<img src="/photos/{id}?size=s" alt="" />
+							<img src={photoUrl(id, 's')} alt="" />
 							<button
 								type="button"
 								class="small"

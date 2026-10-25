@@ -9,7 +9,11 @@ Nothing is specific to one kind of plant.
 
 ## Using it
 
-- **Plants** (start page): cards with cover photo, name, ID and "last …" columns
+- **Diaries**: after logging in you see your diaries (with only one, it opens directly).
+  Each diary has its own plants, events, event types, suggestions and settings, and its
+  own URL: `/<diary>/…`. New diaries are created on that list; _Mehr → Tagebuch wechseln_
+  leads back to it.
+- **Plants** (start page of a diary): cards with cover photo, name, ID and "last …" columns
   (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any attribute.
   The columns are chosen under _Mehr → Einstellungen_.
 - **Erfassen (+)**: the main flow. Choose plant(s), type or choose the event type, add
@@ -143,9 +147,32 @@ What the module sets up:
   passwords of other users. `auth.backend = "none"` turns login off; only use that if the
   proxy restricts access.
 
-### Authentication
+### Users and diaries
 
 Users log in with their system account (PAM) and get a session cookie for 90 days.
+Each user sees only the diaries they are a member of. A diary is its own database
+(`db/diaries/<id>.sqlite`); a central database (`db/registry.sqlite`) records the diaries
+(name, type), the memberships (user, diary, role) and the sessions. Every access to a
+diary's data checks the membership, so another user's diary, its pages and its photos
+are simply "not found".
+
+This is built to grow without restructuring:
+
+- **Other kinds of diaries**: a diary has a type; for now there is only `plants`, whose
+  views are the pages under `src/routes/[diary]/`. Another type gets its own views.
+- **Shared diaries**: sharing means adding a membership (with a role such as `member` or
+  `viewer` next to today's `owner`); the data model is ready, the UI doesn't exist yet.
+
+Without login (`auth.backend = "none"`) there is one implicit user, `local`.
+
+**Upgrading from a version without diaries:** that version kept everything in a single
+`db/diary.sqlite`. The first user to log in after the upgrade is asked once who it
+belongs to ("mir" or another account); it then becomes that user's diary, named after
+`appName`. Until then nobody gets past that question. Without login, it goes to `local`
+automatically. Everyone has to log in again once, since sessions moved.
+
+### Authentication backends
+
 Backends live in [src/lib/server/auth/](src/lib/server/auth/): a backend implements
 `checkPassword(username, password)`; sessions, login page and throttling are shared.
 To add one (e.g. trusting a proxy header), implement `AuthBackend` and register it in
@@ -155,27 +182,32 @@ To add one (e.g. trusting a proxy header), implement `AuthBackend` and register 
 
 ```
 <dataDir>/
-├── db/diary.sqlite        live database (+ -wal/-shm); don't back up directly
-├── photos/<uuid>.<ext>    photo originals, written once, never changed   ← back up
-└── snapshot/diary.sqlite  consistent snapshot from the backup command   ← back up
-/var/cache/plant-diary/thumbs/   resized JPEGs, regenerated on demand
+├── db/                        live databases (+ -wal/-shm); don't back up directly
+│   ├── registry.sqlite        diaries, memberships, sessions
+│   └── diaries/<id>.sqlite    one per diary
+├── photos/<uuid>.<ext>        photo originals of all diaries, written once   ← back up
+└── snapshot/                  consistent copies of db/ from the backup command  ← back up
+/var/cache/plant-diary/thumbs/ resized JPEGs, regenerated on demand
 ```
+
+Photo files are shared by all diaries, but a photo is only served through the diary that
+references it.
 
 ## Backup and restore
 
-`plant-diary-backup` (the oneshot service on NixOS) runs SQLite's `VACUUM INTO` while the
-app keeps running, then atomically replaces `snapshot/diary.sqlite`. Back up `snapshot/` and
-`photos/` after it. Copying the live database file is not safe.
+`plant-diary-backup` (the oneshot service on NixOS) runs SQLite's `VACUUM INTO` for every
+database in `db/` while the app keeps running, and atomically replaces its copy in
+`snapshot/` (same relative path; copies of databases that no longer exist are removed).
+Back up `snapshot/` and `photos/` after it. Copying the live database files is not safe.
 
 Restore (tested by the VM test in [nix/test.nix](nix/test.nix)):
 
 ```sh
 systemctl stop plant-diary.socket plant-diary.service
 rm -rf /mnt/data/plant-diary && systemd-tmpfiles --create   # or restore into an empty dir
-install -o plant-diary -g plant-diary -m 0640 \
-  <backup>/snapshot/diary.sqlite /mnt/data/plant-diary/db/diary.sqlite
+cp -a <backup>/snapshot/. /mnt/data/plant-diary/db/
 cp -a <backup>/photos/. /mnt/data/plant-diary/photos/
-chown -R plant-diary:plant-diary /mnt/data/plant-diary/photos
+chown -R plant-diary:plant-diary /mnt/data/plant-diary/db /mnt/data/plant-diary/photos
 systemctl start plant-diary.socket
 ```
 

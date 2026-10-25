@@ -3,6 +3,7 @@
 	changed or marked as not recorded, e.g. when older changes were entered later.
 -->
 <script lang="ts">
+	import { diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import Combobox from './Combobox.svelte';
@@ -35,7 +36,10 @@
 				<span class="muted">{h.since ? formatDate(h.since) : t.plants.initial}</span>
 				{h.value}
 				{#if h.eventId}
-					<a href={resolve('/events/[id]/edit', { id: String(h.eventId) })}>↗</a>
+					<a
+						href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(h.eventId) })}
+						>↗</a
+					>
 				{/if}
 				{#if h === initial && changed && !editing}
 					<button type="button" class="tiny" onclick={edit}>{t.plants.editInitial}</button>

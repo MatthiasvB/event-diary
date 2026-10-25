@@ -3,7 +3,7 @@
 declare global {
 	namespace App {
 		interface Locals {
-			/** Logged-in user; null when the auth backend requires no login. */
+			/** Logged-in user; without login (AUTH_BACKEND=none) the implicit local user. */
 			user: string | null;
 		}
 		interface PageState {

@@ -103,7 +103,7 @@ in
       default = "${cfg.dataDir}/snapshot";
       defaultText = lib.literalExpression ''"''${dataDir}/snapshot"'';
       description = ''
-        Where `plant-diary-backup.service` writes a consistent database snapshot.
+        Where `plant-diary-backup.service` writes consistent copies of all databases.
         Back up this directory together with {option}`services.plant-diary.photosDir`.
       '';
     };

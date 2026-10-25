@@ -12,11 +12,11 @@ export const config = {
 	plantIdPrefix: env.PLANT_ID_PREFIX || 'P-',
 
 	dataDir,
-	/** Live SQLite database (not backed up directly, see snapshotDir). */
-	dbFile: path.join(dataDir, 'db', 'diary.sqlite'),
+	/** Live SQLite databases, one per user (not backed up directly, see snapshotDir). */
+	dbDir: path.join(dataDir, 'db'),
 	/** Write-once photo originals. */
 	photosDir: path.join(dataDir, 'photos'),
-	/** Consistent database snapshot written by the backup command. */
+	/** Consistent database snapshots written by the backup command. */
 	snapshotDir: path.join(dataDir, 'snapshot'),
 	/** Regenerable thumbnails; must not be inside the backed-up paths. */
 	cacheDir: path.resolve(env.CACHE_DIR ?? path.join(dataDir, 'cache')),
@@ -33,5 +33,3 @@ export const config = {
 		sessionDays: Number(env.SESSION_DAYS || 90)
 	}
 };
-
-export const SNAPSHOT_FILE = 'diary.sqlite';

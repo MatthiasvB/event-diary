@@ -8,7 +8,6 @@ import {
 } from '#lib/server/auth/index.ts';
 import { SESSION_COOKIE, createSession } from '#lib/server/auth/sessions.ts';
 import { config } from '#lib/server/config.ts';
-import { db } from '#lib/server/db.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -35,7 +34,7 @@ export const actions: Actions = {
 		}
 		recordSuccess(username);
 
-		const { token, expires } = createSession(db(), username, config.auth.sessionDays);
+		const { token, expires } = createSession(username, config.auth.sessionDays);
 		cookies.set(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', expires });
 		redirect(303, safeNext(url.searchParams.get('next')));
 	}

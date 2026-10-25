@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
+import { diaryId } from './paths.ts';
 
 // Photos taken with a camera button, handed to the event form.
 export const pendingPhotos: { files: File[] } = $state({ files: [] });
@@ -19,5 +20,5 @@ export async function startPhotoEvent(e: Event, plantId?: string) {
 export async function openPhotoEvent(files: File[], plantId?: string) {
 	pendingPhotos.files = files;
 	const plant = plantId ? `&plant=${encodeURIComponent(plantId)}` : '';
-	await goto(resolve(`/events/new?photo=1${plant}`));
+	await goto(resolve(`/[diary]/events/new?photo=1${plant}`, { diary: diaryId() }));
 }
