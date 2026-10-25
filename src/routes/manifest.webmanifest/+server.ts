@@ -1,5 +1,6 @@
 import { config } from '#lib/server/config.ts';
 import { locale } from '#lib/i18n.ts';
+import { SHARE_PATH } from '#lib/share.ts';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = () =>
@@ -13,6 +14,13 @@ export const GET: RequestHandler = () =>
 			display: 'standalone',
 			background_color: '#f5f6f2',
 			theme_color: '#2e7a4d',
+			// Android: appear in the share sheet for images (handled by the service worker)
+			share_target: {
+				action: SHARE_PATH,
+				method: 'POST',
+				enctype: 'multipart/form-data',
+				params: { files: [{ name: 'photos', accept: ['image/*'] }] }
+			},
 			icons: [
 				{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
 				{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

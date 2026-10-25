@@ -17,6 +17,13 @@ Nothing is specific to one kind of plant.
   its hint. Several plants at once create a _batch_ that can later be corrected in one go.
 - **Foto** (camera in the navigation): photo first, then the plant, then save. The photo's
   capture date is offered as the event date.
+- **Sharing photos into the app** (Android): installed via Chrome (or another
+  Chromium-based browser), the app appears in the system share sheet for images. Shared
+  photos open the event form in photo mode. Firefox for Android and iOS don't support
+  this for web apps. A minimal service worker receives the shared images; it doesn't
+  cache the app or provide offline use.
+- **Drag and drop** (desktop): drop photos onto a plant's card or page, or onto the photo
+  area of a form.
 - **Plant page**: current attributes with their history, a timeline with photos, and
   _Wiederholen_ (repeat) on every event.
 - **Ereignisse**: all events, filtered by plant, type, category and date range.

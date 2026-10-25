@@ -36,7 +36,15 @@ export const load: PageServerLoad = ({ url }) => {
 		};
 	}
 
-	return { plants, vocab: vocabulary(d), lastFields: lastFieldsByType(d), initial, photoMode };
+	return {
+		plants,
+		vocab: vocabulary(d),
+		lastFields: lastFieldsByType(d),
+		initial,
+		photoMode,
+		// Images shared from another app wait in the service worker's cache.
+		shared: url.searchParams.has('shared')
+	};
 };
 
 export const actions: Actions = {
