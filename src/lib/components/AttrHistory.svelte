@@ -28,7 +28,8 @@
 
 <details open={editing || undefined}>
 	<summary class="small">{t.plants.history} ({history.length})</summary>
-	<ol class="small">
+	<!-- Newest first, but numbered in chronological order. -->
+	<ol class="small" reversed>
 		{#each [...history].reverse() as h (h.id)}
 			<li>
 				<span class="muted">{h.since ? formatDate(h.since) : t.plants.initial}</span>
