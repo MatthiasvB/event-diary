@@ -55,7 +55,7 @@
 		const ty = vocab.types.find((x) => x.name === s.typeName);
 		// A preset type (photo mode) fills in its usual fields right away.
 		const fields = !edit && !s.fields.length && ty ? proposeFields(ty, []) : s.fields;
-		return { ...s, fields, typeId: ty?.id, category: photoMode ? t.events.photoTypeCategory : '' };
+		return { ...s, fields, typeId: ty?.id };
 	});
 	let plantIds = $state(start.plantIds);
 	let typeName = $state(start.typeName);
@@ -63,7 +63,7 @@
 	let note = $state(start.note);
 	let fields = $state(start.fields);
 	let keptPhotos = $state(start.keptPhotos);
-	let category = $state(start.category);
+	let category = $state('');
 	let milestone = $state(false);
 	let applyToBatch = $state(false);
 	let exifDate = $state<string | null>(null);

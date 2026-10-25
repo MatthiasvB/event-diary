@@ -3,6 +3,7 @@
 	import EventCard from '#lib/components/EventCard.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
+	import { startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -34,9 +35,21 @@
 		<a class="button small" href={resolve('/plants/[id]/edit', { id: plant.id })}>{t.common.edit}</a
 		>
 	</div>
-	<a class="button primary" href={resolve(`/events/new?plant=${encodeURIComponent(plant.id)}`)}
-		>+ {t.plants.addEvent}</a
-	>
+	<div class="row actions">
+		<a class="button primary" href={resolve(`/events/new?plant=${encodeURIComponent(plant.id)}`)}
+			>+ {t.plants.addEvent}</a
+		>
+		<label class="button primary">
+			<input
+				type="file"
+				accept="image/*"
+				capture="environment"
+				class="visually-hidden"
+				onchange={(e) => startPhotoEvent(e, plant.id)}
+			/>
+			📷 {t.plants.takePhoto}
+		</label>
+	</div>
 </header>
 
 {#if plant.notes}<p class="notes">{plant.notes}</p>{/if}
@@ -107,6 +120,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
+	}
+	.actions > * {
+		flex: 1;
+	}
+	.actions label {
+		color: var(--accent-text);
+		font-size: 1rem;
+	}
+	.actions label:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
 	}
 	.cover {
 		width: 100%;

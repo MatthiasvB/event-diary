@@ -1,10 +1,9 @@
 <script lang="ts">
 	import '../app.css';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from '#lib/i18n.ts';
-	import { pendingPhotos } from '#lib/pending.svelte.ts';
+	import { startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -35,15 +34,6 @@
 		if (href === '/more')
 			return ['/more', '/types', '/maintenance', '/settings'].some((p) => path.startsWith(p));
 		return path === href;
-	}
-
-	/** Camera shortcut: photo first, then plant, then save. */
-	async function takePhoto(e: Event) {
-		const input = e.currentTarget as HTMLInputElement;
-		if (!input.files?.length) return;
-		pendingPhotos.files = [...input.files];
-		input.value = '';
-		await goto(resolve('/events/new?photo=1'));
 	}
 </script>
 
@@ -77,7 +67,7 @@
 						accept="image/*"
 						capture="environment"
 						class="visually-hidden"
-						onchange={takePhoto}
+						onchange={(e) => startPhotoEvent(e)}
 					/>
 					<svg viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M4 8h3l2-3h6l2 3h3v11H4z" />

@@ -1,5 +1,9 @@
+import { t } from '../i18n.ts';
 import type { EventType, EventTypeStats, FieldTemplate } from '../types.ts';
 import type { Db } from './db.ts';
+import { getSetting, setSetting } from './settings.ts';
+
+export const PHOTO_TYPE_SETTING = 'photoTypeId';
 
 type Row = {
 	id: number;
@@ -76,4 +80,17 @@ export function deleteType(db: Db, id: number): boolean {
 	if (used) return false;
 	db.prepare('DELETE FROM event_types WHERE id = ?').run(id);
 	return true;
+}
+
+/**
+ * The event type for photo-only events (camera shortcuts). Remembered by ID, so it can be
+ * renamed freely; the default name is only used to create it on first use.
+ */
+export function photoType(db: Db): EventType {
+	const id = getSetting<number>(db, PHOTO_TYPE_SETTING);
+	const stored = id === undefined ? undefined : getType(db, id);
+	if (stored) return stored;
+	const type = ensureType(db, t.events.photoType, { category: t.events.photoTypeCategory });
+	setSetting(db, PHOTO_TYPE_SETTING, type.id);
+	return type;
 }

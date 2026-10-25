@@ -91,6 +91,7 @@ export const t = {
 			'Nur Pflanzen ohne Ereignisse können gelöscht werden. Andere bitte auf inaktiv setzen.',
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
+		takePhoto: 'Foto aufnehmen',
 		key: 'Eigenschaft',
 		value: 'Wert'
 	},

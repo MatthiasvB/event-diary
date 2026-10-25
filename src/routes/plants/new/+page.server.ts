@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { config } from '#lib/server/config.ts';
 import { db } from '#lib/server/db.ts';
 import { createEvents } from '#lib/server/events.ts';
-import { ensureType } from '#lib/server/eventTypes.ts';
+import { photoType } from '#lib/server/eventTypes.ts';
 import { savePhoto } from '#lib/server/photos.ts';
 import { parsePlantForm } from '#lib/server/plantForm.ts';
 import { createPlant, getPlant, nextPlantId } from '#lib/server/plants.ts';
@@ -47,7 +47,7 @@ export const actions: Actions = {
 		if (files.length) {
 			const photoIds = [];
 			for (const f of files) photoIds.push(await savePhoto(d, f));
-			const type = ensureType(d, t.events.photoType, { category: t.events.photoTypeCategory });
+			const type = photoType(d);
 			const photoDate = String(form.get('photoDate') ?? '');
 			createEvents(d, [input.id], {
 				typeId: type.id,

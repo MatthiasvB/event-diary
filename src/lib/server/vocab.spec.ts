@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
 import { createEvents, getEvent } from './events.ts';
-import { ensureType, getType } from './eventTypes.ts';
+import { ensureType, getType, photoType } from './eventTypes.ts';
 import { attrHistory, createPlant, currentAttrs, getPlant, setCover } from './plants.ts';
 import { getOverviewColumns, setOverviewColumns } from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
@@ -98,6 +98,22 @@ describe('rename and merge', () => {
 		ensureType(db, 'Düngen', { category: 'Pflege' });
 		rename(db, { kind: 'category' }, 'pflege', 'Pflege');
 		expect(vocabulary(db).categories.map((c) => c.value)).toEqual(['Pflege']);
+	});
+});
+
+describe('photo type', () => {
+	it('is created once and remembered by ID across renames and merges', () => {
+		const created = photoType(db);
+		expect(created.name).toBe('Foto dokumentiert');
+		expect(photoType(db).id).toBe(created.id);
+
+		rename(db, { kind: 'type' }, 'Foto dokumentiert', 'Foto');
+		expect(photoType(db)).toMatchObject({ id: created.id, name: 'Foto' });
+
+		const other = ensureType(db, 'Fotodoku');
+		rename(db, { kind: 'type' }, 'Foto', 'Fotodoku');
+		expect(photoType(db)).toMatchObject({ id: other.id, name: 'Fotodoku' });
+		expect(getType(db, created.id)).toBeUndefined();
 	});
 });
 

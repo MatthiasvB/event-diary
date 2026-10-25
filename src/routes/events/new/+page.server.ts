@@ -2,10 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/db.ts';
 import { parseEventForm, saveNewEvents, validate } from '#lib/server/eventForm.ts';
 import { batchPlantIds, getEvent, lastFieldsByType } from '#lib/server/events.ts';
+import { photoType } from '#lib/server/eventTypes.ts';
 import { plantOptions } from '#lib/server/plantOptions.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
-import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -16,7 +16,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 	let initial = {
 		plantIds: url.searchParams.getAll('plant').filter((id) => known.has(id)),
-		typeName: photoMode ? t.events.photoType : '',
+		typeName: photoMode ? photoType(d).name : '',
 		date: today(),
 		note: '',
 		fields: [] as { key: string; value: string; target: 'event' | 'plant' }[],

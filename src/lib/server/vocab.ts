@@ -3,8 +3,8 @@
 import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, FieldTemplate, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
-import { listTypes } from './eventTypes.ts';
-import { getSetting, setOverviewColumns, type OverviewColumn } from './settings.ts';
+import { listTypes, PHOTO_TYPE_SETTING } from './eventTypes.ts';
+import { getSetting, setOverviewColumns, setSetting, type OverviewColumn } from './settings.ts';
 
 type UsageRow = {
 	key: string;
@@ -143,6 +143,9 @@ function renameType(db: Db, from: string, to: string): number {
 		.prepare('UPDATE events SET type_id = ? WHERE type_id = ?')
 		.run(target.id, source.id);
 	db.prepare('DELETE FROM event_types WHERE id = ?').run(source.id);
+	if (getSetting<number>(db, PHOTO_TYPE_SETTING) === source.id) {
+		setSetting(db, PHOTO_TYPE_SETTING, target.id);
+	}
 	const columns = getSetting<OverviewColumn[]>(db, 'overviewColumns');
 	if (columns) {
 		setOverviewColumns(
