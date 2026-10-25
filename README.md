@@ -77,7 +77,6 @@ UI strings live in [src/lib/i18n.ts](src/lib/i18n.ts).
 | `DATA_DIR`           | `./data`           | Persistent data (see layout below)            |
 | `CACHE_DIR`          | `$DATA_DIR/cache`  | Thumbnails; regenerable, don't back up        |
 | `APP_NAME`           | `Pflanzentagebuch` | Name in the app and on the home screen        |
-| `PLANT_ID_PREFIX`    | `P-`               | New plant IDs: `P-001`, `P-002`, …            |
 | `AUTH_BACKEND`       | `pam`              | `pam` or `none`                               |
 | `PAM_SERVICE`        | `plant-diary`      | PAM service name                              |
 | `AUTH_ALLOWED_USERS` | (all)              | Comma-separated users allowed to log in       |
@@ -110,7 +109,6 @@ in
     port = 8240;                              # default
     dataDir = "/mnt/data/plant-diary";        # default: /var/lib/plant-diary
     appName = "Orchideen-Tagebuch";
-    plantIdPrefix = "ORC-";
     # auth.allowedUsers = [ "matthias" ];     # default: every user PAM accepts
   };
 

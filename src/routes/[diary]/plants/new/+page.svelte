@@ -13,7 +13,7 @@
 <h1>{t.plants.new}</h1>
 {#if data.created}
 	<p class="notice">
-		{t.plants.created(data.created.name, data.created.id)}
+		{t.plants.created(data.created.name)}
 		<a href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: data.created.id })}
 			>{t.plants.view}</a
 		>

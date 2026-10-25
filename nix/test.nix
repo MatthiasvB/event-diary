@@ -86,7 +86,7 @@ in
 
     with subtest("create a plant and an event with a photo"):
         assert status(
-            f"{auth} -F id=P-001 -F name=Testpflanze -F active=on "
+            f"{auth} -F name=Testpflanze -F active=on "
             f"-F attrKey=Standort -F attrValue=Ostfenster '{base}{diary}/plants/new?/save'"
         ) == "303"
         assert status(

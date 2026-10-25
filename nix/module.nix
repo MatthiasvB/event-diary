@@ -27,7 +27,6 @@ let
     DATA_DIR = cfg.dataDir;
     CACHE_DIR = "/var/cache/plant-diary";
     APP_NAME = cfg.appName;
-    PLANT_ID_PREFIX = cfg.plantIdPrefix;
     BODY_SIZE_LIMIT = cfg.maxUploadSize;
     AUTH_BACKEND = cfg.auth.backend;
     PAM_SERVICE = cfg.auth.pam.service;
@@ -69,6 +68,14 @@ let
   };
 in
 {
+  imports = [
+    (lib.mkRemovedOptionModule [
+      "services"
+      "plant-diary"
+      "plantIdPrefix"
+    ] "Plant IDs are internal and no longer shown, so they need no prefix.")
+  ];
+
   options.services.plant-diary = {
     enable = mkEnableOption "the plant diary web app";
 
@@ -121,13 +128,6 @@ in
       default = "Pflanzentagebuch";
       example = "Orchideen-Tagebuch";
       description = "Name shown in the app and on the home screen.";
-    };
-
-    plantIdPrefix = mkOption {
-      type = types.str;
-      default = "P-";
-      example = "ORC-";
-      description = "Prefix of new plant IDs (P-001, P-002, …).";
     };
 
     maxUploadSize = mkOption {

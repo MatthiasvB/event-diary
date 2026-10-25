@@ -8,8 +8,6 @@ const dataDir = path.resolve(env.DATA_DIR ?? './data');
 
 export const config = {
 	appName: env.APP_NAME || 'Pflanzentagebuch',
-	/** Prefix for new plant IDs, e.g. "P-" gives P-001, P-002, … */
-	plantIdPrefix: env.PLANT_ID_PREFIX || 'P-',
 
 	dataDir,
 	/** Live SQLite databases, one per user (not backed up directly, see snapshotDir). */

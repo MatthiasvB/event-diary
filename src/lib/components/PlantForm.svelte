@@ -9,7 +9,7 @@
 	import type { Field, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
-		plant: { id: string; name: string; active: boolean; acquiredOn: string | null; notes: string };
+		plant: { name: string; active: boolean; acquiredOn: string | null; notes: string };
 		attrs: { key: string; value: string }[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		isNew?: boolean;
@@ -38,16 +38,10 @@
 		return leave;
 	}}
 >
-	<div class="row">
-		<label class="id">
-			{t.plants.id}
-			<input name="id" value={plant.id} required readonly={!isNew} autocapitalize="characters" />
-		</label>
-		<label class="grow">
-			{t.plants.name}
-			<input name="name" value={plant.name} required />
-		</label>
-	</div>
+	<label>
+		{t.plants.name}
+		<input name="name" value={plant.name} required />
+	</label>
 	{#if isNew}
 		<div class="stack photo">
 			<PhotoInput bind:files prominent onexifdate={(d) => (photoDate = d)} />
@@ -87,9 +81,6 @@
 </form>
 
 <style>
-	.id {
-		width: 9rem;
-	}
 	/* Align the checkbox with the input, not with its label. */
 	.bottom {
 		align-items: flex-end;

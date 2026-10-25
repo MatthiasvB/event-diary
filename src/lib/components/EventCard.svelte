@@ -48,7 +48,6 @@
 				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: event.plantId })}
 				>{event.plantName}</a
 			>
-			<span class="muted small">{event.plantId}</span>
 		</p>
 	{/if}
 

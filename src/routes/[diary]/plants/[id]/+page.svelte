@@ -43,12 +43,13 @@
 		<div class="spread">
 			<div>
 				<h1>{plant.name}</h1>
-				<p class="row muted">
-					<span>{plant.id}</span>
-					{#if !plant.active}<span class="badge">{t.plants.inactive}</span>{/if}
-					{#if plant.acquiredOn}<span>{t.plants.acquiredOn} {formatDate(plant.acquiredOn)}</span
-						>{/if}
-				</p>
+				{#if !plant.active || plant.acquiredOn}
+					<p class="row muted">
+						{#if !plant.active}<span class="badge">{t.plants.inactive}</span>{/if}
+						{#if plant.acquiredOn}<span>{t.plants.acquiredOn} {formatDate(plant.acquiredOn)}</span
+							>{/if}
+					</p>
+				{/if}
 			</div>
 			<a
 				class="button small"

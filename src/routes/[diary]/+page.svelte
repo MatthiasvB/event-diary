@@ -43,6 +43,14 @@
 		);
 	});
 
+	const summary = ({ count, last }: (typeof data.plants)[number]['stats']) =>
+		[
+			t.plants.events(count),
+			last && `${t.plants.lastEvent}: ${last.type}, ${relativeDays(last.date)}`
+		]
+			.filter(Boolean)
+			.join(' · ');
+
 	function addFilter() {
 		if (newKey) attrFilters = [...attrFilters, { key: newKey, value: '' }];
 		newKey = '';
@@ -116,10 +124,7 @@
 					<div class="placeholder" aria-hidden="true">🌱</div>
 				{/if}
 				<div class="body">
-					<div class="spread">
-						<strong>{p.name}</strong>
-						<span class="muted small">{p.id}</span>
-					</div>
+					<strong>{p.name}</strong>
 					{#if !p.active}<span class="badge">{t.plants.inactive}</span>{/if}
 					<dl class="small">
 						{#each data.columns as label, i (label)}
@@ -130,10 +135,7 @@
 							{/if}
 						{/each}
 					</dl>
-					<p class="muted small">
-						{t.plants.events(p.stats.count)}{#if p.stats.last}
-							· {t.plants.lastEvent}: {p.stats.last.type}, {relativeDays(p.stats.last.date)}{/if}
-					</p>
+					<p class="muted small">{summary(p.stats)}</p>
 				</div>
 			</a>
 		</li>
@@ -208,7 +210,8 @@
 	}
 	dl {
 		display: grid;
-		grid-template-columns: max-content 1fr;
+		/* Long labels wrap; the short dates ("vor 225 Tagen") stay on one line. */
+		grid-template-columns: minmax(0, max-content) 1fr;
 		gap: 0 0.6rem;
 		margin: 0;
 	}
@@ -217,6 +220,7 @@
 	}
 	dd {
 		margin: 0;
+		white-space: nowrap;
 	}
 	p {
 		margin: 0;

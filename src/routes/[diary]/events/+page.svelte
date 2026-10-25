@@ -32,7 +32,7 @@
 	<form method="GET" class="stack">
 		<select name="plant" value={data.filter.plantId} aria-label={t.events.allPlants}>
 			<option value="">{t.events.allPlants}</option>
-			{#each data.plants as p (p.id)}<option value={p.id}>{p.name} ({p.id})</option>{/each}
+			{#each data.plants as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
 		</select>
 		<div class="row">
 			<select name="type" class="grow" value={data.filter.typeId} aria-label={t.events.allTypes}>

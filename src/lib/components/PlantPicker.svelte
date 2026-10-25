@@ -125,7 +125,7 @@
 								checked={selected.includes(p.id)}
 								onchange={() => toggle(p.id)}
 							/>
-							<span class="grow">{p.name} <span class="muted small">{p.id}</span></span>
+							<span class="grow">{p.name}</span>
 						</label>
 					</li>
 				{/each}

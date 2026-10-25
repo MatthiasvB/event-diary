@@ -1,5 +1,4 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { config } from '#lib/server/config.ts';
 import { db } from '#lib/server/diary.ts';
 import { createEvents } from '#lib/server/events.ts';
 import { photoType } from '#lib/server/eventTypes.ts';
@@ -8,7 +7,6 @@ import { parsePlantForm } from '#lib/server/plantForm.ts';
 import { createPlant, getPlant, nextPlantId } from '#lib/server/plants.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { isValidDate, today } from '#lib/format.ts';
-import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -21,7 +19,8 @@ export const load: PageServerLoad = ({ url }) => {
 	const created = getPlant(d, url.searchParams.get('created') ?? '');
 	return {
 		plant: {
-			id: nextPlantId(d, config.plantIdPrefix),
+			// Not shown; changes after each save, which resets the form for the next plant.
+			id: nextPlantId(d),
 			name: '',
 			active: true,
 			acquiredOn: isValidDate(acquiredOn) ? acquiredOn : null,
@@ -37,9 +36,9 @@ export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
 		const form = await request.formData();
-		const { input, error } = parsePlantForm(form);
+		const { input: fields, error } = parsePlantForm(form);
 		if (error) return fail(400, { error });
-		if (getPlant(d, input.id)) return fail(400, { error: t.plants.idTaken });
+		const input = { ...fields, id: nextPlantId(d) };
 		createPlant(d, input);
 
 		// First photos become a photo event; the newest photo is the default cover.

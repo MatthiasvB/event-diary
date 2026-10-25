@@ -58,8 +58,6 @@ export function pinCover(db: Db, plantId: string) {
 // History order: initial values (since NULL) first, then by date, then by insertion.
 const HISTORY_ORDER = "coalesce(since, '') , id";
 
-export const PLANT_ID_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
-
 export function listPlants(db: Db): (Plant & { attrs: Record<string, string> })[] {
 	const plants = (db.prepare(`${SELECT_PLANT} ORDER BY p.name`).all() as Row[]).map(fromRow);
 	const current = currentAttrs(db);
@@ -93,8 +91,12 @@ export function attrHistory(db: Db, plantId: string): Record<string, PlantAttr[]
 	return result;
 }
 
-/** Next free ID in the prefix scheme, e.g. ORC-022 → ORC-023. IDs in use are never reused. */
-export function nextPlantId(db: Db, prefix: string): string {
+/**
+ * Next free internal ID, e.g. P-022 → P-023. IDs in use are never reused. Only used in
+ * URLs and the database, never shown.
+ */
+export function nextPlantId(db: Db): string {
+	const prefix = 'P-';
 	const ids = db
 		.prepare('SELECT id FROM plants WHERE substr(id, 1, ?) = ?')
 		.all(prefix.length, prefix) as {
