@@ -36,13 +36,22 @@ const attrFromRow = (r: AttrRow): PlantAttr => ({
 	eventId: r.event_id
 });
 
+// A plant without a chosen cover shows its most recent photo.
+const SELECT_PLANT = `
+	SELECT p.id, p.name, p.active, p.acquired_on, p.notes,
+		coalesce(p.cover_photo_id, (
+			SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
+			WHERE e.plant_id = p.id ORDER BY e.date DESC, e.id DESC, ep.position LIMIT 1
+		)) AS cover_photo_id
+	FROM plants p`;
+
 // History order: initial values (since NULL) first, then by date, then by insertion.
 const HISTORY_ORDER = "coalesce(since, '') , id";
 
 export const PLANT_ID_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
 
 export function listPlants(db: Db): (Plant & { attrs: Record<string, string> })[] {
-	const plants = (db.prepare('SELECT * FROM plants ORDER BY name').all() as Row[]).map(fromRow);
+	const plants = (db.prepare(`${SELECT_PLANT} ORDER BY p.name`).all() as Row[]).map(fromRow);
 	const current = currentAttrs(db);
 	return plants.map((p) => ({ ...p, attrs: current.get(p.id) ?? {} }));
 }
@@ -60,7 +69,7 @@ export function currentAttrs(db: Db): Map<string, Record<string, string>> {
 }
 
 export function getPlant(db: Db, id: string): Plant | undefined {
-	const row = db.prepare('SELECT * FROM plants WHERE id = ?').get(id) as Row | undefined;
+	const row = db.prepare(`${SELECT_PLANT} WHERE p.id = ?`).get(id) as Row | undefined;
 	return row && fromRow(row);
 }
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
 import { createEvents, getEvent } from './events.ts';
 import { ensureType, getType } from './eventTypes.ts';
-import { attrHistory, createPlant, currentAttrs } from './plants.ts';
+import { attrHistory, createPlant, currentAttrs, getPlant, setCover } from './plants.ts';
 import { getOverviewColumns, setOverviewColumns } from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
 
@@ -98,6 +98,29 @@ describe('rename and merge', () => {
 		ensureType(db, 'Düngen', { category: 'Pflege' });
 		rename(db, { kind: 'category' }, 'pflege', 'Pflege');
 		expect(vocabulary(db).categories.map((c) => c.value)).toEqual(['Pflege']);
+	});
+});
+
+describe('cover photo', () => {
+	it('falls back to the most recent photo until one is chosen', () => {
+		plant('P-001');
+		const type = ensureType(db, 'Foto dokumentiert');
+		const photo = (id: string) =>
+			db
+				.prepare("INSERT INTO photos (id, file, mime) VALUES (?, ?, 'image/jpeg')")
+				.run(id, `${id}.jpg`);
+		const event = (date: string, photoIds: string[]) =>
+			createEvents(db, ['P-001'], { typeId: type.id, date, note: '', fields: [], photoIds });
+
+		expect(getPlant(db, 'P-001')?.coverPhotoId).toBeNull();
+		photo('a');
+		event('2026-09-01', ['a']);
+		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('a');
+		photo('b');
+		event('2026-10-01', ['b']);
+		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('b');
+		setCover(db, 'P-001', 'a');
+		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('a');
 	});
 });
 

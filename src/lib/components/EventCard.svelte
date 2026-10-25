@@ -58,11 +58,11 @@
 					</a>
 					{#if canSetCover}
 						{#if coverPhotoId === id}
-							<span class="badge">{t.plants.isCover}</span>
+							<span class="badge">★ {t.plants.isCover}</span>
 						{:else}
 							<form method="POST" action="?/cover" use:enhance>
 								<input type="hidden" name="photo" value={id} />
-								<button class="link small">{t.plants.cover}</button>
+								<button class="small">☆ {t.plants.cover}</button>
 							</form>
 						{/if}
 					{/if}

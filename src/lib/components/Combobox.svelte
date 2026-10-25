@@ -28,8 +28,12 @@
 
 	const uid = $props.id();
 	const listId = `${uid}-list`;
+	let input: HTMLInputElement;
 	let open = $state(false);
 	let active = $state(-1);
+	// The list opens above the field when there is room, so it doesn't cover the next field.
+	let up = $state(false);
+	let maxHeight = $state(256);
 
 	const trimmed = $derived(value.trim());
 	const suggestions = $derived(rank(value, candidates, { limit: 8 }));
@@ -48,6 +52,19 @@
 		...(isNew ? [{ value: trimmed, isNew: true }] : [])
 	]);
 
+	function show() {
+		if (open) return;
+		const viewport = window.visualViewport;
+		const top = viewport?.offsetTop ?? 0;
+		const bottom = top + (viewport?.height ?? window.innerHeight);
+		const rect = input.getBoundingClientRect();
+		const above = rect.top - top;
+		const below = bottom - rect.bottom;
+		up = above >= 180 || above > below;
+		maxHeight = Math.max(120, Math.min(256, (up ? above : below) - 8));
+		open = true;
+	}
+
 	function choose(v: string) {
 		value = v;
 		open = false;
@@ -58,8 +75,10 @@
 	function onkeydown(e: KeyboardEvent) {
 		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
 			e.preventDefault();
-			open = true;
-			const step = e.key === 'ArrowDown' ? 1 : -1;
+			show();
+			// Opened upwards, the list is reversed: the best match is next to the field.
+			const towardsMatches = up ? 'ArrowUp' : 'ArrowDown';
+			const step = e.key === towardsMatches ? 1 : -1;
 			active = (active + step + options.length) % options.length;
 		} else if (e.key === 'Enter' && open && active >= 0 && options[active]) {
 			e.preventDefault();
@@ -73,6 +92,7 @@
 
 <div class="combobox">
 	<input
+		bind:this={input}
 		{id}
 		{placeholder}
 		{required}
@@ -84,19 +104,19 @@
 		aria-controls={listId}
 		aria-autocomplete="list"
 		aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
-		onfocus={() => (open = true)}
+		onfocus={show}
 		onblur={() => {
 			open = false;
 			if (exists) onselect?.(trimmed);
 		}}
 		oninput={() => {
-			open = true;
+			show();
 			active = -1;
 		}}
 		{onkeydown}
 	/>
 	{#if open && options.length}
-		<ul id={listId} role="listbox">
+		<ul id={listId} role="listbox" class:up style:max-height="{maxHeight}px">
 			{#each options as option, i (option.isNew ? '\0new' : option.value)}
 				<!-- Keyboard selection is handled on the input (combobox pattern). -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -133,15 +153,22 @@
 		left: 0;
 		right: 0;
 		top: calc(100% + 2px);
+		display: flex;
+		flex-direction: column;
 		margin: 0;
 		padding: 0.25rem 0;
 		list-style: none;
-		max-height: 16rem;
 		overflow-y: auto;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: 10px;
 		box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+	}
+	ul.up {
+		top: auto;
+		bottom: calc(100% + 2px);
+		flex-direction: column-reverse;
+		box-shadow: 0 -8px 24px rgb(0 0 0 / 0.15);
 	}
 	li {
 		padding: 0.6rem 0.75rem;
@@ -156,6 +183,10 @@
 		color: var(--accent);
 		font-weight: 600;
 		border-top: 1px solid var(--border);
+	}
+	ul.up li.new {
+		border-top: none;
+		border-bottom: 1px solid var(--border);
 	}
 	.similar {
 		display: flex;

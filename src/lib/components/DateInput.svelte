@@ -12,11 +12,13 @@
 		name?: string;
 		required?: boolean;
 		label?: string;
+		/** Show a button that empties the field. */
+		clearable?: boolean;
 		/** Called with each complete, valid date (typed or picked). */
 		onchange?: (date: string) => void;
 	};
 
-	let { value = $bindable(''), id, name, required, label, onchange }: Props = $props();
+	let { value = $bindable(''), id, name, required, label, clearable, onchange }: Props = $props();
 
 	let field: HTMLInputElement;
 	let picker: HTMLInputElement;
@@ -70,6 +72,17 @@
 		{oninput}
 		onblur={() => (blurred = true)}
 	/>
+	{#if clearable && value}
+		<button
+			type="button"
+			class="clear"
+			aria-label={t.date.clear}
+			onclick={() => {
+				value = '';
+				field.focus();
+			}}>×</button
+		>
+	{/if}
 	<button type="button" class="calendar" aria-label={t.date.openCalendar} onclick={openPicker}>
 		<svg viewBox="0 0 24 24" aria-hidden="true">
 			<rect x="3.5" y="5" width="17" height="15" rx="2" />
@@ -96,6 +109,21 @@
 		flex: 1;
 		min-width: 0;
 		font-variant-numeric: tabular-nums;
+		padding-right: 2.4rem;
+	}
+	.clear {
+		position: absolute;
+		right: calc(44px + 0.35rem + 2px);
+		top: 50%;
+		transform: translateY(-50%);
+		min-height: 0;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--muted);
+		font-size: 1.4rem;
 	}
 	.calendar {
 		flex: none;

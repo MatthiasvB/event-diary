@@ -41,6 +41,7 @@ export const t = {
 		inDays: (n: number) => `in ${n} Tagen`,
 		placeholder: 'JJJJ-MM-TT',
 		openCalendar: 'Kalender öffnen',
+		clear: 'Datum leeren',
 		invalid: 'Bitte ein gültiges Datum als JJJJ-MM-TT eingeben.'
 	},
 	login: {
@@ -81,6 +82,10 @@ export const t = {
 		idInvalid: 'Nur Buchstaben, Ziffern, Punkt, Binde- und Unterstrich.',
 		nameRequired: 'Bitte einen Namen angeben.',
 		cover: 'Als Titelbild',
+		saveAndNext: 'Speichern & weitere',
+		created: (name: string, id: string) => `„${name}“ (${id}) angelegt.`,
+		view: 'Ansehen',
+		photoHint: 'Das Foto wird als Ereignis gespeichert und als Titelbild verwendet.',
 		isCover: 'Titelbild',
 		deleteOnlyEmpty:
 			'Nur Pflanzen ohne Ereignisse können gelöscht werden. Andere bitte auf inaktiv setzen.',

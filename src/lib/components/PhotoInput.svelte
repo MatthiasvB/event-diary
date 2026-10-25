@@ -4,8 +4,13 @@
 	import { isoDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 
-	type Props = { files: File[]; onexifdate?: (date: string) => void };
-	let { files = $bindable(), onexifdate }: Props = $props();
+	type Props = {
+		files: File[];
+		onexifdate?: (date: string) => void;
+		/** Highlight the camera button. */
+		prominent?: boolean;
+	};
+	let { files = $bindable(), onexifdate, prominent = false }: Props = $props();
 
 	// Plain cache of object URLs, not reactive state.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -52,7 +57,7 @@
 
 <div class="stack photos">
 	<div class="row">
-		<label class="button">
+		<label class="button" class:primary={prominent}>
 			<input
 				type="file"
 				accept="image/*"
@@ -93,6 +98,9 @@
 	label.button {
 		color: var(--text);
 		font-size: 1rem;
+	}
+	label.button.primary {
+		color: var(--accent-text);
 	}
 	label.button:focus-within {
 		outline: 2px solid var(--accent);
