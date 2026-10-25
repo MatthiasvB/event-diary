@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import DateInput from './DateInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
 	import { t } from '#lib/i18n.ts';
 	import type { Field, Vocabulary } from '#lib/types.ts';
@@ -41,7 +42,7 @@
 	<div class="row">
 		<label class="grow">
 			{t.plants.acquiredOn}
-			<input name="acquiredOn" type="date" value={plant.acquiredOn ?? ''} />
+			<DateInput name="acquiredOn" value={plant.acquiredOn ?? ''} />
 		</label>
 		<label class="check"
 			><input name="active" type="checkbox" checked={plant.active} /> {t.plants.active}</label

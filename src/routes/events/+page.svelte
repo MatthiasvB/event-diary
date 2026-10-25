@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import DateInput from '#lib/components/DateInput.svelte';
 	import EventCard from '#lib/components/EventCard.svelte';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
@@ -46,12 +47,14 @@
 			</select>
 		</div>
 		<div class="row">
-			<label class="grow"
-				>{t.events.from} <input type="date" name="from" value={data.filter.from} /></label
-			>
-			<label class="grow"
-				>{t.events.to} <input type="date" name="to" value={data.filter.to} /></label
-			>
+			<label class="grow">
+				{t.events.from}
+				<DateInput name="from" value={data.filter.from} />
+			</label>
+			<label class="grow">
+				{t.events.to}
+				<DateInput name="to" value={data.filter.to} />
+			</label>
 		</div>
 		<div class="row">
 			<button class="primary">{t.common.apply}</button>

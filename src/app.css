@@ -101,6 +101,9 @@ textarea {
 	border-radius: 10px;
 	background: var(--surface);
 }
+input[aria-invalid='true'] {
+	border-color: var(--danger);
+}
 textarea {
 	min-height: 5.5rem;
 	resize: vertical;
@@ -127,7 +130,8 @@ label {
 label > input,
 label > select,
 label > textarea,
-label > .combobox {
+label > .combobox,
+label > .date-input {
 	margin-top: 0.25rem;
 	color: var(--text);
 }

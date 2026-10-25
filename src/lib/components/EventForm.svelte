@@ -6,6 +6,7 @@
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Combobox from './Combobox.svelte';
+	import DateInput from './DateInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
 	import PhotoInput from './PhotoInput.svelte';
 	import PlantPicker from './PlantPicker.svelte';
@@ -173,14 +174,9 @@
 	<div class="stack tight">
 		<label for="date">{t.events.date}</label>
 		<div class="row">
-			<input
-				id="date"
-				type="date"
-				class="grow"
-				value={date}
-				required
-				onchange={(e) => setDate(e.currentTarget.value)}
-			/>
+			<div class="grow">
+				<DateInput id="date" bind:value={date} required onchange={() => (dateTouched = true)} />
+			</div>
 			<button type="button" class="small" onclick={() => setDate(today())}>{t.date.today}</button>
 			<button type="button" class="small" onclick={() => setDate(shiftDays(today(), -1))}
 				>{t.date.yesterday}</button

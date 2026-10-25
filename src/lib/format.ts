@@ -36,6 +36,24 @@ export function relativeDays(date: string, now = today()): string {
 	return days > 0 ? t.date.daysAgo(days) : t.date.inDays(-days);
 }
 
+/** A real calendar date in the form YYYY-MM-DD. */
 export function isValidDate(s: string): boolean {
-	return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
+	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+	if (!m) return false;
+	const [y, mo, d] = m.slice(1).map(Number);
+	const date = new Date(y, mo - 1, d);
+	return date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d;
+}
+
+/**
+ * Formats digits typed year first into YYYY-MM-DD while typing: "2026102" → "2026-10-2".
+ * A month digit above 1 or a day digit above 3 can only be a single digit and is padded:
+ * "20269" → "2026-09".
+ */
+export function formatTypedDate(input: string): string {
+	let digits = input.replace(/\D/g, '');
+	if (digits.length > 4 && digits[4] > '1') digits = `${digits.slice(0, 4)}0${digits.slice(4)}`;
+	if (digits.length > 6 && digits[6] > '3') digits = `${digits.slice(0, 6)}0${digits.slice(6)}`;
+	digits = digits.slice(0, 8);
+	return [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean).join('-');
 }

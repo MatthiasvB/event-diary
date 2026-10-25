@@ -38,7 +38,10 @@ export const t = {
 		today: 'Heute',
 		yesterday: 'Gestern',
 		daysAgo: (n: number) => `vor ${n} Tagen`,
-		inDays: (n: number) => `in ${n} Tagen`
+		inDays: (n: number) => `in ${n} Tagen`,
+		placeholder: 'JJJJ-MM-TT',
+		openCalendar: 'Kalender öffnen',
+		invalid: 'Bitte ein gültiges Datum als JJJJ-MM-TT eingeben.'
 	},
 	login: {
 		title: 'Anmelden',
