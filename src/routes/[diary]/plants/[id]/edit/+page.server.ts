@@ -1,8 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { parsePlantForm } from '#lib/server/plantForm.ts';
-import { deletePlant } from '#lib/server/events.ts';
-import { currentAttrs, getPlant, plantContents, updatePlant } from '#lib/server/plants.ts';
+import { deletePlant, plantImpact } from '#lib/server/events.ts';
+import { currentAttrs, getPlant, updatePlant } from '#lib/server/plants.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -16,7 +16,7 @@ export const load: PageServerLoad = ({ params }) => {
 	const vocab = vocabulary(d);
 	return {
 		plant,
-		contents: plantContents(d, plant.id),
+		impact: plantImpact(d, plant.id),
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value })),
 		vocab: { keys: vocab.keys, values: vocab.values }
 	};

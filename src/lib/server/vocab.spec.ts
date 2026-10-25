@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
-import { createEvents, deletePlant, getEvent } from './events.ts';
+import {
+	categoryImpact,
+	createEvents,
+	deleteCategory,
+	deletePlant,
+	deleteType,
+	getEvent,
+	plantImpact,
+	typeImpact
+} from './events.ts';
 import { ensureType, getType, photoType } from './eventTypes.ts';
 import {
 	attrHistory,
@@ -273,6 +282,7 @@ describe('deleting a plant', () => {
 			photoIds: ['shared']
 		});
 
+		expect(plantImpact(db, 'P-001')).toEqual({ events: 2, photos: 1 });
 		deletePlant(db, 'P-001');
 
 		expect(getPlant(db, 'P-001')).toBeUndefined();
@@ -288,5 +298,43 @@ describe('deleting a plant', () => {
 			.all()
 			.map((r) => r.id);
 		expect(photos).toEqual(['shared']);
+	});
+});
+
+describe('deleting event types and categories', () => {
+	it('takes their events and photos along, and attributes fall back', () => {
+		plant('P-001', { Standort: 'Küche' });
+		db.prepare("INSERT INTO photos (id, file, mime) VALUES ('p', 'p', 'image/jpeg')").run();
+		const move = ensureType(db, 'Umzug', { category: 'Pflege' });
+		const water = ensureType(db, 'Gießen', { category: 'Pflege' });
+		const bloom = ensureType(db, 'Blüte', { category: 'Beobachtung' });
+		const input = { note: '', fields: [], photoIds: [] };
+		createEvents(db, ['P-001'], {
+			...input,
+			typeId: move.id,
+			date: '2026-09-01',
+			fields: [{ key: 'Standort', value: 'Bad', target: 'plant' }],
+			photoIds: ['p']
+		});
+		createEvents(db, ['P-001'], { ...input, typeId: water.id, date: '2026-09-02' });
+		const [kept] = createEvents(db, ['P-001'], { ...input, typeId: bloom.id, date: '2026-09-03' });
+		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Bad' });
+
+		expect(typeImpact(db, water.id)).toEqual({ events: 1, photos: 0 });
+		deleteType(db, water.id);
+		expect(getType(db, water.id)).toBeUndefined();
+
+		expect(categoryImpact(db, 'Pflege')).toEqual({ events: 1, photos: 1 });
+		deleteCategory(db, 'Pflege');
+		expect(getType(db, move.id)).toBeUndefined();
+		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Küche' });
+		expect(db.prepare('SELECT count(*) AS n FROM photos').get()).toEqual({ n: 0 });
+		expect(
+			db
+				.prepare('SELECT id FROM events')
+				.all()
+				.map((r) => r.id)
+		).toEqual([kept]);
+		expect(getType(db, bloom.id)).toBeDefined();
 	});
 });

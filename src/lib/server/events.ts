@@ -231,31 +231,79 @@ export function updateEvent(
 	});
 }
 
-/** Deletes an event, and its photos if no other event uses them. */
-export function deleteEvent(db: Db, id: number) {
+// Events to delete, as a condition on `events`. The SQL is fixed here; only the
+// parameter comes from outside.
+type Selection = { where: string; param: string | number };
+const ofEvent = (id: number): Selection => ({ where: 'id = ?', param: id });
+const ofPlant = (id: string): Selection => ({ where: 'plant_id = ?', param: id });
+const ofType = (id: number): Selection => ({ where: 'type_id = ?', param: id });
+const ofCategory = (category: string): Selection => ({
+	where: 'type_id IN (SELECT id FROM event_types WHERE category = ?)',
+	param: category
+});
+
+/** What a deletion takes along: the events, and the photos no other event uses. */
+export type Impact = { events: number; photos: number };
+
+function impact(db: Db, { where, param }: Selection): Impact {
+	return db
+		.prepare(
+			`WITH doomed AS (SELECT id FROM events WHERE ${where})
+			SELECT (SELECT count(*) FROM doomed) AS events,
+				(SELECT count(DISTINCT photo_id) FROM event_photos
+				WHERE event_id IN doomed AND photo_id NOT IN (
+					SELECT photo_id FROM event_photos WHERE event_id NOT IN doomed)) AS photos`
+		)
+		.get(param) as Impact;
+}
+
+/**
+ * Deletes the selected events and runs `then` in the same transaction. Photos go along
+ * unless another event still uses them; plant attributes the events set fall back to
+ * their previous value.
+ */
+function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
 	const orphans = transaction(db, () => {
-		const before = photosOf(db, [id]);
-		db.prepare('DELETE FROM events WHERE id = ?').run(id);
+		const before = (
+			db
+				.prepare(
+					`SELECT DISTINCT photo_id FROM event_photos
+					WHERE event_id IN (SELECT id FROM events WHERE ${where})`
+				)
+				.all(param) as { photo_id: string }[]
+		).map((r) => r.photo_id);
+		db.prepare(`DELETE FROM events WHERE ${where}`).run(param);
+		then();
 		return orphaned(db, before);
 	});
 	deletePhotos(db, orphans);
 }
 
-/**
- * Deletes a plant with all its events, and their photos if no other plant's event uses
- * them (a photo can belong to a batch). Events of other plants stay as they are.
- */
+export function deleteEvent(db: Db, id: number) {
+	deleteEvents(db, ofEvent(id));
+}
+
+export const plantImpact = (db: Db, id: string) => impact(db, ofPlant(id));
+
+/** Deletes a plant with all its events. Events of other plants stay as they are. */
 export function deletePlant(db: Db, id: string) {
-	const orphans = transaction(db, () => {
-		const ids = (
-			db.prepare('SELECT id FROM events WHERE plant_id = ?').all(id) as { id: number }[]
-		).map((r) => r.id);
-		const before = ids.length ? photosOf(db, ids) : [];
-		db.prepare('DELETE FROM events WHERE plant_id = ?').run(id);
-		db.prepare('DELETE FROM plants WHERE id = ?').run(id);
-		return orphaned(db, before);
-	});
-	deletePhotos(db, orphans);
+	deleteEvents(db, ofPlant(id), () => db.prepare('DELETE FROM plants WHERE id = ?').run(id));
+}
+
+export const typeImpact = (db: Db, id: number) => impact(db, ofType(id));
+
+/** Deletes an event type with all its events. */
+export function deleteType(db: Db, id: number) {
+	deleteEvents(db, ofType(id), () => db.prepare('DELETE FROM event_types WHERE id = ?').run(id));
+}
+
+export const categoryImpact = (db: Db, category: string) => impact(db, ofCategory(category));
+
+/** Deletes all event types of a category, with all their events. */
+export function deleteCategory(db: Db, category: string) {
+	deleteEvents(db, ofCategory(category), () =>
+		db.prepare('DELETE FROM event_types WHERE category = ?').run(category)
+	);
 }
 
 function photosOf(db: Db, eventIds: number[]): string[] {

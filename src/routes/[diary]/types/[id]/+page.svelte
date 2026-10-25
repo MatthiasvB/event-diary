@@ -8,7 +8,7 @@
 	import type { Field } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 	const leave = leaveFormOnRedirect();
 
 	// Field templates reuse the field editor: the value is the default.
@@ -51,20 +51,18 @@
 	<div class="sticky-actions"><button class="primary">{t.common.save}</button></div>
 </form>
 
-{#if data.type.count === 0}
-	<form
-		method="POST"
-		action="?/delete"
-		class="delete"
-		use:enhance={({ cancel }) => {
-			if (!confirm(t.common.confirmDelete)) cancel();
-			return leave;
-		}}
-	>
-		{#if form?.error}<p class="error">{form.error}</p>{/if}
-		<button class="danger">{t.common.delete}</button>
-	</form>
-{/if}
+<form
+	method="POST"
+	action="?/delete"
+	class="delete stack"
+	use:enhance={({ cancel }) => {
+		if (!confirm(t.types.confirmDelete(data.type.name, data.impact))) cancel();
+		return leave;
+	}}
+>
+	<p class="muted small">{t.types.deleteHint}</p>
+	<div><button class="danger">{t.common.delete}</button></div>
+</form>
 
 <style>
 	fieldset {
@@ -83,5 +81,8 @@
 	}
 	.delete {
 		margin-top: 2.5rem;
+	}
+	.delete p {
+		margin: 0;
 	}
 </style>

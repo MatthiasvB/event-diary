@@ -74,14 +74,6 @@ export function updateType(db: Db, t: Omit<EventType, 'name'>) {
 	).run(t.category, t.milestone ? 1 : 0, t.hint, JSON.stringify(t.fields), t.id);
 }
 
-/** Deletes an unused type. Returns false if events still use it. */
-export function deleteType(db: Db, id: number): boolean {
-	const used = db.prepare('SELECT 1 FROM events WHERE type_id = ? LIMIT 1').get(id);
-	if (used) return false;
-	db.prepare('DELETE FROM event_types WHERE id = ?').run(id);
-	return true;
-}
-
 /**
  * The event type for photo-only events (camera shortcuts). Remembered by ID, so it can be
  * renamed freely; the default name is only used to create it on first use.

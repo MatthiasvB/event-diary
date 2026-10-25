@@ -2,6 +2,19 @@
 
 export const locale = 'de-DE';
 
+const n = (count: number, one: string, many: string) =>
+	count === 1 ? `1 ${one}` : `${count} ${many}`;
+
+/** Confirmation for deletions that take events (and maybe photos) along. */
+const confirmWithEvents = (what: string, impact: { events: number; photos: number }) =>
+	`${what} endgültig löschen?` +
+	(impact.events
+		? ` Dabei ${impact.events === 1 && !impact.photos ? 'wird' : 'werden'} ${n(impact.events, 'Ereignis', 'Ereignisse')}` +
+			(impact.photos ? ` und ${n(impact.photos, 'Foto', 'Fotos')}` : '') +
+			' gelöscht.'
+		: '') +
+	' Das kann nicht rückgängig gemacht werden.';
+
 export const t = {
 	nav: {
 		plants: 'Pflanzen',
@@ -96,14 +109,8 @@ export const t = {
 		isCover: 'Titelbild',
 		deleteHint:
 			'Löschen entfernt die Pflanze mit ihrer ganzen Chronik und ihren Fotos. Ist sie nur nicht mehr da (verschenkt, eingegangen), setze sie besser auf inaktiv: Dann bleibt ihre Geschichte erhalten.',
-		confirmDelete: (name: string, events: number, photos: number) =>
-			`„${name}“ endgültig löschen?` +
-			(events
-				? ` Mit ihr werden ${events === 1 ? '1 Ereignis' : `${events} Ereignisse`}` +
-					(photos ? ` und ${photos === 1 ? '1 Foto' : `${photos} Fotos`}` : '') +
-					' gelöscht.'
-				: '') +
-			' Das kann nicht rückgängig gemacht werden.' +
+		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
+			confirmWithEvents(`„${name}“`, impact) +
 			'\n\nWenn die Pflanze nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
@@ -178,8 +185,21 @@ export const t = {
 		count: (n: number) => `${n}×`,
 		unused: 'unbenutzt',
 		renameHint: 'Umbenennen und Zusammenführen unter „Daten pflegen“.',
-		deleteUsed:
-			'Ereignistypen mit Ereignissen können nicht gelöscht werden. Zum Zusammenführen „Daten pflegen“ nutzen.',
+		deleteHint:
+			'Löschen entfernt den Ereignistyp mit allen seinen Ereignissen und deren Fotos. Eigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück. Um ihn mit einem anderen Typ zusammenzulegen, stattdessen „Daten pflegen“ nutzen.',
+		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
+			confirmWithEvents(`Ereignistyp „${name}“`, impact),
+		deleteCategory: 'Kategorie löschen',
+		confirmDeleteCategory: (
+			category: string,
+			types: number,
+			impact: { events: number; photos: number }
+		) =>
+			confirmWithEvents(
+				`Kategorie „${category}“ mit ${n(types, 'Ereignistyp', 'Ereignistypen')}`,
+				impact
+			) +
+			'\n\nEigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück.',
 		noCategory: 'Ohne Kategorie'
 	},
 	maintenance: {

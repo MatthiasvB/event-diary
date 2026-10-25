@@ -21,10 +21,7 @@
 	action="?/delete"
 	class="delete stack"
 	use:enhance={({ cancel }) => {
-		const { name } = data.plant;
-		if (!confirm(t.plants.confirmDelete(name, data.contents.events, data.contents.photos))) {
-			cancel();
-		}
+		if (!confirm(t.plants.confirmDelete(data.plant.name, data.impact))) cancel();
 		return leave;
 	}}
 >

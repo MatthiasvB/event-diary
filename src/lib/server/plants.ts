@@ -208,13 +208,3 @@ export function setInitialValue(
 export function setCover(db: Db, plantId: string, photoId: string | null) {
 	db.prepare('UPDATE plants SET cover_photo_id = ? WHERE id = ?').run(photoId, plantId);
 }
-
-/** What deleting a plant takes with it. */
-export function plantContents(db: Db, id: string): { events: number; photos: number } {
-	return db
-		.prepare(
-			`SELECT count(DISTINCT e.id) AS events, count(DISTINCT ep.photo_id) AS photos
-			FROM events e LEFT JOIN event_photos ep ON ep.event_id = e.id WHERE e.plant_id = ?`
-		)
-		.get(id) as { events: number; photos: number };
-}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { diaryId } from '#lib/paths.ts';
 	import { resolve } from '$app/paths';
+	import { enhance } from '$app/forms';
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
@@ -8,8 +9,8 @@
 	let { data }: PageProps = $props();
 
 	const groups = $derived(
-		Object.entries(Object.groupBy(data.types, (ty) => ty.category || t.types.noCategory)).sort(
-			([a], [b]) => a.localeCompare(b, 'de')
+		Object.entries(Object.groupBy(data.types, (ty) => ty.category)).sort(([a], [b]) =>
+			(a || t.types.noCategory).localeCompare(b || t.types.noCategory, 'de')
 		)
 	);
 </script>
@@ -19,10 +20,25 @@
 <h1>{t.types.title}</h1>
 <p class="muted small">{t.types.renameHint}</p>
 
-{#each groups as [category, types] (category)}
-	<h2>{category}</h2>
+{#each groups as [category, types = []] (category)}
+	<div class="spread heading">
+		<h2>{category || t.types.noCategory}</h2>
+		{#if category}
+			<form
+				method="POST"
+				action="?/deleteCategory"
+				use:enhance={({ cancel }) => {
+					const impact = data.impacts[category];
+					if (!confirm(t.types.confirmDeleteCategory(category, types.length, impact))) cancel();
+				}}
+			>
+				<input type="hidden" name="category" value={category} />
+				<button class="danger small">{t.types.deleteCategory}</button>
+			</form>
+		{/if}
+	</div>
 	<ul class="stack list">
-		{#each types ?? [] as ty (ty.id)}
+		{#each types as ty (ty.id)}
 			<li>
 				<a
 					class="card"
@@ -58,5 +74,8 @@
 	}
 	p {
 		margin: 0.2rem 0 0;
+	}
+	.heading {
+		align-items: baseline;
 	}
 </style>
