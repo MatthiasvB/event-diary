@@ -3,7 +3,7 @@ import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
 import { deletePhotos } from './photos.ts';
-import { forgetInitialValue, setInitialValue } from './plants.ts';
+import { forgetInitialValue, pinCover, setInitialValue } from './plants.ts';
 
 type Row = {
 	id: number;
@@ -157,6 +157,7 @@ function writeDetails(db: Db, eventId: number, plantId: string, input: EventInpu
 		'INSERT OR IGNORE INTO event_photos (event_id, photo_id, position) VALUES (?, ?, ?)'
 	);
 	input.photoIds.forEach((id, i) => photo.run(eventId, id, i));
+	if (input.photoIds.length) pinCover(db, plantId);
 }
 
 /** The type learns which fields it is used with, so the next entry offers them. */

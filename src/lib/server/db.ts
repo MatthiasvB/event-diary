@@ -85,6 +85,13 @@ const migrations = [
 		username TEXT NOT NULL,
 		expires_at INTEGER NOT NULL     -- unix ms
 	);
+	`,
+	`
+	-- Pin the cover image: plants showing a photo without a chosen cover keep their first one.
+	UPDATE plants SET cover_photo_id = (
+		SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
+		WHERE e.plant_id = plants.id ORDER BY e.date, e.id, ep.position LIMIT 1
+	) WHERE cover_photo_id IS NULL;
 	`
 ];
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import AttrHistory from '#lib/components/AttrHistory.svelte';
 	import EventCard from '#lib/components/EventCard.svelte';
@@ -12,6 +13,14 @@
 	let { data }: PageProps = $props();
 	const plant = $derived(data.plant);
 	let gallery = $state<Gallery>();
+
+	// Running as installed app (home screen) rather than in a browser tab.
+	let standalone = $state(false);
+	onMount(() => {
+		standalone =
+			matchMedia('(display-mode: standalone)').matches ||
+			(navigator as { standalone?: boolean }).standalone === true;
+	});
 	// All photos of the plant, newest first (events are sorted newest first).
 	const photos = $derived(
 		data.events
@@ -44,20 +53,35 @@
 				>{t.common.edit}</a
 			>
 		</div>
-		<div class="row actions">
+		<div class="actions">
 			<a class="button primary" href={resolve(`/events/new?plant=${encodeURIComponent(plant.id)}`)}
 				>+ {t.plants.addEvent}</a
 			>
-			<label class="button primary">
-				<input
-					type="file"
-					accept="image/*"
-					capture="environment"
-					class="visually-hidden"
-					onchange={(e) => startPhotoEvent(e, plant.id)}
-				/>
-				📷 {t.plants.takePhoto}
-			</label>
+			<div class="row">
+				<label class="button primary">
+					<input
+						type="file"
+						accept="image/*"
+						capture="environment"
+						class="visually-hidden"
+						onchange={(e) => startPhotoEvent(e, plant.id)}
+					/>
+					📷 {t.plants.takePhoto}
+				</label>
+				<!-- The installed app opens the camera directly; a browser also offers the gallery. -->
+				{#if standalone}
+					<label class="button primary">
+						<input
+							type="file"
+							accept="image/*"
+							multiple
+							class="visually-hidden"
+							onchange={(e) => startPhotoEvent(e, plant.id)}
+						/>
+						🖼 {t.plants.fromGallery}
+					</label>
+				{/if}
+			</div>
 		</div>
 		<p class="drop-hint muted small">{t.photos.dropHint}</p>
 	</header>
@@ -134,7 +158,12 @@
 		flex-direction: column;
 		gap: 0.6rem;
 	}
-	.actions > * {
+	.actions {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.actions .row > * {
 		flex: 1;
 	}
 	.actions label {

@@ -55,13 +55,16 @@
 	<a class="button small" href={resolve('/plants/new')}>+ {t.plants.new}</a>
 </div>
 
-<div class="stack filters">
+<!-- Stays visible while scrolling, so you can search from anywhere in the list. -->
+<div class="search">
 	<input
 		type="search"
 		bind:value={query}
 		placeholder={t.plants.searchPlaceholder}
 		aria-label={t.common.search}
 	/>
+</div>
+<div class="stack filters">
 	<div class="row">
 		<div class="segmented" role="group" aria-label={t.plants.active}>
 			{#each Object.entries(t.plants.activeFilter) as [value, label] (value)}
@@ -137,6 +140,14 @@
 </ul>
 
 <style>
+	.search {
+		position: sticky;
+		top: var(--sticky-top);
+		z-index: 4;
+		margin: 0 -1rem;
+		padding: 0.5rem 1rem;
+		background: var(--bg);
+	}
 	.filters {
 		gap: 0.5rem;
 		margin-bottom: 1rem;

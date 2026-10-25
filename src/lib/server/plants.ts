@@ -36,14 +36,24 @@ const attrFromRow = (r: AttrRow): PlantAttr => ({
 	eventId: r.event_id
 });
 
-// A plant without a chosen cover shows its most recent photo.
+// The plant's first photo (by event date).
+const FIRST_PHOTO = `(
+	SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
+	WHERE e.plant_id = p.id ORDER BY e.date, e.id, ep.position LIMIT 1
+)`;
+
+// The cover is pinned (see pinCover); the fallback only covers a deleted cover photo.
 const SELECT_PLANT = `
 	SELECT p.id, p.name, p.active, p.acquired_on, p.notes,
-		coalesce(p.cover_photo_id, (
-			SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
-			WHERE e.plant_id = p.id ORDER BY e.date DESC, e.id DESC, ep.position LIMIT 1
-		)) AS cover_photo_id
+		coalesce(p.cover_photo_id, ${FIRST_PHOTO}) AS cover_photo_id
 	FROM plants p`;
+
+/** A plant without a chosen cover gets its first photo as cover, which then stays. */
+export function pinCover(db: Db, plantId: string) {
+	db.prepare(
+		`UPDATE plants AS p SET cover_photo_id = ${FIRST_PHOTO} WHERE p.id = ? AND p.cover_photo_id IS NULL`
+	).run(plantId);
+}
 
 // History order: initial values (since NULL) first, then by date, then by insertion.
 const HISTORY_ORDER = "coalesce(since, '') , id";

@@ -99,6 +99,7 @@ export const t = {
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
 		takePhoto: 'Foto aufnehmen',
+		fromGallery: 'Aus Galerie',
 		photos: 'Fotos',
 		key: 'Eigenschaft',
 		value: 'Wert'
@@ -197,6 +198,7 @@ export const t = {
 	},
 	gallery: {
 		showAll: (n: number) => `Alle ${n} Fotos anzeigen`,
+		longPressHint: 'Lange drücken, um ein Foto als Titelbild zu wählen.',
 		previous: 'Vorheriges Foto',
 		next: 'Nächstes Foto',
 		original: 'Original',

@@ -172,7 +172,7 @@
 		.nav {
 			position: sticky;
 			top: 0;
-			height: auto;
+			height: 3.5rem; /* = --sticky-top */
 			padding: 0.5rem 1rem;
 			display: flex;
 			gap: 1.25rem;

@@ -126,7 +126,7 @@ describe('photo type', () => {
 });
 
 describe('cover photo', () => {
-	it('falls back to the most recent photo until one is chosen', () => {
+	it('is the first photo and stays, until another one is chosen', () => {
 		plant('P-001');
 		const type = ensureType(db, 'Foto dokumentiert');
 		const photo = (id: string) =>
@@ -142,9 +142,13 @@ describe('cover photo', () => {
 		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('a');
 		photo('b');
 		event('2026-10-01', ['b']);
-		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('b');
-		setCover(db, 'P-001', 'a');
 		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('a');
+		setCover(db, 'P-001', 'b');
+		expect(getPlant(db, 'P-001')?.coverPhotoId).toBe('b');
+		// The pin is stored, not just derived.
+		expect(db.prepare("SELECT cover_photo_id FROM plants WHERE id = 'P-001'").get()).toEqual({
+			cover_photo_id: 'b'
+		});
 	});
 });
 
