@@ -5,6 +5,7 @@
 	import FieldsEditor from './FieldsEditor.svelte';
 	import PhotoInput from './PhotoInput.svelte';
 	import { t } from '#lib/i18n.ts';
+	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import type { Field, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
@@ -15,6 +16,7 @@
 		error?: string;
 	};
 	let { plant, attrs, vocab, isNew = false, error }: Props = $props();
+	const leave = leaveFormOnRedirect();
 
 	// Initial values only; the pages re-create the form with {#key}.
 	let fields = $state<Field[]>(
@@ -33,7 +35,7 @@
 	use:enhance={({ formData }) => {
 		for (const f of files) formData.append('photos', f);
 		formData.set('photoDate', photoDate);
-		return async ({ update }) => update({ reset: false });
+		return leave;
 	}}
 >
 	<div class="row">

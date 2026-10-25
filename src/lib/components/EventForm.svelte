@@ -12,6 +12,7 @@
 	import PlantPicker from './PlantPicker.svelte';
 	import { formatDate, shiftDays, today } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
+	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import type { EventType, Field, Vocabulary } from '#lib/types.ts';
 
 	type PlantOption = { id: string; name: string; active: boolean; attrs: Record<string, string> };
@@ -47,6 +48,8 @@
 		photoMode = false,
 		error
 	}: Props = $props();
+
+	const leave = leaveFormOnRedirect();
 
 	// The form owns its state from here on; the props are only the starting point
 	// (pages re-create the form with {#key} when they change).
@@ -135,8 +138,8 @@
 			})
 		);
 		for (const f of files) formData.append('photos', f);
-		return async ({ update }) => {
-			await update({ reset: false });
+		return async (submitted) => {
+			await leave(submitted);
 			submitting = false;
 		};
 	}}

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import EventForm from '#lib/components/EventForm.svelte';
 	import { t } from '#lib/i18n.ts';
+	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const leave = leaveFormOnRedirect();
 </script>
 
 <svelte:head><title>{t.events.edit} · {data.appName}</title></svelte:head>
@@ -30,8 +33,9 @@
 	method="POST"
 	action="?/delete"
 	class="delete"
-	onsubmit={(e) => {
-		if (!confirm(t.common.confirmDelete)) e.preventDefault();
+	use:enhance={({ cancel }) => {
+		if (!confirm(t.common.confirmDelete)) cancel();
+		return leave;
 	}}
 >
 	<button class="danger">{t.common.delete}</button>

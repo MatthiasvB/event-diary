@@ -4,10 +4,12 @@
 	import Combobox from '#lib/components/Combobox.svelte';
 	import FieldsEditor from '#lib/components/FieldsEditor.svelte';
 	import { t } from '#lib/i18n.ts';
+	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import type { Field } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const leave = leaveFormOnRedirect();
 
 	// Field templates reuse the field editor: the value is the default.
 	const start = untrack(() => $state.snapshot(data.type));
@@ -22,7 +24,7 @@
 <h1>{data.type.name}</h1>
 <p class="muted small">{t.types.renameHint}</p>
 
-<form method="POST" action="?/save" class="stack" use:enhance>
+<form method="POST" action="?/save" class="stack" use:enhance={() => leave}>
 	<div>
 		<label for="category">{t.events.category}</label>
 		<Combobox id="category" bind:value={category} candidates={data.vocab.categories} />
@@ -56,6 +58,7 @@
 		class="delete"
 		use:enhance={({ cancel }) => {
 			if (!confirm(t.common.confirmDelete)) cancel();
+			return leave;
 		}}
 	>
 		{#if form?.error}<p class="error">{form.error}</p>{/if}
