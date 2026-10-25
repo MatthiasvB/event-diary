@@ -193,7 +193,7 @@
 
 	<fieldset>
 		<legend>{t.events.fields}</legend>
-		<FieldsEditor bind:fields {vocab} typeId={type?.id} showTarget {current} />
+		<FieldsEditor bind:fields {vocab} typeId={type?.id} showTarget showPrevious {current} />
 	</fieldset>
 
 	<label>

@@ -16,6 +16,8 @@
 		/** Current plant attribute values, shown next to fields that change the plant. */
 		current?: Record<string, string>;
 		addLabel?: string;
+		/** Offer setting the value before the change for plant fields (event form only). */
+		showPrevious?: boolean;
 	};
 
 	let {
@@ -25,7 +27,8 @@
 		showTarget = false,
 		defaultTarget = 'event',
 		current = {},
-		addLabel = t.events.addField
+		addLabel = t.events.addField,
+		showPrevious = false
 	}: Props = $props();
 
 	function keyCandidates(target: FieldTarget): Candidate[] {
@@ -37,6 +40,15 @@
 
 	function valueCandidates(key: string): Candidate[] {
 		return (vocab.values[key] ?? []).map((v) => ({ ...v, context: typeId ? v.byType[typeId] : 0 }));
+	}
+
+	type PreviousMode = 'keep' | 'unknown' | 'value';
+	function previousMode(f: Field): PreviousMode {
+		return f.previous === undefined ? 'keep' : f.previous === null ? 'unknown' : 'value';
+	}
+	function setPreviousMode(f: Field, mode: string) {
+		if (mode === 'keep') delete f.previous;
+		else f.previous = mode === 'unknown' ? null : '';
 	}
 
 	function add() {
@@ -65,17 +77,42 @@
 			</div>
 			<div class="spread">
 				{#if showTarget}
-					<label class="check small" title={t.events.targetPlantHint}>
-						<input
-							type="checkbox"
-							checked={field.target === 'plant'}
-							onchange={(e) => (field.target = e.currentTarget.checked ? 'plant' : 'event')}
-						/>
-						{t.events.targetPlant}
-						{#if field.target === 'plant' && current[field.key]}
-							<span class="muted">({t.events.currently(current[field.key])})</span>
+					<div class="grow">
+						<label class="check small" title={t.events.targetPlantHint}>
+							<input
+								type="checkbox"
+								checked={field.target === 'plant'}
+								onchange={(e) => (field.target = e.currentTarget.checked ? 'plant' : 'event')}
+							/>
+							<span>
+								{t.events.targetPlant}
+								{#if field.target === 'plant' && current[field.key]}
+									<span class="muted">({t.events.currently(current[field.key])})</span>
+								{/if}
+							</span>
+						</label>
+						{#if field.target === 'plant' && showPrevious}
+							<label class="previous small" title={t.events.previousHint}>
+								{t.events.previous}
+								<select
+									value={previousMode(field)}
+									onchange={(e) => setPreviousMode(field, e.currentTarget.value)}
+								>
+									<option value="keep">{t.events.previousKeep}</option>
+									<option value="unknown">{t.plants.notRecorded}</option>
+									<option value="value">{t.events.previousValue}</option>
+								</select>
+							</label>
+							{#if typeof field.previous === 'string'}
+								<Combobox
+									bind:value={() => field.previous ?? '', (v) => (field.previous = v)}
+									candidates={valueCandidates(field.key)}
+									placeholder={t.events.previousPlaceholder}
+									label={t.events.previousPlaceholder}
+								/>
+							{/if}
 						{/if}
-					</label>
+					</div>
 				{:else}
 					<span></span>
 				{/if}
@@ -109,5 +146,17 @@
 	}
 	label.check {
 		min-height: 36px;
+	}
+	.previous {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0.2rem 0 0.3rem;
+		color: var(--text);
+	}
+	.previous select {
+		width: auto;
+		min-height: 36px;
+		padding: 0.25rem 0.5rem;
 	}
 </style>

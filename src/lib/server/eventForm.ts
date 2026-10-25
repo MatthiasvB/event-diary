@@ -36,7 +36,13 @@ export function parseEventForm(form: FormData): { payload: EventPayload; files: 
 			.map((f) => ({
 				key: str(f?.key),
 				value: str(f?.value),
-				target: f?.target === 'plant' ? ('plant' as const) : ('event' as const)
+				target: f?.target === 'plant' ? ('plant' as const) : ('event' as const),
+				previous:
+					f?.target !== 'plant'
+						? undefined
+						: f.previous === null
+							? null
+							: str(f.previous) || undefined
 			}))
 			.filter((f) => f.key && f.value),
 		keptPhotos: list(raw.keptPhotos)

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
+import { forgetInitialValue, setInitialValue } from './plants.ts';
 
 type Row = {
 	id: number;
@@ -143,8 +144,13 @@ function writeDetails(db: Db, eventId: number, plantId: string, input: EventInpu
 	);
 	for (const f of input.fields) {
 		if (!f.key || !f.value) continue;
-		if (f.target === 'plant') plantAttr.run(plantId, f.key, f.value, input.date, eventId);
-		else eventAttr.run(eventId, f.key, f.value);
+		if (f.target === 'plant') {
+			plantAttr.run(plantId, f.key, f.value, input.date, eventId);
+			if (f.previous === null) forgetInitialValue(db, plantId, f.key, input.date);
+			else if (f.previous) setInitialValue(db, plantId, f.key, f.previous, input.date);
+		} else {
+			eventAttr.run(eventId, f.key, f.value);
+		}
 	}
 	const photo = db.prepare(
 		'INSERT OR IGNORE INTO event_photos (event_id, photo_id, position) VALUES (?, ?, ?)'

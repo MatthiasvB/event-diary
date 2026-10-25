@@ -2,7 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
 import { createEvents, getEvent } from './events.ts';
 import { ensureType, getType, photoType } from './eventTypes.ts';
-import { attrHistory, createPlant, currentAttrs, getPlant, setCover } from './plants.ts';
+import {
+	attrHistory,
+	createPlant,
+	currentAttrs,
+	forgetInitialValue,
+	getPlant,
+	setCover,
+	setInitialValue
+} from './plants.ts';
 import { getOverviewColumns, setOverviewColumns } from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
 
@@ -162,5 +170,74 @@ describe('plant attributes from events', () => {
 
 		db.prepare('DELETE FROM events WHERE id = ?').run(id);
 		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Ostfenster' });
+	});
+
+	it('can mark the value before a backdated change as not recorded', () => {
+		// The plant was entered with its current location, then an older move was added.
+		plant('P-001', { Standort: 'Südfenster' });
+		const type = ensureType(db, 'Standortwechsel');
+		const move = (date: string, value: string, previous?: string | null) =>
+			createEvents(db, ['P-001'], {
+				typeId: type.id,
+				date,
+				note: '',
+				fields: [{ key: 'Standort', value, target: 'plant', previous }],
+				photoIds: []
+			});
+
+		move('2026-09-24', 'Südfenster', null);
+		expect(attrHistory(db, 'P-001').Standort.map((h) => [h.value, h.since])).toEqual([
+			['Südfenster', '2026-09-24']
+		]);
+
+		// An even older recorded change means the value before it is known: nothing removed.
+		plant('P-002', { Standort: 'Ostfenster' });
+		createEvents(db, ['P-002'], {
+			typeId: type.id,
+			date: '2026-03-01',
+			note: '',
+			fields: [{ key: 'Standort', value: 'Dachboden', target: 'plant' }],
+			photoIds: []
+		});
+		createEvents(db, ['P-002'], {
+			typeId: type.id,
+			date: '2026-09-24',
+			note: '',
+			fields: [{ key: 'Standort', value: 'Südfenster', target: 'plant', previous: null }],
+			photoIds: []
+		});
+		expect(attrHistory(db, 'P-002').Standort).toHaveLength(3);
+
+		forgetInitialValue(db, 'P-002', 'Standort');
+		expect(attrHistory(db, 'P-002').Standort.map((h) => h.value)).toEqual([
+			'Dachboden',
+			'Südfenster'
+		]);
+	});
+
+	it('can set the known value before a backdated change', () => {
+		plant('P-001', { Standort: 'Südfenster' });
+		const type = ensureType(db, 'Standortwechsel');
+		createEvents(db, ['P-001'], {
+			typeId: type.id,
+			date: '2026-09-24',
+			note: '',
+			fields: [{ key: 'Standort', value: 'Südfenster', target: 'plant', previous: 'Ostfenster' }],
+			photoIds: []
+		});
+		const history = () => attrHistory(db, 'P-001').Standort.map((h) => [h.value, h.since]);
+		expect(history()).toEqual([
+			['Ostfenster', null],
+			['Südfenster', '2026-09-24']
+		]);
+
+		// Directly on the plant: also adds an initial value where none was recorded.
+		forgetInitialValue(db, 'P-001', 'Standort');
+		setInitialValue(db, 'P-001', 'Standort', 'Dachboden');
+		expect(history()).toEqual([
+			['Dachboden', null],
+			['Südfenster', '2026-09-24']
+		]);
+		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Südfenster' });
 	});
 });

@@ -153,6 +153,48 @@ export function updatePlant(db: Db, input: PlantInput, today: string) {
 	});
 }
 
+/**
+ * Marks the value before a change as not recorded by removing the initial value
+ * ("from the beginning"). With `before`, only if no dated value exists before that date:
+ * then the value before was recorded after all.
+ */
+export function forgetInitialValue(db: Db, plantId: string, key: string, before?: string) {
+	db.prepare(
+		`DELETE FROM plant_attrs WHERE plant_id = ? AND key = ? AND since IS NULL AND event_id IS NULL
+		AND NOT EXISTS (SELECT 1 FROM plant_attrs WHERE plant_id = ? AND key = ? AND since < ?)`
+	).run(plantId, key, plantId, key, before ?? '');
+}
+
+/**
+ * Sets the initial value ("from the beginning"), e.g. the known value before a change.
+ * With `before`, only if no dated value exists before that date (then that one is the
+ * value before).
+ */
+export function setInitialValue(
+	db: Db,
+	plantId: string,
+	key: string,
+	value: string,
+	before?: string
+) {
+	const earlier = db
+		.prepare('SELECT 1 FROM plant_attrs WHERE plant_id = ? AND key = ? AND since < ? LIMIT 1')
+		.get(plantId, key, before ?? '');
+	if (earlier) return;
+	const updated = db
+		.prepare(
+			'UPDATE plant_attrs SET value = ? WHERE plant_id = ? AND key = ? AND since IS NULL AND event_id IS NULL'
+		)
+		.run(value, plantId, key);
+	if (!updated.changes) {
+		db.prepare('INSERT INTO plant_attrs (plant_id, key, value) VALUES (?, ?, ?)').run(
+			plantId,
+			key,
+			value
+		);
+	}
+}
+
 export function setCover(db: Db, plantId: string, photoId: string | null) {
 	db.prepare('UPDATE plants SET cover_photo_id = ? WHERE id = ?').run(photoId, plantId);
 }

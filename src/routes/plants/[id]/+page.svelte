@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import AttrHistory from '#lib/components/AttrHistory.svelte';
 	import EventCard from '#lib/components/EventCard.svelte';
 	import Gallery from '#lib/components/Gallery.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
@@ -74,21 +75,16 @@
 					{#if current.since}<span class="muted small"
 							>{t.plants.since} {formatDate(current.since)}</span
 						>{/if}
-					{#if history.length > 1}
-						<details>
-							<summary class="small">{t.plants.history} ({history.length})</summary>
-							<ol class="history small">
-								{#each [...history].reverse() as h (h.id)}
-									<li>
-										<span class="muted">{h.since ? formatDate(h.since) : t.plants.initial}</span>
-										{h.value}
-										{#if h.eventId}<a href={resolve('/events/[id]/edit', { id: String(h.eventId) })}
-												>↗</a
-											>{/if}
-									</li>
-								{/each}
-							</ol>
-						</details>
+					{#if history.length > 1 || history[0].since}
+						<AttrHistory
+							{key}
+							{history}
+							candidates={(data.values[key] ?? []).map(({ value, count, last }) => ({
+								value,
+								count,
+								last
+							}))}
+						/>
 					{/if}
 				</dd>
 			{/each}
@@ -162,17 +158,6 @@
 	.notes {
 		margin-top: 1rem;
 		white-space: pre-line;
-	}
-	details {
-		margin-top: 0.15rem;
-	}
-	summary {
-		cursor: pointer;
-		color: var(--accent);
-	}
-	.history {
-		margin: 0.25rem 0 0;
-		padding-left: 1.1rem;
 	}
 	.last {
 		margin-top: 1rem;

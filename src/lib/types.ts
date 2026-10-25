@@ -3,7 +3,16 @@ import type { Candidate } from './suggest.ts';
 /** Where a field's value is stored: on the event, or as a (historized) plant attribute. */
 export type FieldTarget = 'event' | 'plant';
 
-export type Field = { key: string; value: string; target: FieldTarget };
+export type Field = {
+	key: string;
+	value: string;
+	target: FieldTarget;
+	/**
+	 * Plant fields only, when saving: the value before this change.
+	 * Omitted: leave as is; null: not recorded; a string: that value.
+	 */
+	previous?: string | null;
+};
 
 /** A field an event type usually needs, optionally with a default value. */
 export type FieldTemplate = { key: string; target: FieldTarget; default?: string };
