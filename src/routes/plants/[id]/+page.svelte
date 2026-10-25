@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import EventCard from '#lib/components/EventCard.svelte';
+	import Gallery from '#lib/components/Gallery.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import { startPhotoEvent } from '#lib/pending.svelte.ts';
@@ -8,6 +9,12 @@
 
 	let { data }: PageProps = $props();
 	const plant = $derived(data.plant);
+	// All photos of the plant, newest first (events are sorted newest first).
+	const photos = $derived(
+		data.events
+			.flatMap((e) => e.photos.map((id) => ({ id, date: e.date, label: e.typeName })))
+			.filter((p, i, all) => all.findIndex((q) => q.id === p.id) === i)
+	);
 	const attrKeys = $derived(Object.keys(data.history).sort((a, b) => a.localeCompare(b, 'de')));
 </script>
 
@@ -99,6 +106,13 @@
 				{/if}
 			{/each}
 		</dl>
+	</section>
+{/if}
+
+{#if photos.length}
+	<section>
+		<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
+		<Gallery {photos} coverPhotoId={plant.coverPhotoId} />
 	</section>
 {/if}
 

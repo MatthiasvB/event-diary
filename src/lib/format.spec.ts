@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTypedDate, isValidDate } from './format.ts';
+import { formatDate, formatTypedDate, isValidDate } from './format.ts';
 
 describe('formatTypedDate', () => {
 	it('inserts separators while typing year, month, day', () => {
@@ -32,5 +32,13 @@ describe('isValidDate', () => {
 		expect(isValidDate('2026-02-29')).toBe(false);
 		expect(isValidDate('2026-13-01')).toBe(false);
 		expect(isValidDate('2026-10')).toBe(false);
+	});
+});
+
+describe('formatDate', () => {
+	it('shows dates as YYYY-MM-DD', () => {
+		expect(formatDate('2026-09-13')).toBe('2026-09-13');
+		expect(formatDate('2026-09-13T14:22:05')).toBe('2026-09-13');
+		expect(formatDate(null)).toBe('');
 	});
 });

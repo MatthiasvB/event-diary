@@ -1,4 +1,4 @@
-import { locale, t } from './i18n.ts';
+import { t } from './i18n.ts';
 
 /** Today's date in local time, YYYY-MM-DD. */
 export function today(): string {
@@ -16,16 +16,9 @@ export function shiftDays(date: string, days: number): string {
 	return isoDate(d);
 }
 
-const dateFormat = new Intl.DateTimeFormat(locale, {
-	day: '2-digit',
-	month: '2-digit',
-	year: 'numeric'
-});
-
-/** "2026-09-13" → "13.09.2026" */
+/** Dates are always shown as YYYY-MM-DD (timestamps are cut to the date). */
 export function formatDate(date: string | null | undefined): string {
-	if (!date) return '';
-	return dateFormat.format(new Date(`${date.slice(0, 10)}T12:00:00`));
+	return date ? date.slice(0, 10) : '';
 }
 
 /** "heute", "gestern", "vor 12 Tagen" */

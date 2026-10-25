@@ -94,6 +94,12 @@
 	{/each}
 </div>
 
+{#if !data.columns.length && data.plants.length}
+	<p class="small columns-hint">
+		<a href={resolve('/settings')}>{t.plants.chooseColumns}</a>
+	</p>
+{/if}
+
 <ul class="grid">
 	{#each shown as p (p.id)}
 		<li>
@@ -148,6 +154,9 @@
 	.segmented button[aria-pressed='true'] {
 		background: var(--accent);
 		color: var(--accent-text);
+	}
+	.columns-hint {
+		margin: 0 0 0.6rem;
 	}
 	.grid {
 		list-style: none;
