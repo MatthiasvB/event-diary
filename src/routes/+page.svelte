@@ -16,14 +16,14 @@
 	let attrFilters = $state<{ key: string; value: string }[]>([]);
 	let newKey = $state('');
 
-	// Keep filters when navigating back from a plant.
+	// Keep filters when navigating back from a plant, but not the search: it was for
+	// finding that one plant.
 	export const snapshot: Snapshot<{
-		query: string;
 		active: ActiveFilter;
 		attrFilters: typeof attrFilters;
 	}> = {
-		capture: () => ({ query, active, attrFilters: $state.snapshot(attrFilters) }),
-		restore: (s) => ({ query, active, attrFilters } = s)
+		capture: () => ({ active, attrFilters: $state.snapshot(attrFilters) }),
+		restore: (s) => ({ active, attrFilters } = s)
 	};
 
 	const keys = $derived([...new Set(data.plants.flatMap((p) => Object.keys(p.attrs)))].sort());
