@@ -1,12 +1,18 @@
 <!-- Thumbnail grid with a full-screen viewer (buttons, arrow keys, swipe). -->
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { t } from '#lib/i18n.ts';
 
 	export type GalleryPhoto = { id: string; date: string; label: string };
-	type Props = { photos: GalleryPhoto[]; coverPhotoId?: string | null };
+	type Props = {
+		photos: GalleryPhoto[];
+		coverPhotoId?: string | null;
+		/** Offer choosing the cover image (posts to the page's `?/cover` action). */
+		canSetCover?: boolean;
+	};
 
-	let { photos, coverPhotoId = null }: Props = $props();
+	let { photos, coverPhotoId = null, canSetCover = false }: Props = $props();
 
 	const PREVIEW = 9;
 	let showAll = $state(false);
@@ -72,6 +78,16 @@
 			<button type="button" aria-label={t.gallery.next} onclick={() => step(1)}>›</button>
 		</div>
 		<div class="top">
+			{#if canSetCover}
+				{#if photo.id === coverPhotoId}
+					<span class="badge">★ {t.plants.isCover}</span>
+				{:else}
+					<form method="POST" action="?/cover" use:enhance>
+						<input type="hidden" name="photo" value={photo.id} />
+						<button class="small">☆ {t.plants.cover}</button>
+					</form>
+				{/if}
+			{/if}
 			<a
 				class="button small"
 				href={resolve('/photos/[id]?size=original', { id: photo.id })}
@@ -177,6 +193,10 @@
 	.bar .muted {
 		color: #bbb;
 		margin-left: 0.3rem;
+	}
+	.top .badge {
+		padding: 0.3rem 0.7rem;
+		font-size: 0.9rem;
 	}
 	.bar button {
 		width: 48px;

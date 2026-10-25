@@ -5,7 +5,8 @@
 	import Gallery from '#lib/components/Gallery.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
-	import { startPhotoEvent } from '#lib/pending.svelte.ts';
+	import { dropImages } from '#lib/dropImages.ts';
+	import { openPhotoEvent, startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -21,109 +22,114 @@
 
 <svelte:head><title>{plant.name} · {data.appName}</title></svelte:head>
 
-<header class="head">
-	{#if plant.coverPhotoId}
-		<a
-			href={resolve('/photos/[id]?size=l', { id: plant.coverPhotoId })}
-			target="_blank"
-			rel="noopener"
-		>
-			<img class="cover" src="/photos/{plant.coverPhotoId}?size=l" alt={plant.name} />
-		</a>
-	{/if}
-	<div class="spread">
-		<div>
-			<h1>{plant.name}</h1>
-			<p class="row muted">
-				<span>{plant.id}</span>
-				{#if !plant.active}<span class="badge">{t.plants.inactive}</span>{/if}
-				{#if plant.acquiredOn}<span>{t.plants.acquiredOn} {formatDate(plant.acquiredOn)}</span>{/if}
-			</p>
-		</div>
-		<a class="button small" href={resolve('/plants/[id]/edit', { id: plant.id })}>{t.common.edit}</a
-		>
-	</div>
-	<div class="row actions">
-		<a class="button primary" href={resolve(`/events/new?plant=${encodeURIComponent(plant.id)}`)}
-			>+ {t.plants.addEvent}</a
-		>
-		<label class="button primary">
-			<input
-				type="file"
-				accept="image/*"
-				capture="environment"
-				class="visually-hidden"
-				onchange={(e) => startPhotoEvent(e, plant.id)}
-			/>
-			📷 {t.plants.takePhoto}
-		</label>
-	</div>
-</header>
-
-{#if plant.notes}<p class="notes">{plant.notes}</p>{/if}
-
-{#if attrKeys.length}
-	<section>
-		<h2>{t.plants.attributes}</h2>
-		<dl class="attrs">
-			{#each attrKeys as key (key)}
-				{@const history = data.history[key]}
-				{@const current = history[history.length - 1]}
-				<dt>{key}</dt>
-				<dd>
-					{current.value}
-					{#if current.since}<span class="muted small"
-							>{t.plants.since} {formatDate(current.since)}</span
+<div class="drop-zone page" {@attach dropImages((files) => openPhotoEvent(files, plant.id))}>
+	<header class="head">
+		{#if plant.coverPhotoId}
+			<a
+				href={resolve('/photos/[id]?size=l', { id: plant.coverPhotoId })}
+				target="_blank"
+				rel="noopener"
+			>
+				<img class="cover" src="/photos/{plant.coverPhotoId}?size=l" alt={plant.name} />
+			</a>
+		{/if}
+		<div class="spread">
+			<div>
+				<h1>{plant.name}</h1>
+				<p class="row muted">
+					<span>{plant.id}</span>
+					{#if !plant.active}<span class="badge">{t.plants.inactive}</span>{/if}
+					{#if plant.acquiredOn}<span>{t.plants.acquiredOn} {formatDate(plant.acquiredOn)}</span
 						>{/if}
-					{#if history.length > 1 || history[0].since}
-						<AttrHistory
-							{key}
-							{history}
-							candidates={(data.values[key] ?? []).map(({ value, count, last }) => ({
-								value,
-								count,
-								last
-							}))}
-						/>
+				</p>
+			</div>
+			<a class="button small" href={resolve('/plants/[id]/edit', { id: plant.id })}
+				>{t.common.edit}</a
+			>
+		</div>
+		<div class="row actions">
+			<a class="button primary" href={resolve(`/events/new?plant=${encodeURIComponent(plant.id)}`)}
+				>+ {t.plants.addEvent}</a
+			>
+			<label class="button primary">
+				<input
+					type="file"
+					accept="image/*"
+					capture="environment"
+					class="visually-hidden"
+					onchange={(e) => startPhotoEvent(e, plant.id)}
+				/>
+				📷 {t.plants.takePhoto}
+			</label>
+		</div>
+		<p class="drop-hint muted small">{t.photos.dropHint}</p>
+	</header>
+
+	{#if plant.notes}<p class="notes">{plant.notes}</p>{/if}
+
+	{#if attrKeys.length}
+		<section>
+			<h2>{t.plants.attributes}</h2>
+			<dl class="attrs">
+				{#each attrKeys as key (key)}
+					{@const history = data.history[key]}
+					{@const current = history[history.length - 1]}
+					<dt>{key}</dt>
+					<dd>
+						{current.value}
+						{#if current.since}<span class="muted small"
+								>{t.plants.since} {formatDate(current.since)}</span
+							>{/if}
+						{#if history.length > 1 || history[0].since}
+							<AttrHistory
+								{key}
+								{history}
+								candidates={(data.values[key] ?? []).map(({ value, count, last }) => ({
+									value,
+									count,
+									last
+								}))}
+							/>
+						{/if}
+					</dd>
+				{/each}
+			</dl>
+		</section>
+	{/if}
+
+	{#if data.lastDates.some((l) => l.date)}
+		<section>
+			<dl class="attrs last">
+				{#each data.lastDates as l (l.label)}
+					{#if l.date}
+						<dt>{l.label}</dt>
+						<dd>{relativeDays(l.date)} <span class="muted small">{formatDate(l.date)}</span></dd>
 					{/if}
-				</dd>
-			{/each}
-		</dl>
-	</section>
-{/if}
+				{/each}
+			</dl>
+		</section>
+	{/if}
 
-{#if data.lastDates.some((l) => l.date)}
+	{#if photos.length}
+		<section>
+			<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
+			<Gallery {photos} coverPhotoId={plant.coverPhotoId} canSetCover />
+		</section>
+	{/if}
+
 	<section>
-		<dl class="attrs last">
-			{#each data.lastDates as l (l.label)}
-				{#if l.date}
-					<dt>{l.label}</dt>
-					<dd>{relativeDays(l.date)} <span class="muted small">{formatDate(l.date)}</span></dd>
-				{/if}
+		<h2>
+			{t.plants.timeline} <span class="muted small">{t.plants.events(data.events.length)}</span>
+		</h2>
+		<div class="stack timeline">
+			{#each data.events as event (event.id)}
+				<EventCard {event} coverPhotoId={plant.coverPhotoId} canSetCover />
+			{:else}
+				<p class="muted">{t.plants.noEvents}</p>
 			{/each}
-		</dl>
+		</div>
 	</section>
-{/if}
-
-{#if photos.length}
-	<section>
-		<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
-		<Gallery {photos} coverPhotoId={plant.coverPhotoId} />
-	</section>
-{/if}
-
-<section>
-	<h2>
-		{t.plants.timeline} <span class="muted small">{t.plants.events(data.events.length)}</span>
-	</h2>
-	<div class="stack timeline">
-		{#each data.events as event (event.id)}
-			<EventCard {event} coverPhotoId={plant.coverPhotoId} canSetCover />
-		{:else}
-			<p class="muted">{t.plants.noEvents}</p>
-		{/each}
-	</div>
-</section>
+</div>
 
 <style>
 	.head {

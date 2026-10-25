@@ -287,6 +287,24 @@ dl.attrs dd {
 	margin: 0;
 }
 
+/* Drag and drop of photos (desktop) */
+.drop-zone.dropping,
+.card.dropping {
+	outline: 2px dashed var(--accent);
+	outline-offset: 4px;
+	border-radius: var(--radius);
+	background: var(--accent-soft);
+}
+.drop-hint {
+	display: none;
+	margin: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+	.drop-hint {
+		display: block;
+	}
+}
+
 @media (min-width: 900px) {
 	:root {
 		--nav-height: 0px;

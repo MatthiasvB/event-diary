@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { isoDate } from '#lib/format.ts';
+	import { dropImages } from '#lib/dropImages.ts';
 	import { t } from '#lib/i18n.ts';
 
 	type Props = {
@@ -44,6 +45,10 @@
 		const input = e.currentTarget as HTMLInputElement;
 		const added = [...(input.files ?? [])];
 		input.value = '';
+		addFiles(added);
+	}
+
+	function addFiles(added: File[]) {
 		if (!added.length) return;
 		files = [...files, ...added];
 		captureDate(added);
@@ -55,7 +60,7 @@
 	});
 </script>
 
-<div class="stack photos">
+<div class="stack photos drop-zone" {@attach dropImages(addFiles)}>
 	<div class="row">
 		<label class="button" class:primary={prominent}>
 			<input
@@ -72,6 +77,7 @@
 			🖼 {t.events.gallery}
 		</label>
 	</div>
+	<p class="drop-hint muted small">{t.photos.dropHint}</p>
 	{#if files.length}
 		<ul class="thumbs">
 			{#each files as file (file)}

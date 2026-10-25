@@ -98,7 +98,6 @@ export const t = {
 			'Nur Pflanzen ohne Ereignisse können gelöscht werden. Andere bitte auf inaktiv setzen.',
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
-		chooseColumns: 'Spalten wählen, z. B. „zuletzt gedüngt“',
 		takePhoto: 'Foto aufnehmen',
 		photos: 'Fotos',
 		key: 'Eigenschaft',
@@ -192,6 +191,9 @@ export const t = {
 		done: (n: number) => `${n} Einträge angepasst.`,
 		willMerge: (to: string) => `„${to}“ existiert bereits – die Werte werden zusammengeführt.`
 	},
+	photos: {
+		dropHint: 'oder Fotos hierher ziehen'
+	},
 	gallery: {
 		showAll: (n: number) => `Alle ${n} Fotos anzeigen`,
 		previous: 'Vorheriges Foto',
@@ -216,5 +218,15 @@ export const t = {
 	errors: {
 		notFound: 'Nicht gefunden.',
 		generic: 'Etwas ist schiefgelaufen.'
-	}
+	},
+	/** Default overview columns, matched by name against existing event types. */
+	defaultOverviewColumns: [
+		{ label: 'Gedüngt', types: ['Düngen', 'Langzeitdünger'] },
+		{ label: 'Umgetopft', types: ['Umtopfen'] },
+		{ label: 'Neutrieb', types: ['Neutrieb sichtbar'] },
+		{ label: 'Neue Wurzel', types: ['Neue Wurzel sichtbar'] },
+		{ label: 'Blütentrieb', types: ['Blütentrieb sichtbar'] },
+		{ label: 'Blühstart', types: ['Erste Blüte offen'] },
+		{ label: 'Blütenende', types: ['Letzte Blüte abgefallen'] }
+	]
 };

@@ -1,3 +1,5 @@
+import { t } from '../i18n.ts';
+import { normalize } from '../suggest.ts';
 import type { Db } from './db.ts';
 
 export function getSetting<T>(db: Db, key: string): T | undefined {
@@ -16,9 +18,24 @@ export type OverviewColumn = { label: string; typeIds: number[] };
 
 const OVERVIEW = 'overviewColumns';
 
-/** Event types shown as "last …" columns in the plant overview, chosen in the settings. */
+/**
+ * Event types shown as "last …" columns in the plant overview. Until the user chooses,
+ * the default set is matched by name against the existing types.
+ */
 export function getOverviewColumns(db: Db): OverviewColumn[] {
-	return getSetting<OverviewColumn[]>(db, OVERVIEW) ?? [];
+	const stored = getSetting<OverviewColumn[]>(db, OVERVIEW);
+	if (stored) return stored;
+	const types = db.prepare('SELECT id, name FROM event_types').all() as {
+		id: number;
+		name: string;
+	}[];
+	const byName = new Map(types.map((ty) => [normalize(ty.name), ty.id]));
+	return t.defaultOverviewColumns
+		.map((c) => ({
+			label: c.label,
+			typeIds: c.types.map((n) => byName.get(normalize(n))).filter((id) => id !== undefined)
+		}))
+		.filter((c) => c.typeIds.length);
 }
 
 export function setOverviewColumns(db: Db, columns: OverviewColumn[]) {

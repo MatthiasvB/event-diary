@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { formatDate, relativeDays } from '#lib/format.ts';
+	import { dropImages } from '#lib/dropImages.ts';
 	import { t } from '#lib/i18n.ts';
+	import { openPhotoEvent } from '#lib/pending.svelte.ts';
 	import { normalize } from '#lib/suggest.ts';
 	import type { Snapshot } from './$types';
 	import type { PageProps } from './$types';
@@ -94,16 +96,14 @@
 	{/each}
 </div>
 
-{#if !data.columns.length && data.plants.length}
-	<p class="small columns-hint">
-		<a href={resolve('/settings')}>{t.plants.chooseColumns}</a>
-	</p>
-{/if}
-
 <ul class="grid">
 	{#each shown as p (p.id)}
 		<li>
-			<a class="card plant" href={resolve('/plants/[id]', { id: p.id })}>
+			<a
+				class="card plant"
+				href={resolve('/plants/[id]', { id: p.id })}
+				{@attach dropImages((files) => openPhotoEvent(files, p.id))}
+			>
 				{#if p.coverPhotoId}
 					<img src="/photos/{p.coverPhotoId}?size=s" alt="" loading="lazy" />
 				{:else}
@@ -154,9 +154,6 @@
 	.segmented button[aria-pressed='true'] {
 		background: var(--accent);
 		color: var(--accent-text);
-	}
-	.columns-hint {
-		margin: 0 0 0.6rem;
 	}
 	.grid {
 		list-style: none;

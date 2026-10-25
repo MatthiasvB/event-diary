@@ -241,3 +241,14 @@ describe('plant attributes from events', () => {
 		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Südfenster' });
 	});
 });
+
+describe('overview columns', () => {
+	it('fall back to the default set matched by name until columns are saved', () => {
+		const fertilize = ensureType(db, 'Düngen');
+		ensureType(db, 'Gießen');
+		expect(getOverviewColumns(db)).toEqual([{ label: 'Gedüngt', typeIds: [fertilize.id] }]);
+
+		setOverviewColumns(db, []);
+		expect(getOverviewColumns(db)).toEqual([]);
+	});
+});

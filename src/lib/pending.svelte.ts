@@ -10,9 +10,14 @@ export const pendingPhotos: { files: File[] } = $state({ files: [] });
  */
 export async function startPhotoEvent(e: Event, plantId?: string) {
 	const input = e.currentTarget as HTMLInputElement;
-	if (!input.files?.length) return;
-	pendingPhotos.files = [...input.files];
+	const files = [...(input.files ?? [])];
 	input.value = '';
+	if (files.length) await openPhotoEvent(files, plantId);
+}
+
+/** Opens the event form in photo mode with these files, e.g. dropped onto a plant. */
+export async function openPhotoEvent(files: File[], plantId?: string) {
+	pendingPhotos.files = files;
 	const plant = plantId ? `&plant=${encodeURIComponent(plantId)}` : '';
 	await goto(resolve(`/events/new?photo=1${plant}`));
 }

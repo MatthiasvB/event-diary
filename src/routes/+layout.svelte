@@ -37,6 +37,12 @@
 	}
 </script>
 
+<!-- Files dropped outside a drop zone would otherwise replace the app. -->
+<svelte:window
+	ondragover={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()}
+	ondrop={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()}
+/>
+
 <svelte:head>
 	<title>{data.appName}</title>
 	<link rel="manifest" href="/manifest.webmanifest" />
