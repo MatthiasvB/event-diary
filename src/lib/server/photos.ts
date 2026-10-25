@@ -30,7 +30,7 @@ export type Size = keyof typeof SIZES;
 
 export const PHOTO_ID = /^[0-9a-f-]{36}$/;
 
-type Row = { id: string; file: string; mime: string };
+type Row = { id: string; file: string; mime: string; original_name: string };
 
 /** Stores an upload unchanged under a new stable ID. Returns the ID. */
 export async function savePhoto(db: Db, file: File): Promise<string> {
@@ -64,8 +64,9 @@ export async function captureTime(data: Uint8Array): Promise<string | null> {
 }
 
 export function getPhoto(db: Db, id: string): (Row & { path: string }) | undefined {
-	const row = db.prepare('SELECT id, file, mime FROM photos WHERE id = ?').get(id) as
-		Row | undefined;
+	const row = db
+		.prepare('SELECT id, file, mime, original_name FROM photos WHERE id = ?')
+		.get(id) as Row | undefined;
 	return row && { ...row, path: path.join(config.photosDir, row.file) };
 }
 

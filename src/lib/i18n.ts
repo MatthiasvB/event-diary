@@ -107,6 +107,7 @@ export const t = {
 		title: 'Ereignisse',
 		new: 'Ereignis erfassen',
 		edit: 'Ereignis bearbeiten',
+		confirmDelete: (type: string, date: string) => `„${type}“ vom ${date} löschen?`,
 		plants: 'Pflanze(n)',
 		choosePlants: 'Pflanzen wählen',
 		selectedPlants: (n: number) => (n === 1 ? '1 Pflanze' : `${n} Pflanzen`),

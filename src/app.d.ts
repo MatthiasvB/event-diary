@@ -6,6 +6,10 @@ declare global {
 			/** Logged-in user; null when the auth backend requires no login. */
 			user: string | null;
 		}
+		interface PageState {
+			/** ID of the open photo viewer (shallow history entry, so "back" closes it). */
+			viewer?: string;
+		}
 	}
 }
 

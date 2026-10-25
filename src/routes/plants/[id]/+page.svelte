@@ -11,6 +11,7 @@
 
 	let { data }: PageProps = $props();
 	const plant = $derived(data.plant);
+	let gallery = $state<Gallery>();
 	// All photos of the plant, newest first (events are sorted newest first).
 	const photos = $derived(
 		data.events
@@ -25,13 +26,9 @@
 <div class="drop-zone page" {@attach dropImages((files) => openPhotoEvent(files, plant.id))}>
 	<header class="head">
 		{#if plant.coverPhotoId}
-			<a
-				href={resolve('/photos/[id]?size=l', { id: plant.coverPhotoId })}
-				target="_blank"
-				rel="noopener"
-			>
+			<button type="button" class="cover-button" onclick={() => gallery?.show(plant.coverPhotoId!)}>
 				<img class="cover" src="/photos/{plant.coverPhotoId}?size=l" alt={plant.name} />
-			</a>
+			</button>
 		{/if}
 		<div class="spread">
 			<div>
@@ -113,7 +110,7 @@
 	{#if photos.length}
 		<section>
 			<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
-			<Gallery {photos} coverPhotoId={plant.coverPhotoId} canSetCover />
+			<Gallery bind:this={gallery} {photos} coverPhotoId={plant.coverPhotoId} canSetCover />
 		</section>
 	{/if}
 
@@ -147,6 +144,13 @@
 	.actions label:focus-within {
 		outline: 2px solid var(--accent);
 		outline-offset: 1px;
+	}
+	.cover-button {
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: none;
+		background: none;
 	}
 	.cover {
 		width: 100%;

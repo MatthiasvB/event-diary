@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { db } from '#lib/server/db.ts';
-import { listEvents } from '#lib/server/events.ts';
+import { deleteEvent, listEvents } from '#lib/server/events.ts';
 import { plantStats } from '#lib/server/overview.ts';
 import { PHOTO_ID } from '#lib/server/photos.ts';
 import {
@@ -31,6 +31,11 @@ export const load: PageServerLoad = ({ params }) => {
 };
 
 export const actions: Actions = {
+	deleteEvent: async ({ request }) => {
+		const id = Number((await request.formData()).get('id'));
+		if (!Number.isInteger(id) || id <= 0) return fail(400);
+		deleteEvent(db(), id);
+	},
 	cover: async ({ request, params }) => {
 		const photo = String((await request.formData()).get('photo') ?? '');
 		if (!PHOTO_ID.test(photo)) return fail(400);

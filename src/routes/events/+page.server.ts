@@ -1,8 +1,9 @@
+import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/db.ts';
-import { listEvents } from '#lib/server/events.ts';
+import { deleteEvent, listEvents } from '#lib/server/events.ts';
 import { listTypes } from '#lib/server/eventTypes.ts';
 import { listPlants } from '#lib/server/plants.ts';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 const PAGE = 100;
 
@@ -33,4 +34,12 @@ export const load: PageServerLoad = ({ url }) => {
 		categories: [...new Set(types.map((ty) => ty.category).filter(Boolean))].sort(),
 		saved: Number(q.get('saved')) || 0
 	};
+};
+
+export const actions: Actions = {
+	deleteEvent: async ({ request }) => {
+		const id = Number((await request.formData()).get('id'));
+		if (!Number.isInteger(id) || id <= 0) return fail(400);
+		deleteEvent(db(), id);
+	}
 };

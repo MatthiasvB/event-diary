@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
+import { deletePhotos } from './photos.ts';
 import { forgetInitialValue, setInitialValue } from './plants.ts';
 
 type Row = {
@@ -229,13 +230,14 @@ export function updateEvent(
 	});
 }
 
-/** Deletes an event. Returns photos that are no longer referenced. */
-export function deleteEvent(db: Db, id: number): string[] {
-	return transaction(db, () => {
+/** Deletes an event, and its photos if no other event uses them. */
+export function deleteEvent(db: Db, id: number) {
+	const orphans = transaction(db, () => {
 		const before = photosOf(db, [id]);
 		db.prepare('DELETE FROM events WHERE id = ?').run(id);
 		return orphaned(db, before);
 	});
+	deletePhotos(db, orphans);
 }
 
 function photosOf(db: Db, eventIds: number[]): string[] {

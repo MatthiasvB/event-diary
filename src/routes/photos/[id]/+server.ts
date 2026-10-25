@@ -15,15 +15,18 @@ import type { RequestHandler } from './$types';
 // Photos never change once uploaded.
 const IMMUTABLE = 'private, max-age=31536000, immutable';
 
-function send(file: string, type: string) {
+function send(file: string, type: string, downloadName?: string) {
 	const stream = Readable.toWeb(fs.createReadStream(file)) as ReadableStream;
-	return new Response(stream, {
-		headers: {
-			'content-type': type,
-			'content-length': String(fs.statSync(file).size),
-			'cache-control': IMMUTABLE
-		}
-	});
+	const headers: Record<string, string> = {
+		'content-type': type,
+		'content-length': String(fs.statSync(file).size),
+		'cache-control': IMMUTABLE
+	};
+	if (downloadName) {
+		headers['content-disposition'] =
+			`attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`;
+	}
+	return new Response(stream, { headers });
 }
 
 /** /photos/:id?size=s|l (resized JPEG) or ?size=original */
@@ -34,7 +37,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	if (!photo || !fs.existsSync(photo.path)) error(404);
 
 	const size = url.searchParams.get('size') ?? 'l';
-	if (size === 'original') return send(photo.path, photo.mime);
+	if (size === 'original') return send(photo.path, photo.mime, photo.original_name || photo.file);
 	if (!(size in SIZES)) error(400);
 
 	const thumb = await thumbnail(d, photo.id, size as Size);

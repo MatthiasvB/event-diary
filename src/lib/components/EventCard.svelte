@@ -1,6 +1,8 @@
+<!-- An event as a tile: the whole tile opens the editor; photos open the viewer. -->
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import PhotoViewer from './PhotoViewer.svelte';
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { DiaryEvent } from '#lib/types.ts';
@@ -8,18 +10,26 @@
 	type Props = {
 		event: DiaryEvent;
 		showPlant?: boolean;
-		/** Plant page only: offer photos as cover image. */
+		/** Plant page only: mark and choose the cover image. */
 		coverPhotoId?: string | null;
 		canSetCover?: boolean;
 	};
 	let { event, showPlant = false, coverPhotoId = null, canSetCover = false }: Props = $props();
+
+	let viewer = $state<PhotoViewer>();
+	const photos = $derived(
+		event.photos.map((id) => ({ id, date: formatDate(event.date), label: event.typeName }))
+	);
 </script>
 
 <article class="card" class:milestone={event.milestone}>
 	<header class="spread">
 		<div>
 			<time datetime={event.date}>{formatDate(event.date)}</time>
-			<strong>{event.typeName}</strong>
+			<!-- Covers the whole tile (see .open::after); the other controls sit above it. -->
+			<a class="open" href={resolve('/events/[id]/edit', { id: String(event.id) })}
+				><strong>{event.typeName}</strong></a
+			>
 			{#if event.milestone}<span class="badge milestone" title={t.events.milestone}>★</span>{/if}
 		</div>
 		<div class="row small">
@@ -30,7 +40,7 @@
 
 	{#if showPlant}
 		<p>
-			<a href={resolve('/plants/[id]', { id: event.plantId })}>{event.plantName}</a>
+			<a class="above" href={resolve('/plants/[id]', { id: event.plantId })}>{event.plantName}</a>
 			<span class="muted small">{event.plantId}</span>
 		</p>
 	{/if}
@@ -45,48 +55,71 @@
 
 	{#if event.note}<p class="note">{event.note}</p>{/if}
 
-	{#if event.photos.length}
+	{#if photos.length}
 		<ul class="photos">
-			{#each event.photos as id (id)}
+			{#each photos as p, i (p.id)}
 				<li>
-					<a href={resolve('/photos/[id]?size=l', { id })} target="_blank" rel="noopener">
-						<img
-							src="/photos/{id}?size=s"
-							alt="{event.typeName}, {formatDate(event.date)}"
-							loading="lazy"
-						/>
-					</a>
-					{#if canSetCover}
-						{#if coverPhotoId === id}
-							<span class="badge">★ {t.plants.isCover}</span>
-						{:else}
-							<form method="POST" action="?/cover" use:enhance>
-								<input type="hidden" name="photo" value={id} />
-								<button class="small">☆ {t.plants.cover}</button>
-							</form>
+					<button
+						type="button"
+						class="above"
+						onclick={() => viewer?.open(i)}
+						aria-label="{p.label}, {p.date}"
+					>
+						<img src="/photos/{p.id}?size=s" alt="" loading="lazy" />
+						{#if canSetCover && p.id === coverPhotoId}
+							<span class="cover" title={t.plants.isCover}>★</span>
 						{/if}
-					{/if}
+					</button>
 				</li>
 			{/each}
 		</ul>
+		<PhotoViewer bind:this={viewer} {photos} {coverPhotoId} {canSetCover} />
 	{/if}
 
 	<footer class="row">
-		<a class="button small" href={resolve('/events/[id]/edit', { id: String(event.id) })}
-			>{t.common.edit}</a
+		<a class="button small above" href={resolve(`/events/new?from=${event.id}`)}
+			>{t.common.repeat}</a
 		>
-		<a class="button small" href={resolve(`/events/new?from=${event.id}`)}>{t.common.repeat}</a>
+		<form
+			method="POST"
+			action="?/deleteEvent"
+			class="above"
+			use:enhance={({ cancel }) => {
+				if (!confirm(t.events.confirmDelete(event.typeName, formatDate(event.date)))) cancel();
+			}}
+		>
+			<input type="hidden" name="id" value={event.id} />
+			<button class="small danger">{t.common.delete}</button>
+		</form>
 	</footer>
 </article>
 
 <style>
 	article {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 0.45rem;
 	}
+	article:hover {
+		border-color: var(--accent);
+	}
 	article.milestone {
 		border-left: 4px solid var(--milestone);
+	}
+	.open {
+		color: inherit;
+		text-decoration: none;
+	}
+	.open::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+	}
+	.above {
+		position: relative;
+		z-index: 1;
 	}
 	header time {
 		color: var(--muted);
@@ -114,17 +147,36 @@
 		margin: 0;
 		padding: 0;
 	}
-	.photos img {
+	.photos button {
+		display: block;
 		width: 100%;
 		aspect-ratio: 1;
-		object-fit: cover;
+		min-height: 0;
+		padding: 0;
+		border: none;
 		border-radius: 8px;
+		overflow: hidden;
 		background: var(--surface-2);
 	}
-	.photos li {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.2rem;
+	.photos img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.cover {
+		position: absolute;
+		top: 4px;
+		left: 4px;
+		padding: 0 0.35rem;
+		border-radius: 999px;
+		background: rgb(0 0 0 / 0.55);
+		color: #fff;
+		font-size: 0.85rem;
+	}
+	footer {
+		margin-top: 0.15rem;
+	}
+	footer form {
+		margin-left: auto;
 	}
 </style>

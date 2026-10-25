@@ -2,7 +2,6 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/db.ts';
 import { parseEventForm, saveEditedEvent, validate } from '#lib/server/eventForm.ts';
 import { deleteEvent, getEvent, lastFieldsByType } from '#lib/server/events.ts';
-import { deletePhotos } from '#lib/server/photos.ts';
 import { plantOptions } from '#lib/server/plantOptions.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
@@ -47,7 +46,7 @@ export const actions: Actions = {
 	delete: ({ params }) => {
 		const d = db();
 		const event = eventOr404(params.id);
-		deletePhotos(d, deleteEvent(d, event.id));
+		deleteEvent(d, event.id);
 		redirect(303, `/plants/${encodeURIComponent(event.plantId)}`);
 	}
 };
