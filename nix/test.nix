@@ -147,17 +147,17 @@ in
         )
         machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb2.jpg '{base}{diary}/photos/{photo}?size=s'")
 
-    with subtest("data from before diaries existed gets an owner"):
-        # The single database of older versions, here a copy of alice's diary.
-        machine.succeed(
-            f"install -o plant-diary -g plant-diary -m 0640 {data_dir}/db/diaries/testtagebuch.sqlite {data_dir}/db/diary.sqlite"
-        )
+    with subtest("deleting a plant takes its events and photos along"):
         bob = login("bob", "bobsecret")
-        assert location(f"-H 'Cookie: session={bob}' {base}/").endswith("/claim"), "first login must ask"
-        assert location(f"-H 'Cookie: session={bob}' {base}{diary}").endswith("/claim"), "for every page"
-        target = location(f"{headers} -H 'Cookie: session={bob}' -F owner=me '{base}/claim'")
-        assert "Testpflanze" in get(target.removeprefix(base), bob), "bob now has that data as diary"
-        machine.succeed(f"test ! -e {data_dir}/db/diary.sqlite")
-        assert location(f"-H 'Cookie: session={cookie}' {base}/").endswith(diary), "alice is not asked again"
+        assert status(
+            f"{headers} -H 'Cookie: session={bob}' -F go=1 '{base}{diary}/plants/P-001/edit?/delete'"
+        ) == "404", "only members can delete"
+        target = location(
+            f"{headers} -H 'Cookie: session={cookie}' -F go=1 '{base}{diary}/plants/P-001/edit?/delete'"
+        )
+        assert target.endswith(diary), target
+        assert status(f"-H 'Cookie: session={cookie}' {base}{diary}/plants/P-001") == "404"
+        assert status(f"-H 'Cookie: session={cookie}' '{base}{diary}/photos/{photo}?size=s'") == "404"
+        machine.succeed(f"test -z \"$(ls -A {data_dir}/photos)\"")
   '';
 }

@@ -42,7 +42,7 @@ describe('writeSnapshots', () => {
 		writeSnapshots(dbDir, snapshotDir);
 		live.close();
 
-		// The database moves (as when existing data gets an owner).
+		// The database moves.
 		fs.mkdirSync(path.join(dbDir, 'diaries'));
 		fs.renameSync(path.join(dbDir, 'diary.sqlite'), path.join(dbDir, 'diaries', 'x.sqlite'));
 		writeSnapshots(dbDir, snapshotDir);

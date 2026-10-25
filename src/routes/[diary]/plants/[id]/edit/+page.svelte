@@ -21,11 +21,14 @@
 	action="?/delete"
 	class="delete stack"
 	use:enhance={({ cancel }) => {
-		if (!confirm(t.common.confirmDelete)) cancel();
+		const { name } = data.plant;
+		if (!confirm(t.plants.confirmDelete(name, data.contents.events, data.contents.photos))) {
+			cancel();
+		}
 		return leave;
 	}}
 >
-	<p class="muted small">{t.plants.deleteOnlyEmpty}</p>
+	<p class="muted small">{t.plants.deleteHint}</p>
 	<div><button class="danger">{t.common.delete}</button></div>
 </form>
 

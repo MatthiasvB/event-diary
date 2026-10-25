@@ -1,7 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { parsePlantForm } from '#lib/server/plantForm.ts';
-import { currentAttrs, deletePlant, getPlant, updatePlant } from '#lib/server/plants.ts';
+import { deletePlant } from '#lib/server/events.ts';
+import { currentAttrs, getPlant, plantContents, updatePlant } from '#lib/server/plants.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -15,6 +16,7 @@ export const load: PageServerLoad = ({ params }) => {
 	const vocab = vocabulary(d);
 	return {
 		plant,
+		contents: plantContents(d, plant.id),
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value })),
 		vocab: { keys: vocab.keys, values: vocab.values }
 	};
@@ -30,7 +32,9 @@ export const actions: Actions = {
 		redirect(303, `/${params.diary}/plants/${encodeURIComponent(params.id)}`);
 	},
 	delete: ({ params }) => {
-		if (!deletePlant(db(), params.id)) return fail(400, { error: t.plants.deleteOnlyEmpty });
+		const d = db();
+		if (!getPlant(d, params.id)) error(404, t.errors.notFound);
+		deletePlant(d, params.id);
 		redirect(303, `/${params.diary}`);
 	}
 };

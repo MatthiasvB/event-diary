@@ -90,6 +90,10 @@ const DIARY_SCHEMA = [
 		SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
 		WHERE e.plant_id = plants.id ORDER BY e.date, e.id, ep.position LIMIT 1
 	) WHERE cover_photo_id IS NULL;
+	`,
+	`
+	-- Sessions live in the registry.
+	DROP TABLE sessions;
 	`
 ];
 

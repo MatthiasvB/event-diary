@@ -94,8 +94,17 @@ export const t = {
 		view: 'Ansehen',
 		photoHint: 'Das Foto wird als Ereignis gespeichert und als Titelbild verwendet.',
 		isCover: 'Titelbild',
-		deleteOnlyEmpty:
-			'Nur Pflanzen ohne Ereignisse können gelöscht werden. Andere bitte auf inaktiv setzen.',
+		deleteHint:
+			'Löschen entfernt die Pflanze mit ihrer ganzen Chronik und ihren Fotos. Ist sie nur nicht mehr da (verschenkt, eingegangen), setze sie besser auf inaktiv: Dann bleibt ihre Geschichte erhalten.',
+		confirmDelete: (name: string, events: number, photos: number) =>
+			`„${name}“ endgültig löschen?` +
+			(events
+				? ` Mit ihr werden ${events === 1 ? '1 Ereignis' : `${events} Ereignisse`}` +
+					(photos ? ` und ${photos === 1 ? '1 Foto' : `${photos} Fotos`}` : '') +
+					' gelöscht.'
+				: '') +
+			' Das kann nicht rückgängig gemacht werden.' +
+			'\n\nWenn die Pflanze nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
 		takePhoto: 'Foto aufnehmen',
@@ -229,16 +238,6 @@ export const t = {
 		types: { plants: 'Pflanzentagebuch' },
 		create: 'Anlegen',
 		shareHint: 'Für welches Tagebuch sind die geteilten Fotos?'
-	},
-	claim: {
-		title: 'Bestehende Daten zuordnen',
-		intro: (name: string) =>
-			`Es gibt Daten aus der Zeit, bevor jedes Konto eigene Tagebücher hatte. Wem sollen sie gehören? Sie werden dort zum Tagebuch „${name}“. Das geht nur einmal.`,
-		me: (user: string) => `Mir (${user})`,
-		other: 'Einem anderen Konto',
-		submit: 'Zuordnen',
-		invalidUser: 'Ungültiger Benutzername.',
-		notAllowed: 'Dieses Konto darf sich nicht anmelden.'
 	},
 	shortcuts: {
 		title: 'Tastenkürzel',

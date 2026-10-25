@@ -165,12 +165,6 @@ This is built to grow without restructuring:
 
 Without login (`auth.backend = "none"`) there is one implicit user, `local`.
 
-**Upgrading from a version without diaries:** that version kept everything in a single
-`db/diary.sqlite`. The first user to log in after the upgrade is asked once who it
-belongs to ("mir" or another account); it then becomes that user's diary, named after
-`appName`. Until then nobody gets past that question. Without login, it goes to `local`
-automatically. Everyone has to log in again once, since sessions moved.
-
 ### Authentication backends
 
 Backends live in [src/lib/server/auth/](src/lib/server/auth/): a backend implements

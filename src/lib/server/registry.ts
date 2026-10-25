@@ -2,7 +2,6 @@
 // Each diary has its own database (db/diaries/<id>.sqlite) and a type that decides its
 // views (for now only "plants"). Users reach a diary through a membership; sharing a
 // diary later means adding a membership, nothing else.
-import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.ts';
 import { openDb, type Db } from './db.ts';
@@ -57,11 +56,6 @@ export function diaryFile(dbDir: string, id: string): string {
 	return path.join(dbDir, 'diaries', `${id}.sqlite`);
 }
 
-/** Where all data lived before there were several diaries and users. */
-export function legacyDiaryFile(dbDir: string): string {
-	return path.join(dbDir, 'diary.sqlite');
-}
-
 export function userDiaries(reg: Db, user: string): DiaryInfo[] {
 	return reg
 		.prepare(
@@ -82,7 +76,7 @@ export function memberDiary(reg: Db, id: string, user: string): DiaryInfo | unde
 }
 
 // URL segments the app uses itself.
-const RESERVED = new Set(['login', 'logout', 'claim', 'share', 'manifest.webmanifest', '_app']);
+const RESERVED = new Set(['login', 'logout', 'share', 'manifest.webmanifest', '_app']);
 
 /** A readable, unique ID for the URL: "Pflanzentagebuch" → "pflanzentagebuch(-2)". */
 function newId(reg: Db, name: string): string {
@@ -118,22 +112,4 @@ export function createDiary(reg: Db, name: string, type: DiaryType, owner: strin
 		reg.exec('ROLLBACK');
 		throw e;
 	}
-}
-
-/**
- * Turns the data from before there were several diaries into a plant diary owned by
- * `owner`, by moving its database file. Returns the new diary's ID.
- */
-export function adoptLegacyDiary(reg: Db, dbDir: string, owner: string, name: string): string {
-	const from = legacyDiaryFile(dbDir);
-	if (!fs.existsSync(from)) throw new Error('There is no data waiting for an owner');
-	// Opening applies pending migrations; closing the last connection folds the
-	// write-ahead log into the file, so that one rename moves everything.
-	openDb(from).close();
-	const id = createDiary(reg, name, 'plants', owner);
-	const to = diaryFile(dbDir, id);
-	fs.mkdirSync(path.dirname(to), { recursive: true });
-	fs.renameSync(from, to);
-	for (const suffix of ['-wal', '-shm']) fs.rmSync(from + suffix, { force: true });
-	return id;
 }

@@ -1,20 +1,12 @@
 // The diary of the current request (the /<diary>/… part of the URL). It is only opened
 // if the logged-in user is a member, so data can't leak between users or diaries.
 // Photo files are shared in photos/, but are only served when the diary references them.
-import fs from 'node:fs';
 import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
 import { config } from './config.ts';
 import { openDb, type Db } from './db.ts';
-import {
-	adoptLegacyDiary,
-	diaryFile,
-	legacyDiaryFile,
-	memberDiary,
-	registry,
-	type DiaryInfo
-} from './registry.ts';
+import { diaryFile, memberDiary, registry, type DiaryInfo } from './registry.ts';
 
 /** The current diary; "not found" unless the user is a member. */
 export function currentDiary(): DiaryInfo {
@@ -36,14 +28,4 @@ export function db(): Db {
 		open.set(id, diary);
 	}
 	return diary;
-}
-
-/** Data from before there were several diaries and users, still without owner. */
-export function needsOwner(): boolean {
-	return fs.existsSync(legacyDiaryFile(config.dbDir));
-}
-
-/** Gives that data to `owner` as their plant diary. Returns the diary's ID. */
-export function claimLegacyDiary(owner: string): string {
-	return adoptLegacyDiary(registry(), config.dbDir, owner, config.appName);
 }

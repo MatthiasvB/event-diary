@@ -93,7 +93,7 @@ export function attrHistory(db: Db, plantId: string): Record<string, PlantAttr[]
 	return result;
 }
 
-/** Next free ID in the prefix scheme, e.g. ORC-022 → ORC-023. IDs are never reused. */
+/** Next free ID in the prefix scheme, e.g. ORC-022 → ORC-023. IDs in use are never reused. */
 export function nextPlantId(db: Db, prefix: string): string {
 	const ids = db
 		.prepare('SELECT id FROM plants WHERE substr(id, 1, ?) = ?')
@@ -209,9 +209,12 @@ export function setCover(db: Db, plantId: string, photoId: string | null) {
 	db.prepare('UPDATE plants SET cover_photo_id = ? WHERE id = ?').run(photoId, plantId);
 }
 
-/** Only plants without events can be deleted; others are set inactive instead. */
-export function deletePlant(db: Db, id: string): boolean {
-	if (db.prepare('SELECT 1 FROM events WHERE plant_id = ? LIMIT 1').get(id)) return false;
-	db.prepare('DELETE FROM plants WHERE id = ?').run(id);
-	return true;
+/** What deleting a plant takes with it. */
+export function plantContents(db: Db, id: string): { events: number; photos: number } {
+	return db
+		.prepare(
+			`SELECT count(DISTINCT e.id) AS events, count(DISTINCT ep.photo_id) AS photos
+			FROM events e LEFT JOIN event_photos ep ON ep.event_id = e.id WHERE e.plant_id = ?`
+		)
+		.get(id) as { events: number; photos: number };
 }

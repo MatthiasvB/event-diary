@@ -241,6 +241,23 @@ export function deleteEvent(db: Db, id: number) {
 	deletePhotos(db, orphans);
 }
 
+/**
+ * Deletes a plant with all its events, and their photos if no other plant's event uses
+ * them (a photo can belong to a batch). Events of other plants stay as they are.
+ */
+export function deletePlant(db: Db, id: string) {
+	const orphans = transaction(db, () => {
+		const ids = (
+			db.prepare('SELECT id FROM events WHERE plant_id = ?').all(id) as { id: number }[]
+		).map((r) => r.id);
+		const before = ids.length ? photosOf(db, ids) : [];
+		db.prepare('DELETE FROM events WHERE plant_id = ?').run(id);
+		db.prepare('DELETE FROM plants WHERE id = ?').run(id);
+		return orphaned(db, before);
+	});
+	deletePhotos(db, orphans);
+}
+
 function photosOf(db: Db, eventIds: number[]): string[] {
 	const rows = db
 		.prepare(

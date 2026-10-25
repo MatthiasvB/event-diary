@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
-import { createEvents, getEvent } from './events.ts';
+import { createEvents, deletePlant, getEvent } from './events.ts';
 import { ensureType, getType, photoType } from './eventTypes.ts';
 import {
 	attrHistory,
@@ -254,5 +254,39 @@ describe('overview columns', () => {
 
 		setOverviewColumns(db, []);
 		expect(getOverviewColumns(db)).toEqual([]);
+	});
+});
+
+describe('deleting a plant', () => {
+	it('removes its events and photos, but not what other plants still use', () => {
+		plant('P-001', { Standort: 'Küche' });
+		plant('P-002');
+		const type = ensureType(db, 'Umtopfen');
+		for (const id of ['own', 'shared']) {
+			db.prepare("INSERT INTO photos (id, file, mime) VALUES (?, ?, 'image/jpeg')").run(id, id);
+		}
+		const input = { typeId: type.id, note: '', fields: [] };
+		createEvents(db, ['P-001'], { ...input, date: '2026-09-01', photoIds: ['own'] });
+		const [, kept] = createEvents(db, ['P-001', 'P-002'], {
+			...input,
+			date: '2026-09-02',
+			photoIds: ['shared']
+		});
+
+		deletePlant(db, 'P-001');
+
+		expect(getPlant(db, 'P-001')).toBeUndefined();
+		expect(db.prepare("SELECT count(*) AS n FROM events WHERE plant_id = 'P-001'").get()).toEqual({
+			n: 0
+		});
+		expect(
+			db.prepare("SELECT count(*) AS n FROM plant_attrs WHERE plant_id = 'P-001'").get()
+		).toEqual({ n: 0 });
+		expect(getEvent(db, kept)).toMatchObject({ plantId: 'P-002', photos: ['shared'] });
+		const photos = db
+			.prepare('SELECT id FROM photos')
+			.all()
+			.map((r) => r.id);
+		expect(photos).toEqual(['shared']);
 	});
 });
