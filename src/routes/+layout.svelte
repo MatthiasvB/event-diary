@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from '#lib/i18n.ts';
+	import { handleShortcut, shortcutLabel } from '#lib/shortcuts.ts';
 	import { startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { LayoutProps } from './$types';
 
@@ -13,15 +14,24 @@
 		label: string;
 		icon: string;
 		primary?: boolean;
+		/** Keyboard shortcut key, shown as tooltip. */
+		key?: string;
 	};
 	const items: NavItem[] = [
 		{
 			href: '/',
+			key: 'h',
 			label: t.nav.plants,
 			icon: 'M12 21v-8m0 0c0-4 3-7 7-7 0 4-3 7-7 7Zm0 0c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z'
 		},
 		{ href: '/events', label: t.nav.events, icon: 'M4 6h16M4 12h16M4 18h10' },
-		{ href: '/events/new', label: t.nav.add, icon: 'M12 5v14M5 12h14', primary: true },
+		{
+			href: '/events/new',
+			key: 'e',
+			label: t.nav.add,
+			icon: 'M12 5v14M5 12h14',
+			primary: true
+		},
 		{ href: '/more', label: t.nav.more, icon: 'M5 12h.01M12 12h.01M19 12h.01' }
 	];
 
@@ -39,6 +49,7 @@
 
 <!-- Files dropped outside a drop zone would otherwise replace the app. -->
 <svelte:window
+	onkeydown={handleShortcut}
 	ondragover={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()}
 	ondrop={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()}
 />
@@ -62,6 +73,7 @@
 				href={resolve(item.href)}
 				class:primary={item.primary}
 				aria-current={isCurrent(item.href) ? 'page' : undefined}
+				title={item.key && shortcutLabel(item.key)}
 			>
 				<svg viewBox="0 0 24 24" aria-hidden="true"><path d={item.icon} /></svg>
 				<span>{item.label}</span>

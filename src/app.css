@@ -295,12 +295,17 @@ dl.attrs dd {
 	border-radius: var(--radius);
 	background: var(--accent-soft);
 }
-.drop-hint {
+/* Only on devices with a mouse (desktop) */
+.drop-hint,
+.desktop-only {
 	display: none;
+}
+.drop-hint {
 	margin: 0;
 }
 @media (hover: hover) and (pointer: fine) {
-	.drop-hint {
+	.drop-hint,
+	.desktop-only {
 		display: block;
 	}
 }

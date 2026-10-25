@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { t } from '#lib/i18n.ts';
+	import { shortcutLabel, shortcuts } from '#lib/shortcuts.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -15,6 +16,17 @@
 	<a class="card" href={resolve('/settings')}>{t.settings.title}</a>
 </nav>
 
+<section class="desktop-only">
+	<h2>{t.shortcuts.title}</h2>
+	<dl class="attrs">
+		{#each shortcuts as s (s.key)}
+			<dt><kbd>{shortcutLabel(s.key)}</kbd></dt>
+			<dd>{s.label}</dd>
+		{/each}
+	</dl>
+	<p class="muted small">{t.shortcuts.hint}</p>
+</section>
+
 {#if data.requiresLogin}
 	<form method="POST" action="/logout" class="logout stack">
 		<p class="muted small">{t.login.loggedInAs(data.user ?? '')}</p>
@@ -25,6 +37,17 @@
 <style>
 	.menu {
 		gap: 0.5rem;
+	}
+	kbd {
+		padding: 0.05rem 0.4rem;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		background: var(--surface);
+		font: inherit;
+		font-size: 0.9rem;
+	}
+	section p {
+		margin: 0.5rem 0 0;
 	}
 	.menu a {
 		text-decoration: none;

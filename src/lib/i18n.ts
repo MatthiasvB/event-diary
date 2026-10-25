@@ -215,6 +215,16 @@ export const t = {
 	more: {
 		title: 'Mehr'
 	},
+	shortcuts: {
+		title: 'Tastenkürzel',
+		hint: 'Am Computer; auf dem Mac mit ⌘ statt Strg.',
+		modifier: 'Strg',
+		home: 'Pflanzenübersicht',
+		newPlant: 'Neue Pflanze',
+		newEvent: 'Ereignis erfassen (auf einer Pflanzenseite für diese Pflanze)',
+		search: 'Pflanzen durchsuchen',
+		save: 'Formular speichern'
+	},
 	errors: {
 		notFound: 'Nicht gefunden.',
 		generic: 'Etwas ist schiefgelaufen.'
