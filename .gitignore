@@ -1,0 +1,25 @@
+# Real data — never commit
+*.ods
+/data/
+
+node_modules
+
+# Output
+/.svelte-kit
+/build
+/result*
+.direnv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
