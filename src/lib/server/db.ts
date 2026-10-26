@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { normalize } from '../suggest.ts';
 export type Db = DatabaseSync;
 
 // Schema of a diary. Append-only list; the index + 1 is stored in PRAGMA user_version.
@@ -117,6 +118,8 @@ export function openDb(file: string, schema = DIARY_SCHEMA): Db {
 	if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
 	const db = new DatabaseSync(file, { timeout: 5000 });
 	db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
+	// For searching text like the suggestions do: case, umlauts and spacing don't matter.
+	db.function('normalized', { deterministic: true }, (s) => normalize(String(s ?? '')));
 	migrate(db, schema);
 	return db;
 }

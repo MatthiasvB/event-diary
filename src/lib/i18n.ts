@@ -170,6 +170,7 @@ export const t = {
 		allTypes: 'Alle Ereignisse',
 		allCategories: 'Alle Kategorien',
 		more: 'Mehr anzeigen',
+		searchPlaceholder: 'Ereignis oder Notiz durchsuchen',
 		showMore: 'Ganzen Text anzeigen',
 		showLess: 'Weniger anzeigen',
 		/** Event type used when only a photo is recorded. */

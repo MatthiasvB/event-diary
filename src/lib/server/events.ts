@@ -4,6 +4,7 @@ import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
 import { deleteFiles } from './files.ts';
+import { normalize } from '../suggest.ts';
 import { forgetInitialValue, pinCover, setInitialValue } from './plants.ts';
 
 type Row = {
@@ -35,6 +36,8 @@ export type EventFilter = {
 	category?: string;
 	from?: string;
 	to?: string;
+	/** Words that must all occur in the event's type name or note. */
+	search?: string;
 	limit?: number;
 };
 
@@ -51,6 +54,11 @@ export function listEvents(db: Db, f: EventFilter = {}): DiaryEvent[] {
 	add('t.category = ?', f.category);
 	add('e.date >= ?', f.from);
 	add('e.date <= ?', f.to);
+	for (const word of normalize(f.search ?? '')
+		.split(' ')
+		.filter(Boolean)) {
+		add("instr(normalized(t.name || ' ' || e.note), ?) > 0", word);
+	}
 	const sql = `${SELECT} ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
 		ORDER BY e.date DESC, e.id DESC LIMIT ?`;
 	const rows = db.prepare(sql).all(...params, f.limit ?? 500) as Row[];

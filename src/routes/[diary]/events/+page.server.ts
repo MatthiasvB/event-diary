@@ -10,6 +10,7 @@ const PAGE = 100;
 export const load: PageServerLoad = ({ url }) => {
 	const d = db();
 	const q = url.searchParams;
+	const search = q.get('q') ?? '';
 	const filter = {
 		plantId: q.get('plant') ?? '',
 		typeId: q.get('type') ?? '',
@@ -21,11 +22,13 @@ export const load: PageServerLoad = ({ url }) => {
 	const events = listEvents(d, {
 		...filter,
 		typeId: filter.typeId ? Number(filter.typeId) : undefined,
+		search,
 		limit: limit + 1
 	});
 	const types = listTypes(d);
 	return {
 		filter,
+		search,
 		limit,
 		events: events.slice(0, limit),
 		hasMore: events.length > limit,
