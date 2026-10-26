@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { diaryId, photoUrl } from '#lib/paths.ts';
+	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
 	import { resolve } from '$app/paths';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { dropImages } from '#lib/dropImages.ts';
@@ -61,9 +61,11 @@
 
 <div class="spread">
 	<h1>{t.plants.title}</h1>
-	<a class="button small" href={resolve('/[diary]/plants/new', { diary: diaryId() })}
-		>+ {t.plants.new}</a
-	>
+	{#if canEdit()}
+		<a class="button small" href={resolve('/[diary]/plants/new', { diary: diaryId() })}
+			>+ {t.plants.new}</a
+		>
+	{/if}
 </div>
 
 <!-- Stays visible while scrolling, so you can search from anywhere in the list. -->
@@ -116,7 +118,7 @@
 			<a
 				class="card plant"
 				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: p.id })}
-				{@attach dropImages((files) => openPhotoEvent(files, p.id))}
+				{@attach canEdit() && dropImages((files) => openPhotoEvent(files, p.id))}
 			>
 				{#if p.coverPhotoId}
 					<img src={photoUrl(p.coverPhotoId, 's')} alt="" loading="lazy" />

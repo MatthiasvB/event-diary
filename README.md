@@ -154,12 +154,24 @@ Each user sees only the diaries they are a member of. A diary is its own databas
 diary's data checks the membership, so another user's diary, its pages and its photos
 are simply "not found".
 
-This is built to grow without restructuring:
+A user can have several diaries ("Mehr → Alle Tagebücher"); the owner renames or
+deletes one under "Mehr → Tagebuch & Teilen". Deleting removes its database and photos.
 
-- **Other kinds of diaries**: a diary has a type; for now there is only `plants`, whose
-  views are the pages under `src/routes/[diary]/`. Another type gets its own views.
-- **Shared diaries**: sharing means adding a membership (with a role such as `member` or
-  `viewer` next to today's `owner`); the data model is ready, the UI doesn't exist yet.
+**Sharing** works with one-time invite links, so nobody ever picks from (or learns) the
+list of accounts on the server:
+
+1. The owner creates a link under "Tagebuch & Teilen", choosing _Kann bearbeiten_
+   (editor) or _Nur ansehen_ (viewer), and sends it, e.g. by messenger.
+2. The recipient opens it, logs in with their own account and taps "Annehmen".
+
+A link works once and for 7 days, and can be revoked; only a hash of it is stored.
+Opening it doesn't use it up (link previews would), only the button does. Login rules
+still apply (`auth.allowedUsers`). The owner sees the members, changes their role or
+removes them, which takes effect immediately; members can leave. Viewers can't change
+anything: every change is a POST inside the diary, and those are refused for viewers.
+
+Diaries have a type; for now there is only `plants`, whose views are the pages under
+`src/routes/[diary]/`. Another type would get its own views.
 
 Without login (`auth.backend = "none"`) there is one implicit user, `local`.
 

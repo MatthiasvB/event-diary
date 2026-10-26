@@ -1,6 +1,6 @@
 <!-- An event as a tile: the whole tile opens the editor; photos open the viewer. -->
 <script lang="ts">
-	import { diaryId, photoUrl } from '#lib/paths.ts';
+	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import PhotoViewer from './PhotoViewer.svelte';
@@ -28,11 +28,15 @@
 		<div>
 			<time datetime={event.date}>{formatDate(event.date)}</time>
 			<!-- Covers the whole tile (see .open::after); the other controls sit above it. -->
-			<a
-				class="open"
-				href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(event.id) })}
-				><strong>{event.typeName}</strong></a
-			>
+			{#if canEdit()}
+				<a
+					class="open"
+					href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(event.id) })}
+					><strong>{event.typeName}</strong></a
+				>
+			{:else}
+				<strong>{event.typeName}</strong>
+			{/if}
 			{#if event.milestone}<span class="badge milestone" title={t.events.milestone}>★</span>{/if}
 		</div>
 		<div class="row small">
@@ -82,24 +86,26 @@
 		<PhotoViewer bind:this={viewer} {photos} {coverPhotoId} {canSetCover} />
 	{/if}
 
-	<footer class="row">
-		<a
-			class="button small above"
-			href={resolve(`/[diary]/events/new?from=${event.id}`, { diary: diaryId() })}
-			>{t.common.repeat}</a
-		>
-		<form
-			method="POST"
-			action="?/deleteEvent"
-			class="above"
-			use:enhance={({ cancel }) => {
-				if (!confirm(t.events.confirmDelete(event.typeName, formatDate(event.date)))) cancel();
-			}}
-		>
-			<input type="hidden" name="id" value={event.id} />
-			<button class="small danger">{t.common.delete}</button>
-		</form>
-	</footer>
+	{#if canEdit()}
+		<footer class="row">
+			<a
+				class="button small above"
+				href={resolve(`/[diary]/events/new?from=${event.id}`, { diary: diaryId() })}
+				>{t.common.repeat}</a
+			>
+			<form
+				method="POST"
+				action="?/deleteEvent"
+				class="above"
+				use:enhance={({ cancel }) => {
+					if (!confirm(t.events.confirmDelete(event.typeName, formatDate(event.date)))) cancel();
+				}}
+			>
+				<input type="hidden" name="id" value={event.id} />
+				<button class="small danger">{t.common.delete}</button>
+			</form>
+		</footer>
+	{/if}
 </article>
 
 <style>

@@ -42,6 +42,10 @@ in
       isNormalUser = true;
       password = "bobsecret";
     };
+    users.users.carol = {
+      isNormalUser = true;
+      password = "carolsecret";
+    };
     environment.systemPackages = [ pkgs.curl ];
   };
 
@@ -159,5 +163,54 @@ in
         assert status(f"-H 'Cookie: session={cookie}' {base}{diary}/plants/P-001") == "404"
         assert status(f"-H 'Cookie: session={cookie}' '{base}{diary}/photos/{photo}?size=s'") == "404"
         machine.succeed(f"test -z \"$(ls -A {data_dir}/photos)\"")
+
+    with subtest("sharing a diary through one-time links"):
+        alice = f"{headers} -H 'Cookie: session={cookie}'"
+        bob = login("bob", "bobsecret")
+        carol = login("carol", "carolsecret")
+
+        def invite(role):
+            page = machine.succeed(f"curl -sf {alice} -F role={role} '{base}{diary}/diary?/invite'")
+            m = re.search(r"/invite/([A-Za-z0-9_-]{43})", page)
+            assert m, "the owner gets a link"
+            return m.group(1)
+
+        def accept(session, token):
+            return status(f"{headers} -H 'Cookie: session={session}' -F go=1 '{base}/invite/{token}'")
+
+        token = invite("viewer")
+        assert location(f"{base}/invite/{token}").endswith(f"/login?next=%2Finvite%2F{token}")
+        assert "lädt dich" in get(f"/invite/{token}", bob), "opening the link shows the invite"
+        assert "lädt dich" in get(f"/invite/{token}", bob), "without using it up"
+        assert accept(bob, token) == "303"
+        assert "Testtagebuch" in get(diary, bob), "bob can read the diary now"
+        assert accept(carol, token) == "410", "a link works only once"
+        assert status(f"-H 'Cookie: session={carol}' {base}{diary}") == "404"
+
+        add_plant = f"-F name=Geteilt -F active=on '{base}{diary}/plants/new?/save'"
+        assert status(f"{headers} -H 'Cookie: session={bob}' {add_plant}") == "403", "viewers can't write"
+        assert status(f"{alice} -F username=bob -F role=editor '{base}{diary}/diary?/setRole'") == "200"
+        assert status(f"{headers} -H 'Cookie: session={bob}' {add_plant}") == "303", "editors can"
+        assert status(f"{headers} -H 'Cookie: session={bob}' -F name=Meins '{base}{diary}/diary?/rename'") == "403", "only the owner manages the diary"
+
+        revoked = invite("editor")
+        page = get(f"{diary}/diary", cookie)
+        assert "bob" in page and "carol" not in page, "the owner sees members, nobody else"
+        m = re.search(r'name="invite" value="([0-9a-f]{64})"', page)
+        assert m, "open invites are listed"
+        machine.succeed(f"curl -sf {alice} -F invite={m.group(1)} '{base}{diary}/diary?/revoke'")
+        assert accept(carol, revoked) == "410", "revoked links don't work"
+
+        assert accept(carol, invite("viewer")) == "303"
+        assert location(f"{headers} -H 'Cookie: session={carol}' -F diary=testtagebuch '{base}/?/leave'").endswith("/?choose=1")
+        assert status(f"-H 'Cookie: session={carol}' {base}{diary}") == "404", "carol left"
+
+        machine.succeed(f"curl -sf {alice} -F username=bob '{base}{diary}/diary?/remove'")
+        assert status(f"-H 'Cookie: session={bob}' {base}{diary}") == "404", "removed members lose access at once"
+
+    with subtest("deleting a diary"):
+        assert location(f"{alice} -F go=1 '{base}{diary}/diary?/delete'").endswith("/?choose=1")
+        machine.succeed(f"test ! -e {data_dir}/db/diaries/testtagebuch.sqlite")
+        assert status(f"-H 'Cookie: session={cookie}' {base}{diary}") == "404"
   '';
 }

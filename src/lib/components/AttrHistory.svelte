@@ -3,7 +3,7 @@
 	changed or marked as not recorded, e.g. when older changes were entered later.
 -->
 <script lang="ts">
-	import { diaryId } from '#lib/paths.ts';
+	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import Combobox from './Combobox.svelte';
@@ -41,7 +41,7 @@
 						>↗</a
 					>
 				{/if}
-				{#if h === initial && changed && !editing}
+				{#if h === initial && changed && !editing && canEdit()}
 					<button type="button" class="tiny" onclick={edit}>{t.plants.editInitial}</button>
 					<form
 						method="POST"
@@ -60,7 +60,9 @@
 	{#if !initial && !editing}
 		<p class="muted small">
 			{t.plants.beforeNotRecorded}
-			<button type="button" class="tiny" onclick={edit}>{t.plants.addInitial}</button>
+			{#if canEdit()}
+				<button type="button" class="tiny" onclick={edit}>{t.plants.addInitial}</button>
+			{/if}
 		</p>
 	{/if}
 	{#if editing}

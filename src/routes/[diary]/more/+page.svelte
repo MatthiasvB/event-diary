@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { diaryId } from '#lib/paths.ts';
+	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { resolve } from '$app/paths';
 	import { t } from '#lib/i18n.ts';
 	import { shortcutLabel, shortcuts } from '#lib/shortcuts.ts';
@@ -12,18 +12,23 @@
 
 <h1>{t.more.title}</h1>
 <nav class="stack menu">
-	<a class="card" href={resolve('/[diary]/types', { diary: diaryId() })}>{t.types.title}</a>
-	<a class="card" href={resolve('/[diary]/maintenance', { diary: diaryId() })}
-		>{t.maintenance.title}</a
+	{#if canEdit()}
+		<a class="card" href={resolve('/[diary]/types', { diary: diaryId() })}>{t.types.title}</a>
+		<a class="card" href={resolve('/[diary]/maintenance', { diary: diaryId() })}
+			>{t.maintenance.title}</a
+		>
+		<a class="card" href={resolve('/[diary]/settings', { diary: diaryId() })}>{t.settings.title}</a>
+	{/if}
+	<a class="card" href={resolve('/[diary]/diary', { diary: diaryId() })}
+		>{t.diary.menu(data.requiresLogin, data.diary.role === 'owner')}</a
 	>
-	<a class="card" href={resolve('/[diary]/settings', { diary: diaryId() })}>{t.settings.title}</a>
 	<a class="card" href={resolve('/?choose=1')}>{t.more.switchDiary}</a>
 </nav>
 
 <section class="desktop-only">
 	<h2>{t.shortcuts.title}</h2>
 	<dl class="attrs">
-		{#each shortcuts as s (s.key)}
+		{#each shortcuts.filter((s) => !s.edits || canEdit()) as s (s.key)}
 			<dt><kbd>{shortcutLabel(s.key)}</kbd></dt>
 			<dd>{s.label}</dd>
 		{/each}

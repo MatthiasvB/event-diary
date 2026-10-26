@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from '#lib/i18n.ts';
+	import { canEdit } from '#lib/paths.ts';
 	import { handleShortcut, shortcutLabel } from '#lib/shortcuts.ts';
 	import { startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { LayoutProps } from './$types';
@@ -37,6 +38,8 @@
 
 	// The navigation belongs to a diary; login and the diary list have none.
 	const diary = $derived(page.data.diary as { id: string; name: string } | undefined);
+	// Viewers get no "add" and camera buttons.
+	const shown = $derived(canEdit() ? items : items.filter((item) => !item.primary));
 
 	function isCurrent(href: NavItem['href']) {
 		const route = page.route.id ?? '';
@@ -44,7 +47,7 @@
 		if (href === '/[diary]/events')
 			return route === '/[diary]/events' || route === '/[diary]/events/[id]/edit';
 		if (href === '/[diary]/more')
-			return ['more', 'types', 'maintenance', 'settings'].some((p) =>
+			return ['more', 'types', 'maintenance', 'settings', 'diary'].some((p) =>
 				route.startsWith(`/[diary]/${p}`)
 			);
 		return route === href;
@@ -70,9 +73,14 @@
 </svelte:head>
 
 {#if diary}
-	<nav class="nav" aria-label="Hauptnavigation">
+	<!-- The primary item comes with the camera button: two cells. -->
+	<nav
+		class="nav"
+		aria-label="Hauptnavigation"
+		style:--nav-cells={shown.length + (shown.some((i) => i.primary) ? 1 : 0)}
+	>
 		<a class="brand" href={resolve('/[diary]', { diary: diary.id })}>{diary.name}</a>
-		{#each items as item (item.href)}
+		{#each shown as item (item.href)}
 			<a
 				href={resolve(item.href, { diary: diary.id })}
 				class:primary={item.primary}
@@ -120,7 +128,7 @@
 		height: calc(var(--nav-height) + env(safe-area-inset-bottom));
 		padding-bottom: env(safe-area-inset-bottom);
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
+		grid-template-columns: repeat(var(--nav-cells), 1fr);
 		background: var(--surface);
 		border-top: 1px solid var(--border);
 	}

@@ -243,7 +243,51 @@ export const t = {
 	},
 	more: {
 		title: 'Mehr',
-		switchDiary: 'Tagebuch wechseln'
+		switchDiary: 'Alle Tagebücher'
+	},
+	diary: {
+		title: 'Tagebuch',
+		menu: (sharing: boolean, owner: boolean) =>
+			!sharing ? 'Tagebuch' : owner ? 'Tagebuch & Teilen' : 'Tagebuch & Mitglieder',
+		name: 'Name',
+		roles: { owner: 'Besitzer', editor: 'Kann bearbeiten', viewer: 'Nur ansehen' },
+		yourRole: (role: string) => `Deine Berechtigung: ${role}`,
+		share: 'Teilen',
+		shareHint:
+			'Erstelle einen Einladungslink und schicke ihn der Person, mit der du das Tagebuch teilen willst. Er gilt 7 Tage und nur für eine Person; sie meldet sich mit ihrem eigenen Konto an.',
+		role: 'Berechtigung',
+		createInvite: 'Einladungslink erstellen',
+		inviteCreated: 'Einladungslink (wird nur jetzt angezeigt):',
+		copy: 'Kopieren',
+		copied: 'Kopiert',
+		shareLink: 'Teilen…',
+		shareText: (name: string) => `Einladung zum Tagebuch „${name}“`,
+		openInvites: 'Offene Einladungen',
+		inviteLine: (role: string, until: string) => `${role}, gültig bis ${until}`,
+		revoke: 'Widerrufen',
+		members: 'Mitglieder',
+		you: 'du',
+		remove: 'Entfernen',
+		confirmRemove: (user: string) =>
+			`${user} aus dem Tagebuch entfernen? Der Zugriff endet sofort.`,
+		leave: 'Tagebuch verlassen',
+		confirmLeave: (name: string) =>
+			`„${name}“ verlassen? Um wieder Zugriff zu bekommen, brauchst du eine neue Einladung.`,
+		delete: 'Tagebuch löschen',
+		deleteHint:
+			'Löscht das Tagebuch mit allen Pflanzen, Ereignissen und Fotos, auch für alle, mit denen es geteilt ist.',
+		confirmDelete: (name: string, c: { plants: number; events: number; photos: number }) =>
+			`Tagebuch „${name}“ mit ${n(c.plants, 'Pflanze', 'Pflanzen')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Foto', 'Fotos')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
+	},
+	invite: {
+		title: 'Einladung',
+		text: (by: string, name: string, role: string) =>
+			`${by} lädt dich zum Tagebuch „${name}“ ein. Berechtigung: ${role}.`,
+		accept: 'Annehmen',
+		invalid:
+			'Dieser Einladungslink ist ungültig, schon benutzt oder abgelaufen. Bitte um einen neuen.',
+		already: 'Du hast bereits Zugriff auf dieses Tagebuch.',
+		open: 'Tagebuch öffnen'
 	},
 	diaries: {
 		title: 'Tagebücher',
@@ -268,6 +312,7 @@ export const t = {
 	},
 	errors: {
 		notFound: 'Nicht gefunden.',
+		forbidden: 'Dafür fehlt die Berechtigung.',
 		generic: 'Etwas ist schiefgelaufen.'
 	},
 	/** Default overview columns, matched by name against existing event types. */

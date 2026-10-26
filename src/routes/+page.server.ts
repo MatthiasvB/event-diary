@@ -2,7 +2,9 @@ import { fail, redirect } from '@sveltejs/kit';
 import {
 	createDiary,
 	DIARY_TYPES,
+	memberDiary,
 	registry,
+	removeMember,
 	userDiaries,
 	type DiaryType
 } from '#lib/server/registry.ts';
@@ -33,5 +35,14 @@ export const actions: Actions = {
 		if (!DIARY_TYPES.includes(type)) return fail(400);
 		const id = createDiary(registry(), name, type, locals.user!);
 		redirect(303, `/${id}`);
+	},
+	// Here rather than in the diary, so that viewers (who can't post there) can leave.
+	leave: async ({ request, locals }) => {
+		const id = String((await request.formData()).get('diary') ?? '');
+		const diary = memberDiary(registry(), id, locals.user!);
+		// The owner can't leave; deleting is the way out.
+		if (!diary || diary.role === 'owner') return fail(400);
+		removeMember(registry(), id, locals.user!);
+		redirect(303, '/?choose=1');
 	}
 };

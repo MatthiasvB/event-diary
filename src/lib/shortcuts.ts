@@ -5,9 +5,9 @@ import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import { t } from './i18n.ts';
-import { diaryId } from './paths.ts';
+import { canEdit, diaryId } from './paths.ts';
 
-type Shortcut = { key: string; label: string; run: () => unknown };
+type Shortcut = { key: string; label: string; run: () => unknown; edits?: boolean };
 
 /** The plant whose page (or edit page) is open, if any. */
 function currentPlant(): string | undefined {
@@ -33,11 +33,13 @@ export const shortcuts: Shortcut[] = [
 	{
 		key: 'p',
 		label: t.shortcuts.newPlant,
+		edits: true,
 		run: () => goto(resolve('/[diary]/plants/new', { diary: diaryId() }))
 	},
 	{
 		key: 'e',
 		label: t.shortcuts.newEvent,
+		edits: true,
 		run: () => {
 			const plant = currentPlant();
 			const diary = diaryId();
@@ -49,14 +51,14 @@ export const shortcuts: Shortcut[] = [
 		}
 	},
 	{ key: 'k', label: t.shortcuts.search, run: focusSearch },
-	{ key: 'Enter', label: t.shortcuts.save, run: submitForm }
+	{ key: 'Enter', label: t.shortcuts.save, run: submitForm, edits: true }
 ];
 
 export function handleShortcut(e: KeyboardEvent) {
 	if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.repeat || e.isComposing) return;
 	if (!page.params.diary) return;
 	const shortcut = shortcuts.find((s) => s.key.toLowerCase() === e.key.toLowerCase());
-	if (!shortcut) return;
+	if (!shortcut || (shortcut.edits && !canEdit())) return;
 	e.preventDefault();
 	shortcut.run();
 }

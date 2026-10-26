@@ -11,3 +11,8 @@ export function diaryId(): string {
 export function photoUrl(id: string, size: 's' | 'l' | 'original') {
 	return resolve(`/[diary]/photos/[id]?size=${size}`, { diary: diaryId(), id });
 }
+
+/** Whether the user may change the current diary (viewers may only look). */
+export function canEdit(): boolean {
+	return (page.data.diary as { role?: string } | undefined)?.role !== 'viewer';
+}

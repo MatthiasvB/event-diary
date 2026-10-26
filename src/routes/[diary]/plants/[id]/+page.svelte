@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { diaryId, photoUrl } from '#lib/paths.ts';
+	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import AttrHistory from '#lib/components/AttrHistory.svelte';
@@ -33,7 +33,10 @@
 
 <svelte:head><title>{plant.name} · {data.appName}</title></svelte:head>
 
-<div class="drop-zone page" {@attach dropImages((files) => openPhotoEvent(files, plant.id))}>
+<div
+	class="drop-zone page"
+	{@attach canEdit() && dropImages((files) => openPhotoEvent(files, plant.id))}
+>
 	<header class="head">
 		{#if plant.coverPhotoId}
 			<button type="button" class="cover-button" onclick={() => gallery?.show(plant.coverPhotoId!)}>
@@ -51,46 +54,50 @@
 					</p>
 				{/if}
 			</div>
-			<a
-				class="button small"
-				href={resolve('/[diary]/plants/[id]/edit', { diary: diaryId(), id: plant.id })}
-				>{t.common.edit}</a
-			>
+			{#if canEdit()}
+				<a
+					class="button small"
+					href={resolve('/[diary]/plants/[id]/edit', { diary: diaryId(), id: plant.id })}
+					>{t.common.edit}</a
+				>
+			{/if}
 		</div>
-		<div class="actions">
-			<a
-				class="button primary"
-				href={resolve(`/[diary]/events/new?plant=${encodeURIComponent(plant.id)}`, {
-					diary: diaryId()
-				})}>+ {t.plants.addEvent}</a
-			>
-			<div class="row">
-				<label class="button primary">
-					<input
-						type="file"
-						accept="image/*"
-						capture="environment"
-						class="visually-hidden"
-						onchange={(e) => startPhotoEvent(e, plant.id)}
-					/>
-					📷 {t.plants.takePhoto}
-				</label>
-				<!-- The installed app opens the camera directly; a browser also offers the gallery. -->
-				{#if standalone}
+		{#if canEdit()}
+			<div class="actions">
+				<a
+					class="button primary"
+					href={resolve(`/[diary]/events/new?plant=${encodeURIComponent(plant.id)}`, {
+						diary: diaryId()
+					})}>+ {t.plants.addEvent}</a
+				>
+				<div class="row">
 					<label class="button primary">
 						<input
 							type="file"
 							accept="image/*"
-							multiple
+							capture="environment"
 							class="visually-hidden"
 							onchange={(e) => startPhotoEvent(e, plant.id)}
 						/>
-						🖼 {t.plants.fromGallery}
+						📷 {t.plants.takePhoto}
 					</label>
-				{/if}
+					<!-- The installed app opens the camera directly; a browser also offers the gallery. -->
+					{#if standalone}
+						<label class="button primary">
+							<input
+								type="file"
+								accept="image/*"
+								multiple
+								class="visually-hidden"
+								onchange={(e) => startPhotoEvent(e, plant.id)}
+							/>
+							🖼 {t.plants.fromGallery}
+						</label>
+					{/if}
+				</div>
 			</div>
-		</div>
-		<p class="drop-hint muted small">{t.photos.dropHint}</p>
+			<p class="drop-hint muted small">{t.photos.dropHint}</p>
+		{/if}
 	</header>
 
 	{#if plant.notes}<p class="notes">{plant.notes}</p>{/if}
@@ -141,7 +148,12 @@
 	{#if photos.length}
 		<section>
 			<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
-			<Gallery bind:this={gallery} {photos} coverPhotoId={plant.coverPhotoId} canSetCover />
+			<Gallery
+				bind:this={gallery}
+				{photos}
+				coverPhotoId={plant.coverPhotoId}
+				canSetCover={canEdit()}
+			/>
 		</section>
 	{/if}
 
@@ -151,7 +163,7 @@
 		</h2>
 		<div class="stack timeline">
 			{#each data.events as event (event.id)}
-				<EventCard {event} coverPhotoId={plant.coverPhotoId} canSetCover />
+				<EventCard {event} coverPhotoId={plant.coverPhotoId} canSetCover={canEdit()} />
 			{:else}
 				<p class="muted">{t.plants.noEvents}</p>
 			{/each}
