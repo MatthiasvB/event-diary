@@ -1,5 +1,5 @@
 {
-  description = "Plant diary: a self-hosted diary for plant care, growth and flowering";
+  description = "Event diary: a self-hosted diary of objects and what happens to them";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 

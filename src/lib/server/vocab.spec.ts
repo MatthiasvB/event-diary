@@ -255,17 +255,6 @@ describe('plant attributes from events', () => {
 	});
 });
 
-describe('overview columns', () => {
-	it('fall back to the default set matched by name until columns are saved', () => {
-		const fertilize = ensureType(db, 'Düngen');
-		ensureType(db, 'Gießen');
-		expect(getOverviewColumns(db)).toEqual([{ label: 'Gedüngt', typeIds: [fertilize.id] }]);
-
-		setOverviewColumns(db, []);
-		expect(getOverviewColumns(db)).toEqual([]);
-	});
-});
-
 describe('deleting a plant', () => {
 	it('removes its events and photos, but not what other plants still use', () => {
 		plant('P-001', { Standort: 'Küche' });

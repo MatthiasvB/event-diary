@@ -12,7 +12,7 @@ let
   root = ./..;
 
   pamHelper = rustPlatform.buildRustPackage {
-    pname = "plant-diary-pam-auth";
+    pname = "event-diary-pam-auth";
     version = "0.1.0";
     src = lib.fileset.toSource {
       root = root + "/pam-helper";
@@ -41,7 +41,7 @@ let
   };
 in
 buildNpmPackage {
-  pname = "plant-diary";
+  pname = "event-diary";
   inherit ((lib.importJSON (root + "/package.json"))) version;
   inherit src nodejs;
 
@@ -62,27 +62,27 @@ buildNpmPackage {
   # The backup command runs its TypeScript source directly (Node type stripping).
   installPhase = ''
     runHook preInstall
-    mkdir -p $out/lib/plant-diary $out/bin
-    cp -r build package.json $out/lib/plant-diary/
-    mkdir -p $out/lib/plant-diary/src/lib
-    cp -r src/lib/server $out/lib/plant-diary/src/lib/
+    mkdir -p $out/lib/event-diary $out/bin
+    cp -r build package.json $out/lib/event-diary/
+    mkdir -p $out/lib/event-diary/src/lib
+    cp -r src/lib/server $out/lib/event-diary/src/lib/
 
-    makeWrapper ${nodejs}/bin/node $out/bin/plant-diary \
-      --add-flags $out/lib/plant-diary/build \
+    makeWrapper ${nodejs}/bin/node $out/bin/event-diary \
+      --add-flags $out/lib/event-diary/build \
       --set NODE_ENV production \
       --set-default VIPSTHUMBNAIL ${vips}/bin/vipsthumbnail \
-      --set-default PAM_HELPER ${pamHelper}/bin/plant-diary-pam-auth
+      --set-default PAM_HELPER ${pamHelper}/bin/event-diary-pam-auth
 
-    makeWrapper ${nodejs}/bin/node $out/bin/plant-diary-backup \
-      --add-flags $out/lib/plant-diary/src/lib/server/backup.ts
+    makeWrapper ${nodejs}/bin/node $out/bin/event-diary-backup \
+      --add-flags $out/lib/event-diary/src/lib/server/backup.ts
     runHook postInstall
   '';
 
   passthru = { inherit pamHelper; };
 
   meta = {
-    description = "Self-hosted plant diary";
-    mainProgram = "plant-diary";
+    description = "Self-hosted event diary";
+    mainProgram = "event-diary";
     platforms = lib.platforms.linux;
   };
 }

@@ -7,7 +7,7 @@ const env = process.env;
 const dataDir = path.resolve(env.DATA_DIR ?? './data');
 
 export const config = {
-	appName: env.APP_NAME || 'Pflanzentagebuch',
+	appName: env.APP_NAME || 'Ereignistagebuch',
 
 	dataDir,
 	/** Live SQLite databases, one per user (not backed up directly, see snapshotDir). */
@@ -24,8 +24,8 @@ export const config = {
 	auth: {
 		/** "pam" (default) or "none" */
 		backend: env.AUTH_BACKEND || 'pam',
-		pamService: env.PAM_SERVICE || 'plant-diary',
-		pamHelper: env.PAM_HELPER || 'plant-diary-pam-auth',
+		pamService: env.PAM_SERVICE || 'event-diary',
+		pamHelper: env.PAM_HELPER || 'event-diary-pam-auth',
 		/** Empty: every user that PAM accepts may log in. */
 		allowedUsers: (env.AUTH_ALLOWED_USERS ?? '').split(/[\s,]+/).filter(Boolean),
 		sessionDays: Number(env.SESSION_DAYS || 90)

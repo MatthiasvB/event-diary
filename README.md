@@ -1,19 +1,19 @@
-# Plant diary
+# Event diary
 
-A small self-hosted web app for keeping a diary of your plants: care, growth, flowering,
-problems and treatments. It answers questions like "when did I last fertilize this plant?",
-"when does it usually start flowering?" or "how did that root rot develop?".
+A small self-hosted web app for keeping a diary of objects and what happens to them, for
+example plants: care, growth, flowering, problems and treatments. It answers questions like
+"when did I last fertilize this plant?" or "how did that root rot develop?".
 
 It is mobile first, installable as a PWA on the phone's home screen, and has a German UI.
-Nothing is specific to one kind of plant.
+Nothing in it is specific to plants; the UI calls them objects ("Objekte").
 
 ## Using it
 
 - **Diaries**: after logging in you see your diaries (with only one, it opens directly).
   Each diary has its own plants, events, event types, suggestions and settings, and its
-  own URL: `/<diary>/…`. New diaries are created on that list; _Mehr → Tagebuch wechseln_
+  own URL: `/<diary>/…`. New diaries are created on that list; _Mehr → Alle Tagebücher_
   leads back to it.
-- **Plants** (start page of a diary): cards with cover photo, name, ID and "last …" columns
+- **Plants** (start page of a diary): cards with cover photo, name and "last …" columns
   (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any attribute.
   The columns are chosen under _Mehr → Einstellungen_.
 - **Erfassen (+)**: the main flow. Choose plant(s), type or choose the event type, add
@@ -76,9 +76,9 @@ UI strings live in [src/lib/i18n.ts](src/lib/i18n.ts).
 | -------------------- | ------------------ | --------------------------------------------- |
 | `DATA_DIR`           | `./data`           | Persistent data (see layout below)            |
 | `CACHE_DIR`          | `$DATA_DIR/cache`  | Thumbnails; regenerable, don't back up        |
-| `APP_NAME`           | `Pflanzentagebuch` | Name in the app and on the home screen        |
+| `APP_NAME`           | `Ereignistagebuch` | Name in the app and on the home screen        |
 | `AUTH_BACKEND`       | `pam`              | `pam` or `none`                               |
-| `PAM_SERVICE`        | `plant-diary`      | PAM service name                              |
+| `PAM_SERVICE`        | `event-diary`      | PAM service name                              |
 | `AUTH_ALLOWED_USERS` | (all)              | Comma-separated users allowed to log in       |
 | `SESSION_DAYS`       | `90`               | Login lifetime                                |
 | `BODY_SIZE_LIMIT`    | `512K`             | Max. upload size (adapter-node), e.g. `100M`  |
@@ -88,11 +88,11 @@ UI strings live in [src/lib/i18n.ts](src/lib/i18n.ts).
 
 ```nix
 {
-  inputs.plant-diary.url = "git+file:///path/to/this/repo"; # or your git remote
+  inputs.event-diary.url = "git+file:///path/to/this/repo"; # or your git remote
 
-  outputs = { nixpkgs, plant-diary, ... }: {
+  outputs = { nixpkgs, event-diary, ... }: {
     nixosConfigurations.server = nixpkgs.lib.nixosSystem {
-      modules = [ plant-diary.nixosModules.default ./configuration.nix ];
+      modules = [ event-diary.nixosModules.default ./configuration.nix ];
     };
   };
 }
@@ -101,20 +101,20 @@ UI strings live in [src/lib/i18n.ts](src/lib/i18n.ts).
 ```nix
 { config, ... }:
 let
-  diary = config.services.plant-diary;
+  diary = config.services.event-diary;
 in
 {
-  services.plant-diary = {
+  services.event-diary = {
     enable = true;
     port = 8240;                              # default
-    dataDir = "/mnt/data/plant-diary";        # default: /var/lib/plant-diary
+    dataDir = "/mnt/data/event-diary";        # default: /var/lib/event-diary
     appName = "Orchideen-Tagebuch";
     # auth.allowedUsers = [ "matthias" ];     # default: every user PAM accepts
   };
 
   custom.roleRelated.homeCloud.systemBackup = {
     paths = [ diary.snapshotDir diary.photosDir ];
-    prepareServices = [ config.systemd.services.plant-diary-backup.name ];
+    prepareServices = [ config.systemd.services.event-diary-backup.name ];
   };
 
   services.nginx.virtualHosts."plants.example.org" = {
@@ -130,17 +130,17 @@ in
 
 What the module sets up:
 
-- `plant-diary.socket` listens on `address:port` (default `127.0.0.1:8240`). The first
-  request starts `plant-diary.service`, which exits again after `idleTimeout` seconds
+- `event-diary.socket` listens on `address:port` (default `127.0.0.1:8240`). The first
+  request starts `event-diary.service`, which exits again after `idleTimeout` seconds
   without requests (default 600). So the app uses no memory while nobody uses it, about
   100 MB while it does, and the first request after a pause takes about half a second.
   Set `idleTimeout = null` to keep it running once started.
 - Its own system user, systemd hardening, the cache in `CacheDirectory`
-  (`/var/cache/plant-diary`), and `Restart=on-failure` (not `always`, which would undo
+  (`/var/cache/event-diary`), and `Restart=on-failure` (not `always`, which would undo
   the idle exit).
-- `plant-diary-backup.service` (`Type=oneshot`) writes a consistent database snapshot.
+- `event-diary-backup.service` (`Type=oneshot`) writes a consistent database snapshot.
 - Read-only options `snapshotDir` and `photosDir` for the backup paths.
-- With `auth.backend = "pam"` (default): a `security.pam.services.plant-diary` entry, and
+- With `auth.backend = "pam"` (default): a `security.pam.services.event-diary` entry, and
   the service runs with the supplementary group `shadow`, which pam_unix needs to verify
   passwords of other users. `auth.backend = "none"` turns login off; only use that if the
   proxy restricts access.
@@ -191,7 +191,7 @@ To add one (e.g. trusting a proxy header), implement `AuthBackend` and register 
 │   └── diaries/<id>.sqlite    one per diary
 ├── photos/<uuid>.<ext>        photo originals of all diaries, written once   ← back up
 └── snapshot/                  consistent copies of db/ from the backup command  ← back up
-/var/cache/plant-diary/thumbs/ resized JPEGs, regenerated on demand
+/var/cache/event-diary/thumbs/ resized JPEGs, regenerated on demand
 ```
 
 Photo files are shared by all diaries, but a photo is only served through the diary that
@@ -199,7 +199,7 @@ references it.
 
 ## Backup and restore
 
-`plant-diary-backup` (the oneshot service on NixOS) runs SQLite's `VACUUM INTO` for every
+`event-diary-backup` (the oneshot service on NixOS) runs SQLite's `VACUUM INTO` for every
 database in `db/` while the app keeps running, and atomically replaces its copy in
 `snapshot/` (same relative path; copies of databases that no longer exist are removed).
 Back up `snapshot/` and `photos/` after it. Copying the live database files is not safe.
@@ -207,12 +207,12 @@ Back up `snapshot/` and `photos/` after it. Copying the live database files is n
 Restore (tested by the VM test in [nix/test.nix](nix/test.nix)):
 
 ```sh
-systemctl stop plant-diary.socket plant-diary.service
-rm -rf /mnt/data/plant-diary && systemd-tmpfiles --create   # or restore into an empty dir
-cp -a <backup>/snapshot/. /mnt/data/plant-diary/db/
-cp -a <backup>/photos/. /mnt/data/plant-diary/photos/
-chown -R plant-diary:plant-diary /mnt/data/plant-diary/db /mnt/data/plant-diary/photos
-systemctl start plant-diary.socket
+systemctl stop event-diary.socket event-diary.service
+rm -rf /mnt/data/event-diary && systemd-tmpfiles --create   # or restore into an empty dir
+cp -a <backup>/snapshot/. /mnt/data/event-diary/db/
+cp -a <backup>/photos/. /mnt/data/event-diary/photos/
+chown -R event-diary:event-diary /mnt/data/event-diary/db /mnt/data/event-diary/photos
+systemctl start event-diary.socket
 ```
 
 Thumbnails are regenerated on demand. Photos uploaded after the last snapshot are just

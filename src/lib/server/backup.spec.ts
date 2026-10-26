@@ -7,7 +7,7 @@ import { openDb } from './db.ts';
 
 const dirs: string[] = [];
 function tempDir() {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plant-diary-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-diary-'));
 	dirs.push(dir);
 	return dir;
 }

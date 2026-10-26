@@ -1,4 +1,4 @@
-//! plant-diary-pam-auth SERVICE
+//! event-diary-pam-auth SERVICE
 //!
 //! Reads "username\npassword\n" from stdin and checks it with PAM (authentication and
 //! account management). Exit status: 0 = accepted, 1 = rejected, 2 = usage error.
@@ -12,7 +12,7 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let (Some(service), None) = (args.next(), args.next()) else {
-        eprintln!("usage: printf 'user\\npassword\\n' | plant-diary-pam-auth SERVICE");
+        eprintln!("usage: printf 'user\\npassword\\n' | event-diary-pam-auth SERVICE");
         return ExitCode::from(2);
     };
 

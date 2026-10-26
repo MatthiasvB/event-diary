@@ -25,13 +25,13 @@ let
   );
 in
 {
-  name = "plant-diary";
+  name = "event-diary";
 
   nodes.machine = {
     imports = [ self.nixosModules.default ];
-    services.plant-diary = {
+    services.event-diary = {
       enable = true;
-      dataDir = "/mnt/data/plant-diary";
+      dataDir = "/mnt/data/event-diary";
       idleTimeout = 5;
     };
     users.users.alice = {
@@ -54,7 +54,7 @@ in
 
     base = "http://127.0.0.1:8240"
     headers = "-H 'Origin: https://127.0.0.1:8240' -H 'Accept: text/html'"
-    data_dir = "/mnt/data/plant-diary"
+    data_dir = "/mnt/data/event-diary"
 
     def login(user, password):
         out = machine.succeed(
@@ -73,7 +73,7 @@ in
     def location(cmd):
         return machine.succeed(f"curl -s -o /dev/null -w '%{{redirect_url}}' {cmd}").strip()
 
-    machine.wait_for_unit("plant-diary.socket")
+    machine.wait_for_unit("event-diary.socket")
 
     with subtest("login with PAM"):
         assert status(f"{base}/") == "303", "anonymous access must redirect to login"
@@ -118,12 +118,12 @@ in
         ) == "404", "nor can they write into it"
 
     with subtest("idle shutdown and socket activation"):
-        machine.wait_until_fails("systemctl is-active plant-diary.service", timeout=60)
+        machine.wait_until_fails("systemctl is-active event-diary.service", timeout=60)
         assert "Testpflanze" in get(diary, cookie)
-        machine.succeed("systemctl is-active plant-diary.service")
+        machine.succeed("systemctl is-active event-diary.service")
 
     with subtest("backup snapshot"):
-        machine.succeed("systemctl start plant-diary-backup.service")
+        machine.succeed("systemctl start event-diary-backup.service")
         machine.succeed(
             f"test -s {data_dir}/snapshot/registry.sqlite",
             f"test -s {data_dir}/snapshot/diaries/testtagebuch.sqlite",
@@ -132,15 +132,15 @@ in
         machine.succeed(f"cp -a {data_dir}/snapshot {data_dir}/photos /root/")
 
     with subtest("restore into a fresh instance"):
-        machine.succeed("systemctl stop plant-diary.socket plant-diary.service")
-        machine.succeed(f"rm -rf {data_dir} /var/cache/plant-diary")
+        machine.succeed("systemctl stop event-diary.socket event-diary.service")
+        machine.succeed(f"rm -rf {data_dir} /var/cache/event-diary")
         machine.succeed("systemd-tmpfiles --create")
         machine.succeed(
             f"cp -a /root/snapshot/. {data_dir}/db/",
             f"cp -a /root/photos/. {data_dir}/photos/",
-            f"chown -R plant-diary:plant-diary {data_dir}/db {data_dir}/photos",
+            f"chown -R event-diary:event-diary {data_dir}/db {data_dir}/photos",
         )
-        machine.succeed("systemctl start plant-diary.socket")
+        machine.succeed("systemctl start event-diary.socket")
 
         cookie = login("alice", "secret")
         page = get(f"{diary}/plants/P-001", cookie)

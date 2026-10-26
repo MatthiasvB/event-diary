@@ -6,7 +6,7 @@ self:
   ...
 }:
 let
-  cfg = config.services.plant-diary;
+  cfg = config.services.event-diary;
   inherit (lib)
     mkEnableOption
     mkIf
@@ -25,7 +25,7 @@ let
 
   environment = {
     DATA_DIR = cfg.dataDir;
-    CACHE_DIR = "/var/cache/plant-diary";
+    CACHE_DIR = "/var/cache/event-diary";
     APP_NAME = cfg.appName;
     BODY_SIZE_LIMIT = cfg.maxUploadSize;
     AUTH_BACKEND = cfg.auth.backend;
@@ -36,8 +36,8 @@ let
   // cfg.environment;
 
   hardening = {
-    User = "plant-diary";
-    Group = "plant-diary";
+    User = "event-diary";
+    Group = "event-diary";
     UMask = "0027";
     ReadWritePaths = [ cfg.dataDir ];
     NoNewPrivileges = true;
@@ -71,19 +71,19 @@ in
   imports = [
     (lib.mkRemovedOptionModule [
       "services"
-      "plant-diary"
+      "event-diary"
       "plantIdPrefix"
     ] "Plant IDs are internal and no longer shown, so they need no prefix.")
   ];
 
-  options.services.plant-diary = {
-    enable = mkEnableOption "the plant diary web app";
+  options.services.event-diary = {
+    enable = mkEnableOption "the event diary web app";
 
     package = mkOption {
       type = types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      defaultText = lib.literalExpression "plant-diary.packages.\${system}.default";
-      description = "The plant diary package.";
+      defaultText = lib.literalExpression "event-diary.packages.\${system}.default";
+      description = "The event diary package.";
     };
 
     address = mkOption {
@@ -100,7 +100,7 @@ in
 
     dataDir = mkOption {
       type = types.str;
-      default = "/var/lib/plant-diary";
+      default = "/var/lib/event-diary";
       description = "Directory for all persistent data (database, photos, snapshot).";
     };
 
@@ -110,8 +110,8 @@ in
       default = "${cfg.dataDir}/snapshot";
       defaultText = lib.literalExpression ''"''${dataDir}/snapshot"'';
       description = ''
-        Where `plant-diary-backup.service` writes consistent copies of all databases.
-        Back up this directory together with {option}`services.plant-diary.photosDir`.
+        Where `event-diary-backup.service` writes consistent copies of all databases.
+        Back up this directory together with {option}`services.event-diary.photosDir`.
       '';
     };
 
@@ -125,7 +125,7 @@ in
 
     appName = mkOption {
       type = types.str;
-      default = "Pflanzentagebuch";
+      default = "Ereignistagebuch";
       example = "Orchideen-Tagebuch";
       description = "Name shown in the app and on the home screen.";
     };
@@ -164,7 +164,7 @@ in
 
       pam.service = mkOption {
         type = types.str;
-        default = "plant-diary";
+        default = "event-diary";
         description = ''
           PAM service to authenticate against. A default `security.pam.services`
           entry is created for it. The app runs in the `shadow` group so that pam_unix
@@ -188,15 +188,15 @@ in
   };
 
   config = mkIf cfg.enable {
-    users.users.plant-diary = {
+    users.users.event-diary = {
       isSystemUser = true;
-      group = "plant-diary";
+      group = "event-diary";
     };
-    users.groups.plant-diary = { };
+    users.groups.event-diary = { };
 
     security.pam.services = mkIf usePam { ${cfg.auth.pam.service} = { }; };
 
-    systemd.tmpfiles.settings."10-plant-diary" =
+    systemd.tmpfiles.settings."10-event-diary" =
       lib.genAttrs
         [
           cfg.dataDir
@@ -206,22 +206,22 @@ in
         ]
         (_: {
           d = {
-            user = "plant-diary";
-            group = "plant-diary";
+            user = "event-diary";
+            group = "event-diary";
             mode = "0750";
           };
         });
 
-    systemd.sockets.plant-diary = {
-      description = "Plant diary socket";
+    systemd.sockets.event-diary = {
+      description = "Event diary socket";
       wantedBy = [ "sockets.target" ];
       listenStreams = [ listen ];
     };
 
-    systemd.services.plant-diary = {
-      description = "Plant diary";
-      requires = [ "plant-diary.socket" ];
-      after = [ "plant-diary.socket" ];
+    systemd.services.event-diary = {
+      description = "Event diary";
+      requires = [ "event-diary.socket" ];
+      after = [ "event-diary.socket" ];
       unitConfig.RequiresMountsFor = [ cfg.dataDir ];
       inherit environment;
       serviceConfig = hardening // {
@@ -229,18 +229,18 @@ in
         # Not "always": the app exits on purpose when idle and the socket restarts it.
         Restart = "on-failure";
         RestartSec = 2;
-        CacheDirectory = "plant-diary";
+        CacheDirectory = "event-diary";
         SupplementaryGroups = optional usePam "shadow";
       };
     };
 
-    systemd.services.plant-diary-backup = {
-      description = "Plant diary: consistent database snapshot for backups";
+    systemd.services.event-diary-backup = {
+      description = "Event diary: consistent database snapshot for backups";
       unitConfig.RequiresMountsFor = [ cfg.dataDir ];
       environment = { inherit (environment) DATA_DIR; };
       serviceConfig = hardening // {
         Type = "oneshot";
-        ExecStart = "${cfg.package}/bin/plant-diary-backup";
+        ExecStart = "${cfg.package}/bin/event-diary-backup";
       };
     };
   };

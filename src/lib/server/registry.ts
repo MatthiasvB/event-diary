@@ -92,7 +92,7 @@ export function memberDiary(reg: Db, id: string, user: string): DiaryInfo | unde
 // URL segments the app uses itself.
 const RESERVED = new Set(['login', 'logout', 'invite', 'share', 'manifest.webmanifest', '_app']);
 
-/** A readable, unique ID for the URL: "Pflanzentagebuch" → "pflanzentagebuch(-2)". */
+/** A readable, unique ID for the URL: "Ereignistagebuch" → "ereignistagebuch(-2)". */
 function newId(reg: Db, name: string): string {
 	const base =
 		name

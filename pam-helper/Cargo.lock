@@ -158,7 +158,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "plant-diary-pam-auth"
+name = "event-diary-pam-auth"
 version = "0.1.0"
 dependencies = [
  "pam",

@@ -99,7 +99,7 @@ describe('sharing', () => {
 	});
 
 	it('deletes a diary with its database, memberships and invites', () => {
-		const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plant-diary-'));
+		const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-diary-'));
 		try {
 			const reg = openRegistry(':memory:');
 			const id = createDiary(reg, 'Orchideen', 'plants', 'alice');

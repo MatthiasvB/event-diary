@@ -1,8 +1,8 @@
 [package]
-name = "plant-diary-pam-auth"
+name = "event-diary-pam-auth"
 version = "0.1.0"
 edition = "2024"
-description = "Checks a username and password with PAM for the plant diary"
+description = "Checks a username and password with PAM for the event diary"
 
 [dependencies]
 pam = "0.8.0"

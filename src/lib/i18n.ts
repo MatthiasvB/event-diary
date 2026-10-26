@@ -17,7 +17,7 @@ const confirmWithEvents = (what: string, impact: { events: number; photos: numbe
 
 export const t = {
 	nav: {
-		plants: 'Pflanzen',
+		plants: 'Objekte',
 		events: 'Ereignisse',
 		add: 'Erfassen',
 		photo: 'Foto',
@@ -69,9 +69,9 @@ export const t = {
 		loggedInAs: (u: string) => `Angemeldet als ${u}`
 	},
 	plants: {
-		title: 'Pflanzen',
-		new: 'Neue Pflanze',
-		edit: 'Pflanze bearbeiten',
+		title: 'Objekte',
+		new: 'Neues Objekt',
+		edit: 'Objekt bearbeiten',
 		name: 'Name',
 		active: 'Aktiv',
 		inactive: 'Inaktiv',
@@ -95,7 +95,7 @@ export const t = {
 		events: (n: number) => (n === 1 ? '1 Ereignis' : `${n} Ereignisse`),
 		lastEvent: 'Letztes Ereignis',
 		noEvents: 'Noch keine Ereignisse.',
-		empty: 'Keine Pflanzen gefunden.',
+		empty: 'Keine Objekte gefunden.',
 		searchPlaceholder: 'Name oder Eigenschaft',
 		addFilter: 'Nach Eigenschaft filtern',
 		nameRequired: 'Bitte einen Namen angeben.',
@@ -106,10 +106,10 @@ export const t = {
 		photoHint: 'Das Foto wird als Ereignis gespeichert und als Titelbild verwendet.',
 		isCover: 'Titelbild',
 		deleteHint:
-			'Löschen entfernt die Pflanze mit ihrer ganzen Chronik und ihren Fotos. Ist sie nur nicht mehr da (verschenkt, eingegangen), setze sie besser auf inaktiv: Dann bleibt ihre Geschichte erhalten.',
+			'Löschen entfernt das Objekt mit seiner ganzen Chronik und seinen Fotos. Ist es nur nicht mehr da (z. B. abgegeben), setze es besser auf inaktiv: Dann bleibt seine Geschichte erhalten.',
 		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
 			confirmWithEvents(`„${name}“`, impact) +
-			'\n\nWenn die Pflanze nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
+			'\n\nWenn das Objekt nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
 		timeline: 'Chronik',
 		addEvent: 'Ereignis erfassen',
 		takePhoto: 'Foto aufnehmen',
@@ -123,9 +123,9 @@ export const t = {
 		new: 'Ereignis erfassen',
 		edit: 'Ereignis bearbeiten',
 		confirmDelete: (type: string, date: string) => `„${type}“ vom ${date} löschen?`,
-		plants: 'Pflanze(n)',
-		choosePlants: 'Pflanzen wählen',
-		selectedPlants: (n: number) => (n === 1 ? '1 Pflanze' : `${n} Pflanzen`),
+		plants: 'Objekt(e)',
+		choosePlants: 'Objekte wählen',
+		selectedPlants: (n: number) => (n === 1 ? '1 Objekt' : `${n} Objekte`),
 		selectAllMatching: (n: number) => `Alle ${n} auswählen`,
 		clearSelection: 'Auswahl leeren',
 		onlyActive: 'nur aktive',
@@ -138,14 +138,14 @@ export const t = {
 		addField: 'Angabe hinzufügen',
 		fieldKey: 'Angabe',
 		fieldValue: 'Wert',
-		targetPlant: 'ändert Pflanze',
-		targetPlantHint: 'Wird als Eigenschaft der Pflanze ab diesem Datum gespeichert.',
+		targetPlant: 'ändert Objekt',
+		targetPlantHint: 'Wird als Eigenschaft des Objekts ab diesem Datum gespeichert.',
 		previous: 'Wert davor:',
 		previousKeep: 'unverändert',
 		previousValue: 'eintragen …',
 		previousPlaceholder: 'Wert vor dieser Änderung',
 		previousHint:
-			'Setzt den Anfangswert der Pflanze, falls es vor diesem Datum keine erfasste Änderung gibt.',
+			'Setzt den Anfangswert des Objekts, falls es vor diesem Datum keine erfasste Änderung gibt.',
 		currently: (v: string) => `aktuell: ${v}`,
 		photos: 'Fotos',
 		camera: 'Kamera',
@@ -159,14 +159,14 @@ export const t = {
 			`Änderungen auf alle ${n} Ereignisse dieser Sammelbuchung anwenden`,
 		batch: (n: number) => `Sammelbuchung (${n})`,
 		removePhoto: 'Foto entfernen',
-		noPlants: 'Bitte mindestens eine Pflanze wählen.',
+		noPlants: 'Bitte mindestens ein Objekt wählen.',
 		noType: 'Bitte ein Ereignis angeben.',
 		badDate: 'Bitte ein gültiges Datum angeben.',
 		saved: (n: number) => (n === 1 ? 'Ereignis gespeichert.' : `${n} Ereignisse gespeichert.`),
 		empty: 'Keine Ereignisse gefunden.',
 		from: 'von',
 		to: 'bis',
-		allPlants: 'Alle Pflanzen',
+		allPlants: 'Alle Objekte',
 		allTypes: 'Alle Ereignisse',
 		allCategories: 'Alle Kategorien',
 		more: 'Mehr anzeigen',
@@ -281,9 +281,9 @@ export const t = {
 			`„${name}“ verlassen? Um wieder Zugriff zu bekommen, brauchst du eine neue Einladung.`,
 		delete: 'Tagebuch löschen',
 		deleteHint:
-			'Löscht das Tagebuch mit allen Pflanzen, Ereignissen und Fotos, auch für alle, mit denen es geteilt ist.',
+			'Löscht das Tagebuch mit allen Objekten, Ereignissen und Fotos, auch für alle, mit denen es geteilt ist.',
 		confirmDelete: (name: string, c: { plants: number; events: number; photos: number }) =>
-			`Tagebuch „${name}“ mit ${n(c.plants, 'Pflanze', 'Pflanzen')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Foto', 'Fotos')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
+			`Tagebuch „${name}“ mit ${n(c.plants, 'Objekt', 'Objekten')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Foto', 'Fotos')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
 	},
 	invite: {
 		title: 'Einladung',
@@ -302,7 +302,7 @@ export const t = {
 		name: 'Name',
 		nameRequired: 'Bitte einen Namen angeben.',
 		type: 'Art',
-		types: { plants: 'Pflanzentagebuch' },
+		types: { plants: 'Ereignistagebuch' },
 		create: 'Anlegen',
 		shareHint: 'Für welches Tagebuch sind die geteilten Fotos?'
 	},
@@ -310,25 +310,15 @@ export const t = {
 		title: 'Tastenkürzel',
 		hint: 'Am Computer; auf dem Mac mit ⌘ statt Strg.',
 		modifier: 'Strg',
-		home: 'Pflanzenübersicht',
-		newPlant: 'Neue Pflanze',
-		newEvent: 'Ereignis erfassen (auf einer Pflanzenseite für diese Pflanze)',
-		search: 'Pflanzen durchsuchen',
+		home: 'Übersicht',
+		newPlant: 'Neues Objekt',
+		newEvent: 'Ereignis erfassen (auf einer Objektseite für dieses Objekt)',
+		search: 'Objekte durchsuchen',
 		save: 'Formular speichern'
 	},
 	errors: {
 		notFound: 'Nicht gefunden.',
 		forbidden: 'Dafür fehlt die Berechtigung.',
 		generic: 'Etwas ist schiefgelaufen.'
-	},
-	/** Default overview columns, matched by name against existing event types. */
-	defaultOverviewColumns: [
-		{ label: 'Gedüngt', types: ['Düngen', 'Langzeitdünger'] },
-		{ label: 'Umgetopft', types: ['Umtopfen'] },
-		{ label: 'Neutrieb', types: ['Neutrieb sichtbar'] },
-		{ label: 'Neue Wurzel', types: ['Neue Wurzel sichtbar'] },
-		{ label: 'Blütentrieb', types: ['Blütentrieb sichtbar'] },
-		{ label: 'Blühstart', types: ['Erste Blüte offen'] },
-		{ label: 'Blütenende', types: ['Letzte Blüte abgefallen'] }
-	]
+	}
 };

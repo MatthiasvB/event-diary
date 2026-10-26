@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 import { DIARY_SCHEMA, openDb } from './db.ts';
 
 it('lets existing diaries have a type name in several categories', () => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plant-diary-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-diary-'));
 	try {
 		const file = path.join(dir, 'diary.sqlite');
 		// A diary from before: type names were unique across all categories.
