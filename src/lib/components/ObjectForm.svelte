@@ -10,20 +10,20 @@
 	import type { Field, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
-		plant: { name: string; active: boolean; notes: string };
+		object: { name: string; active: boolean; notes: string };
 		attrs: { key: string; value: string }[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		isNew?: boolean;
 		error?: string;
 	};
-	let { plant, attrs, vocab, isNew = false, error }: Props = $props();
+	let { object, attrs, vocab, isNew = false, error }: Props = $props();
 	const leave = leaveFormOnRedirect();
 
 	// Initial values only; the pages re-create the form with {#key}.
 	let fields = $state<Field[]>(
-		untrack(() => attrs.map((a) => ({ ...a, target: 'plant' as const })))
+		untrack(() => attrs.map((a) => ({ ...a, target: 'object' as const })))
 	);
-	// New plants only: first photos, saved as a photo event.
+	// New objects only: first photos, saved as a photo event.
 	let files = $state<File[]>([]);
 	let photoDate = $state('');
 	let uploaded = $state<number | null>(null);
@@ -35,7 +35,7 @@
 	action="?/save"
 	class="stack"
 	use:enhance={async ({ formData, cancel }) => {
-		// Photos are uploaded one by one first; the plant is saved with their IDs.
+		// Photos are uploaded one by one first; the object is saved with their IDs.
 		uploadError = '';
 		try {
 			uploaded = 0;
@@ -53,23 +53,23 @@
 	}}
 >
 	<label>
-		{t.plants.name}
-		<TextInput name="name" value={plant.name} required />
+		{t.objects.name}
+		<TextInput name="name" value={object.name} required />
 	</label>
 	{#if isNew}
 		<div class="stack photo">
 			<FileInput bind:files prominent onexifdate={(d) => (photoDate = d)} />
-			<p class="muted small">{t.plants.photoHint}</p>
+			<p class="muted small">{t.objects.photoHint}</p>
 		</div>
 	{/if}
 	<label class="check"
-		><input name="active" type="checkbox" checked={plant.active} /> {t.plants.active}</label
+		><input name="active" type="checkbox" checked={object.active} /> {t.objects.active}</label
 	>
 
 	<fieldset>
-		<legend>{t.plants.attributes}</legend>
-		{#if !isNew}<p class="muted small">{t.plants.attributesHint}</p>{/if}
-		<FieldsEditor bind:fields {vocab} defaultTarget="plant" addLabel={t.plants.addAttribute} />
+		<legend>{t.objects.attributes}</legend>
+		{#if !isNew}<p class="muted small">{t.objects.attributesHint}</p>{/if}
+		<FieldsEditor bind:fields {vocab} defaultTarget="object" addLabel={t.objects.addAttribute} />
 		{#each fields as f, i (i)}
 			<input type="hidden" name="attrKey" value={f.key} />
 			<input type="hidden" name="attrValue" value={f.value} />
@@ -78,8 +78,8 @@
 	</fieldset>
 
 	<label>
-		{t.plants.notes}
-		<textarea name="notes" rows="3">{plant.notes}</textarea>
+		{t.objects.notes}
+		<textarea name="notes" rows="3">{object.notes}</textarea>
 	</label>
 
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -90,7 +90,7 @@
 				? t.files.uploading(uploaded, files.length)
 				: t.common.save}</button
 		>
-		{#if isNew}<button name="next" value="1">{t.plants.saveAndNext}</button>{/if}
+		{#if isNew}<button name="next" value="1">{t.objects.saveAndNext}</button>{/if}
 	</div>
 </form>
 

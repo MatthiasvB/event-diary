@@ -3,15 +3,15 @@ import type { EventFile } from './files.ts';
 
 import type { Candidate } from './suggest.ts';
 
-/** Where a field's value is stored: on the event, or as a (historized) plant attribute. */
-export type FieldTarget = 'event' | 'plant';
+/** Where a field's value is stored: on the event, or as a (historized) object attribute. */
+export type FieldTarget = 'event' | 'object';
 
 export type Field = {
 	key: string;
 	value: string;
 	target: FieldTarget;
 	/**
-	 * Plant fields only, when saving: the value before this change.
+	 * Object fields only, when saving: the value before this change.
 	 * Omitted: leave as is; null: not recorded; a string: that value.
 	 */
 	previous?: string | null;
@@ -33,15 +33,15 @@ export type EventType = {
 
 export type EventTypeStats = EventType & { count: number; last: string | null };
 
-export type Plant = {
-	id: string;
+export type DiaryObject = {
+	id: number;
 	name: string;
 	active: boolean;
 	notes: string;
 	coverPhotoId: string | null;
 };
 
-export type PlantAttr = {
+export type ObjectAttr = {
 	id: number;
 	key: string;
 	value: string;
@@ -51,8 +51,8 @@ export type PlantAttr = {
 
 export type DiaryEvent = {
 	id: number;
-	plantId: string;
-	plantName: string;
+	objectId: number;
+	objectName: string;
 	typeId: number;
 	typeName: string;
 	category: string;

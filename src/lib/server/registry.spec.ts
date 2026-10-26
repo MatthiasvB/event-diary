@@ -23,28 +23,28 @@ import {
 describe('diaries and members', () => {
 	it('gives each user only their own diaries', () => {
 		const reg = openRegistry(':memory:');
-		const alice = createDiary(reg, 'Pflanzentagebuch', 'plants', 'alice');
-		const bob = createDiary(reg, 'Pflanzentagebuch', 'plants', 'bob');
+		const alice = createDiary(reg, 'Pflanzentagebuch', 'objects', 'alice');
+		const bob = createDiary(reg, 'Pflanzentagebuch', 'objects', 'bob');
 
 		expect(alice).toBe('pflanzentagebuch');
 		expect(bob).toBe('pflanzentagebuch-2');
 		expect(userDiaries(reg, 'alice').map((d) => d.id)).toEqual([alice]);
-		expect(memberDiary(reg, alice, 'alice')).toMatchObject({ role: 'owner', type: 'plants' });
+		expect(memberDiary(reg, alice, 'alice')).toMatchObject({ role: 'owner', type: 'objects' });
 		expect(memberDiary(reg, alice, 'bob')).toBeUndefined();
 	});
 
 	it('makes readable, unique IDs that do not collide with app paths', () => {
 		const reg = openRegistry(':memory:');
-		expect(createDiary(reg, 'Hausbau Küche & Bad', 'plants', 'a')).toBe('hausbau-kueche-bad');
-		expect(createDiary(reg, 'Login', 'plants', 'a')).toBe('login-2');
-		expect(createDiary(reg, '!!!', 'plants', 'a')).toBe('tagebuch');
+		expect(createDiary(reg, 'Hausbau Küche & Bad', 'objects', 'a')).toBe('hausbau-kueche-bad');
+		expect(createDiary(reg, 'Login', 'objects', 'a')).toBe('login-2');
+		expect(createDiary(reg, '!!!', 'objects', 'a')).toBe('tagebuch');
 	});
 });
 
 describe('sharing', () => {
 	it('lets one person join through an invite link, once', () => {
 		const reg = openRegistry(':memory:');
-		const id = createDiary(reg, 'Orchideen', 'plants', 'alice');
+		const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
 		const token = createInvite(reg, id, 'viewer', 'alice');
 
 		expect(inviteInfo(reg, token)).toEqual({
@@ -62,7 +62,7 @@ describe('sharing', () => {
 
 	it('expires and revokes links, and keeps the role of existing members', () => {
 		const reg = openRegistry(':memory:');
-		const id = createDiary(reg, 'Orchideen', 'plants', 'alice');
+		const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
 		// Created 8 days ago; links are valid for 7.
 		vi.useFakeTimers({ now: Date.now() - 8 * 86_400_000 });
 		const old = createInvite(reg, id, 'editor', 'alice');
@@ -82,7 +82,7 @@ describe('sharing', () => {
 
 	it('lets the owner change roles and remove members, but never the owner', () => {
 		const reg = openRegistry(':memory:');
-		const id = createDiary(reg, 'Orchideen', 'plants', 'alice');
+		const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
 		acceptInvite(reg, createInvite(reg, id, 'viewer', 'alice'), 'bob');
 
 		setRole(reg, id, 'bob', 'editor');
@@ -102,7 +102,7 @@ describe('sharing', () => {
 		const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-diary-'));
 		try {
 			const reg = openRegistry(':memory:');
-			const id = createDiary(reg, 'Orchideen', 'plants', 'alice');
+			const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
 			openDb(diaryFile(dbDir, id)).close();
 			const token = createInvite(reg, id, 'editor', 'alice');
 

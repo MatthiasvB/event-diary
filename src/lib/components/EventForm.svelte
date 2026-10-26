@@ -1,5 +1,5 @@
 <!--
-	The main entry flow: plant(s) → event type (prefills fields and shows its hint) →
+	The main entry flow: object(s) → event type (prefills fields and shows its hint) →
 	optional fields, note, photos and files → save. Used for new events, repeats and edits.
 	New files are uploaded one by one when saving, then the event is saved with their IDs.
 -->
@@ -11,7 +11,7 @@
 	import FieldsEditor from './FieldsEditor.svelte';
 	import FileInput from './FileInput.svelte';
 	import MediaThumb from './MediaThumb.svelte';
-	import PlantPicker from './PlantPicker.svelte';
+	import ObjectPicker from './ObjectPicker.svelte';
 	import { formatDate, shiftDays, today } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
@@ -19,9 +19,9 @@
 	import { uploadFiles } from '#lib/upload.ts';
 	import type { EventType, Field, Vocabulary } from '#lib/types.ts';
 
-	type PlantOption = { id: string; name: string; active: boolean; attrs: Record<string, string> };
+	type ObjectOption = { id: number; name: string; active: boolean; attrs: Record<string, string> };
 	export type EventFormInitial = {
-		plantIds: string[];
+		objectIds: number[];
 		typeName: string;
 		category: string;
 		date: string;
@@ -32,7 +32,7 @@
 	};
 
 	type Props = {
-		plants: PlantOption[];
+		objects: ObjectOption[];
 		vocab: Vocabulary;
 		lastFields: Record<number, Field[]>;
 		initial: EventFormInitial;
@@ -44,7 +44,7 @@
 	};
 
 	let {
-		plants,
+		objects,
 		vocab,
 		lastFields,
 		initial,
@@ -66,7 +66,7 @@
 		const fields = !edit && !s.fields.length && ty ? proposeFields(ty, []) : s.fields;
 		return { ...s, fields, typeId: ty?.id };
 	});
-	let plantIds = $state(start.plantIds);
+	let objectIds = $state(start.objectIds);
 	let typeName = $state(start.typeName);
 	let date = $state(start.date);
 	let note = $state(start.note);
@@ -124,7 +124,7 @@
 		categoryChosen = value.trim() !== '' || named.length < 2;
 	}
 	const current = $derived(
-		plantIds.length === 1 ? (plants.find((p) => p.id === plantIds[0])?.attrs ?? {}) : {}
+		objectIds.length === 1 ? (objects.find((p) => p.id === objectIds[0])?.attrs ?? {}) : {}
 	);
 
 	// Choosing another type fills in its usual fields; values typed by the user win.
@@ -188,7 +188,7 @@
 		formData.set(
 			'payload',
 			JSON.stringify({
-				plantIds,
+				objectIds,
 				typeName,
 				category,
 				milestone,
@@ -210,8 +210,8 @@
 	{/if}
 
 	<div>
-		<span class="label muted small">{t.events.plants}</span>
-		<PlantPicker {plants} bind:selected={plantIds} multiple={!edit} />
+		<span class="label muted small">{t.events.objects}</span>
+		<ObjectPicker {objects} bind:selected={objectIds} multiple={!edit} />
 	</div>
 
 	<div class="stack tight">

@@ -9,10 +9,10 @@ import { canEdit, diaryId } from './paths.ts';
 
 type Shortcut = { key: string; label: string; run: () => unknown; edits?: boolean };
 
-/** The plant whose page (or edit page) is open, if any. */
-function currentPlant(): string | undefined {
+/** The object whose page (or edit page) is open, if any. */
+function currentObject(): string | undefined {
 	const route = page.route.id;
-	return route === '/[diary]/plants/[id]' || route === '/[diary]/plants/[id]/edit'
+	return route === '/[diary]/objects/[id]' || route === '/[diary]/objects/[id]/edit'
 		? page.params.id
 		: undefined;
 }
@@ -32,20 +32,20 @@ export const shortcuts: Shortcut[] = [
 	{ key: 'h', label: t.shortcuts.home, run: () => goto(resolve('/[diary]', { diary: diaryId() })) },
 	{
 		key: 'p',
-		label: t.shortcuts.newPlant,
+		label: t.shortcuts.newObject,
 		edits: true,
-		run: () => goto(resolve('/[diary]/plants/new', { diary: diaryId() }))
+		run: () => goto(resolve('/[diary]/objects/new', { diary: diaryId() }))
 	},
 	{
 		key: 'e',
 		label: t.shortcuts.newEvent,
 		edits: true,
 		run: () => {
-			const plant = currentPlant();
+			const object = currentObject();
 			const diary = diaryId();
 			return goto(
-				plant
-					? resolve(`/[diary]/events/new?plant=${encodeURIComponent(plant)}`, { diary })
+				object
+					? resolve(`/[diary]/events/new?object=${encodeURIComponent(object)}`, { diary })
 					: resolve('/[diary]/events/new', { diary })
 			);
 		}

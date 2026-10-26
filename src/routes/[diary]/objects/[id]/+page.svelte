@@ -14,7 +14,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	const plant = $derived(data.plant);
+	const object = $derived(data.object);
 	let gallery = $state<Gallery>();
 
 	// Running as installed app (home screen) rather than in a browser tab.
@@ -37,29 +37,33 @@
 	const attrKeys = $derived(Object.keys(data.history).sort((a, b) => a.localeCompare(b, 'de')));
 </script>
 
-<svelte:head><title>{plant.name} · {data.appName}</title></svelte:head>
+<svelte:head><title>{object.name} · {data.appName}</title></svelte:head>
 
 <div
 	class="drop-zone page"
-	{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, plant.id), isMedia)}
+	{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, object.id), isMedia)}
 >
 	<header class="head">
-		{#if plant.coverPhotoId}
-			<button type="button" class="cover-button" onclick={() => gallery?.show(plant.coverPhotoId!)}>
-				<img class="cover" src={photoUrl(plant.coverPhotoId, 'l')} alt={plant.name} />
+		{#if object.coverPhotoId}
+			<button
+				type="button"
+				class="cover-button"
+				onclick={() => gallery?.show(object.coverPhotoId!)}
+			>
+				<img class="cover" src={photoUrl(object.coverPhotoId, 'l')} alt={object.name} />
 			</button>
 		{/if}
 		<div class="spread">
 			<div>
-				<h1>{plant.name}</h1>
-				{#if !plant.active}<p class="row muted">
-						<span class="badge">{t.plants.inactive}</span>
+				<h1>{object.name}</h1>
+				{#if !object.active}<p class="row muted">
+						<span class="badge">{t.objects.inactive}</span>
 					</p>{/if}
 			</div>
 			{#if canEdit()}
 				<a
 					class="button small"
-					href={resolve('/[diary]/plants/[id]/edit', { diary: diaryId(), id: plant.id })}
+					href={resolve('/[diary]/objects/[id]/edit', { diary: diaryId(), id: String(object.id) })}
 					>{t.common.edit}</a
 				>
 			{/if}
@@ -68,9 +72,9 @@
 			<div class="actions">
 				<a
 					class="button primary"
-					href={resolve(`/[diary]/events/new?plant=${encodeURIComponent(plant.id)}`, {
+					href={resolve(`/[diary]/events/new?object=${object.id}`, {
 						diary: diaryId()
-					})}>+ {t.plants.addEvent}</a
+					})}>+ {t.objects.addEvent}</a
 				>
 				<div class="row">
 					<label class="button primary">
@@ -79,9 +83,9 @@
 							accept="image/*"
 							capture="environment"
 							class="visually-hidden"
-							onchange={(e) => startPhotoEvent(e, plant.id)}
+							onchange={(e) => startPhotoEvent(e, object.id)}
 						/>
-						📷 {t.plants.takePhoto}
+						📷 {t.objects.takePhoto}
 					</label>
 					<!-- The installed app opens the camera directly; a browser also offers the gallery. -->
 					{#if standalone}
@@ -91,9 +95,9 @@
 								accept="image/*,video/*"
 								multiple
 								class="visually-hidden"
-								onchange={(e) => startPhotoEvent(e, plant.id)}
+								onchange={(e) => startPhotoEvent(e, object.id)}
 							/>
-							🖼 {t.plants.fromGallery}
+							🖼 {t.objects.fromGallery}
 						</label>
 					{/if}
 				</div>
@@ -102,11 +106,11 @@
 		{/if}
 	</header>
 
-	{#if plant.notes}<p class="notes">{plant.notes}</p>{/if}
+	{#if object.notes}<p class="notes">{object.notes}</p>{/if}
 
 	{#if attrKeys.length}
 		<section>
-			<h2>{t.plants.attributes}</h2>
+			<h2>{t.objects.attributes}</h2>
 			<dl class="attrs">
 				{#each attrKeys as key (key)}
 					{@const history = data.history[key]}
@@ -115,7 +119,7 @@
 					<dd>
 						{showValue(key, current.value)}
 						{#if current.since}<span class="muted small"
-								>{t.plants.since} {formatDate(current.since)}</span
+								>{t.objects.since} {formatDate(current.since)}</span
 							>{/if}
 						{#if history.length > 1 || history[0].since}
 							<AttrHistory
@@ -149,11 +153,11 @@
 
 	{#if photos.length}
 		<section>
-			<h2>{t.plants.photos} <span class="muted small">{photos.length}</span></h2>
+			<h2>{t.objects.photos} <span class="muted small">{photos.length}</span></h2>
 			<Gallery
 				bind:this={gallery}
 				{photos}
-				coverPhotoId={plant.coverPhotoId}
+				coverPhotoId={object.coverPhotoId}
 				canSetCover={canEdit()}
 			/>
 		</section>
@@ -161,13 +165,13 @@
 
 	<section>
 		<h2>
-			{t.plants.timeline} <span class="muted small">{t.plants.events(data.events.length)}</span>
+			{t.objects.timeline} <span class="muted small">{t.objects.events(data.events.length)}</span>
 		</h2>
 		<div class="stack timeline">
 			{#each data.events as event (event.id)}
-				<EventCard {event} coverPhotoId={plant.coverPhotoId} canSetCover={canEdit()} />
+				<EventCard {event} coverPhotoId={object.coverPhotoId} canSetCover={canEdit()} />
 			{:else}
-				<p class="muted">{t.plants.noEvents}</p>
+				<p class="muted">{t.objects.noEvents}</p>
 			{/each}
 		</div>
 	</section>

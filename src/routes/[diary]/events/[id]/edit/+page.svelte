@@ -24,7 +24,7 @@
 
 {#key data.event.id}
 	<EventForm
-		plants={data.plants}
+		objects={data.objects}
 		vocab={data.vocab}
 		lastFields={data.lastFields}
 		initial={data.initial}

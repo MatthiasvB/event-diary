@@ -37,7 +37,7 @@ export const actions: Actions = {
 		const fields: FieldTemplate[] = keys
 			.map((key, i) => ({
 				key,
-				target: targets[i] === 'plant' ? ('plant' as const) : ('event' as const),
+				target: targets[i] === 'object' ? ('object' as const) : ('event' as const),
 				...(values[i] ? { default: storedValue(values[i], kindOf(kinds, key)) } : {})
 			}))
 			.filter((f) => f.key);

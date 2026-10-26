@@ -30,10 +30,10 @@ export function vocabulary(db: Db): Vocabulary {
 			GROUP BY a.key, a.value, e.type_id`
 		)
 		.all() as UsageRow[];
-	const plantRows = db
+	const objectRows = db
 		.prepare(
 			`SELECT a.key, a.value, e.type_id, count(*) AS n, max(a.since) AS last
-			FROM plant_attrs a JOIN plants p ON p.id = a.plant_id LEFT JOIN events e ON e.id = a.event_id
+			FROM object_attrs a JOIN objects p ON p.id = a.object_id LEFT JOIN events e ON e.id = a.event_id
 			GROUP BY a.key, a.value, e.type_id`
 		)
 		.all() as UsageRow[];
@@ -41,11 +41,11 @@ export function vocabulary(db: Db): Vocabulary {
 	const values = new Map<string, Map<string, ValueCandidate>>();
 	const keys: Record<FieldTarget, Map<string, ValueCandidate>> = {
 		event: new Map(),
-		plant: new Map()
+		object: new Map()
 	};
 	for (const [target, rows] of [
 		['event', eventRows],
-		['plant', plantRows]
+		['object', objectRows]
 	] as const) {
 		for (const r of rows) {
 			if (!values.has(r.key)) values.set(r.key, new Map());
@@ -65,7 +65,7 @@ export function vocabulary(db: Db): Vocabulary {
 	return {
 		types: listTypes(db),
 		categories: categories.map((c) => ({ ...c })),
-		keys: { event: [...keys.event.values()], plant: [...keys.plant.values()] },
+		keys: { event: [...keys.event.values()], object: [...keys.object.values()] },
 		values: Object.fromEntries([...values].map(([k, m]) => [k, [...m.values()]]))
 	};
 }
@@ -97,7 +97,7 @@ function renameValue(db: Db, key: string, from: string, to: string): number {
 		.prepare('UPDATE event_attrs SET value = ? WHERE key = ? AND value = ?')
 		.run(to, key, from);
 	const b = db
-		.prepare('UPDATE plant_attrs SET value = ? WHERE key = ? AND value = ?')
+		.prepare('UPDATE object_attrs SET value = ? WHERE key = ? AND value = ?')
 		.run(to, key, from);
 	updateTemplates(db, (f) => (f.key === key && f.default === from ? { ...f, default: to } : f));
 	return Number(a.changes) + Number(b.changes);
@@ -121,7 +121,7 @@ function renameKey(db: Db, from: string, to: string): number {
 		db.prepare('DELETE FROM event_attrs WHERE event_id = ? AND key = ?').run(r.event_id, from);
 	}
 	const a = db.prepare('UPDATE event_attrs SET key = ? WHERE key = ?').run(to, from);
-	const b = db.prepare('UPDATE plant_attrs SET key = ? WHERE key = ?').run(to, from);
+	const b = db.prepare('UPDATE object_attrs SET key = ? WHERE key = ?').run(to, from);
 	updateTemplates(db, (f) => (f.key === from ? { ...f, key: to } : f));
 	// The kind goes along, unless the name merged into already has one.
 	db.prepare('UPDATE OR IGNORE field_kinds SET key = ? WHERE key = ?').run(to, from);

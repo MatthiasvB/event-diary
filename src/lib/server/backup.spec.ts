@@ -19,16 +19,16 @@ describe('writeSnapshots', () => {
 		const dbDir = path.join(dir, 'db');
 		const a = openDb(path.join(dbDir, 'diaries', 'a.sqlite'));
 		const b = openDb(path.join(dbDir, 'diaries', 'b.sqlite'));
-		a.prepare("INSERT INTO plants (id, name) VALUES ('P-001', 'Phalaenopsis')").run();
+		a.prepare("INSERT INTO objects (id, name) VALUES (1, 'Phalaenopsis')").run();
 
 		const files = writeSnapshots(dbDir, path.join(dir, 'snapshot'));
 		expect(files).toEqual([path.join('diaries', 'a.sqlite'), path.join('diaries', 'b.sqlite')]);
 		// Writes after the snapshot must not show up in it.
-		a.prepare("INSERT INTO plants (id, name) VALUES ('P-002', 'Later')").run();
+		a.prepare("INSERT INTO objects (id, name) VALUES (2, 'Later')").run();
 
 		const restored = openDb(path.join(dir, 'snapshot', 'diaries', 'a.sqlite'));
-		const rows = restored.prepare('SELECT id, name FROM plants').all();
-		expect(rows.map((r) => ({ ...r }))).toEqual([{ id: 'P-001', name: 'Phalaenopsis' }]);
+		const rows = restored.prepare('SELECT id, name FROM objects').all();
+		expect(rows.map((r) => ({ ...r }))).toEqual([{ id: 1, name: 'Phalaenopsis' }]);
 		restored.close();
 		a.close();
 		b.close();

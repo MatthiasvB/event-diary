@@ -62,9 +62,9 @@
 	<details class="filters" open={active}>
 		<summary>{t.common.filter}</summary>
 		<div class="stack">
-			<select name="plant" value={data.filter.plantId} aria-label={t.events.allPlants}>
-				<option value="">{t.events.allPlants}</option>
-				{#each data.plants as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+			<select name="object" value={data.filter.objectId} aria-label={t.events.allObjects}>
+				<option value="">{t.events.allObjects}</option>
+				{#each data.objects as o (o.id)}<option value={String(o.id)}>{o.name}</option>{/each}
 			</select>
 			<div class="row">
 				<select name="type" class="grow" value={data.filter.typeId} aria-label={t.events.allTypes}>
@@ -105,7 +105,7 @@
 
 <div class="stack list">
 	{#each data.events as event (event.id)}
-		<EventCard {event} showPlant />
+		<EventCard {event} showObject />
 	{:else}
 		<p class="muted">{t.events.empty}</p>
 	{/each}

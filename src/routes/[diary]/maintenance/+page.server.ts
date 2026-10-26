@@ -27,7 +27,7 @@ function merged(lists: Candidate[][]): Candidate[] {
 
 export const load: PageServerLoad = ({ url }) => {
 	const vocab = vocabulary(db());
-	const allKeys = merged([vocab.keys.event, vocab.keys.plant]).sort((a, b) =>
+	const allKeys = merged([vocab.keys.event, vocab.keys.object]).sort((a, b) =>
 		a.value.localeCompare(b.value, 'de')
 	);
 	const kindParam = url.searchParams.get('kind') ?? 'value';

@@ -81,7 +81,7 @@
 				oncontextmenu={(e) => (timer || longPressed) && e.preventDefault()}
 			>
 				<MediaThumb file={p} />
-				{#if p.id === coverPhotoId}<span class="cover" title={t.plants.isCover}>★</span>{/if}
+				{#if p.id === coverPhotoId}<span class="cover" title={t.objects.isCover}>★</span>{/if}
 			</button>
 		</li>
 	{/each}

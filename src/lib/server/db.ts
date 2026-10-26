@@ -4,10 +4,17 @@ import { DatabaseSync } from 'node:sqlite';
 import { normalize } from '../suggest.ts';
 export type Db = DatabaseSync;
 
-// Schema of a diary. Append-only list; the index + 1 is stored in PRAGMA user_version.
-export const DIARY_SCHEMA = [
-	`
-	CREATE TABLE photos (
+/**
+ * A database's tables: `create` builds the current version for a new database; an existing
+ * one is brought up to date by `migrations[v]` (from v - 1 to v), in order. The version is
+ * stored in PRAGMA user_version. Migrations can go once every database has run them.
+ */
+export type Schema = { version: number; create: string; migrations: Record<number, string> };
+
+export const DIARY_SCHEMA: Schema = {
+	version: 6,
+	create: `
+	CREATE TABLE files (
 		id TEXT PRIMARY KEY,            -- also the file name stem in photos/
 		file TEXT NOT NULL,             -- file name in photos/, never changed
 		mime TEXT NOT NULL,
@@ -16,35 +23,36 @@ export const DIARY_SCHEMA = [
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 
-	CREATE TABLE plants (
-		id TEXT PRIMARY KEY,            -- stable, never reused, e.g. ORC-001
+	CREATE TABLE objects (
+		id INTEGER PRIMARY KEY,         -- internal, never shown
 		name TEXT NOT NULL,
 		active INTEGER NOT NULL DEFAULT 1,
-		acquired_on TEXT,               -- YYYY-MM-DD
 		notes TEXT NOT NULL DEFAULT '',
-		cover_photo_id TEXT REFERENCES photos(id) ON DELETE SET NULL,
+		cover_photo_id TEXT REFERENCES files(id) ON DELETE SET NULL,
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 
+	-- Type names are unique per category only: several categories may have "Umtopfen".
 	CREATE TABLE event_types (
 		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
 		category TEXT NOT NULL DEFAULT '',
 		milestone INTEGER NOT NULL DEFAULT 0,
 		hint TEXT NOT NULL DEFAULT '',
-		fields TEXT NOT NULL DEFAULT '[]' -- JSON FieldTemplate[]
+		fields TEXT NOT NULL DEFAULT '[]',  -- JSON FieldTemplate[]
+		UNIQUE (name, category)
 	);
 
 	CREATE TABLE events (
 		id INTEGER PRIMARY KEY,
-		plant_id TEXT NOT NULL REFERENCES plants(id),
+		object_id INTEGER NOT NULL REFERENCES objects(id),
 		type_id INTEGER NOT NULL REFERENCES event_types(id),
 		date TEXT NOT NULL,             -- YYYY-MM-DD
 		note TEXT NOT NULL DEFAULT '',
-		batch_id TEXT,                  -- shared by events created together for several plants
+		batch_id TEXT,                  -- shared by events created together for several objects
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
-	CREATE INDEX events_plant ON events(plant_id, date);
+	CREATE INDEX events_object ON events(object_id, date);
 	CREATE INDEX events_type ON events(type_id, date);
 	CREATE INDEX events_batch ON events(batch_id);
 
@@ -55,64 +63,25 @@ export const DIARY_SCHEMA = [
 		PRIMARY KEY (event_id, key)
 	);
 
-	-- Plant attributes with history. The current value of a key is the row with the
+	-- Object properties with history. The current value of a key is the row with the
 	-- latest "since"; NULL means "from the beginning". Rows set by an event follow it.
-	CREATE TABLE plant_attrs (
+	CREATE TABLE object_attrs (
 		id INTEGER PRIMARY KEY,
-		plant_id TEXT NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
+		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
 		key TEXT NOT NULL,
 		value TEXT NOT NULL,
 		since TEXT,
 		event_id INTEGER REFERENCES events(id) ON DELETE CASCADE
 	);
-	CREATE INDEX plant_attrs_plant ON plant_attrs(plant_id, key);
+	CREATE INDEX object_attrs_object ON object_attrs(object_id, key);
 
-	CREATE TABLE event_photos (
+	CREATE TABLE event_files (
 		event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-		photo_id TEXT NOT NULL REFERENCES photos(id),
+		file_id TEXT NOT NULL REFERENCES files(id),
 		position INTEGER NOT NULL DEFAULT 0,
-		PRIMARY KEY (event_id, photo_id)
+		PRIMARY KEY (event_id, file_id)
 	);
 
-	CREATE TABLE settings (
-		key TEXT PRIMARY KEY,
-		value TEXT NOT NULL             -- JSON
-	);
-
-	CREATE TABLE sessions (
-		token_hash TEXT PRIMARY KEY,
-		username TEXT NOT NULL,
-		expires_at INTEGER NOT NULL     -- unix ms
-	);
-	`,
-	`
-	-- Pin the cover image: plants showing a photo without a chosen cover keep their first one.
-	UPDATE plants SET cover_photo_id = (
-		SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
-		WHERE e.plant_id = plants.id ORDER BY e.date, e.id, ep.position LIMIT 1
-	) WHERE cover_photo_id IS NULL;
-	`,
-	`
-	-- Sessions live in the registry.
-	DROP TABLE sessions;
-	`,
-	`
-	-- Type names are unique per category only: several categories may have "Umtopfen".
-	-- Rebuilt, since SQLite can't drop a constraint; events keep pointing at the same IDs.
-	CREATE TABLE event_types_new (
-		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		category TEXT NOT NULL DEFAULT '',
-		milestone INTEGER NOT NULL DEFAULT 0,
-		hint TEXT NOT NULL DEFAULT '',
-		fields TEXT NOT NULL DEFAULT '[]',  -- JSON FieldTemplate[]
-		UNIQUE (name, category)
-	);
-	INSERT INTO event_types_new SELECT id, name, category, milestone, hint, fields FROM event_types;
-	DROP TABLE event_types;
-	ALTER TABLE event_types_new RENAME TO event_types;
-	`,
-	`
 	-- Kinds of values per field name (date, number with unit); not listed means text.
 	CREATE TABLE field_kinds (
 		key TEXT PRIMARY KEY,
@@ -120,18 +89,92 @@ export const DIARY_SCHEMA = [
 		unit TEXT NOT NULL DEFAULT ''
 	);
 
-	-- "Erworben am" was a column of every plant; now it is an ordinary property, a date.
-	INSERT INTO plant_attrs (plant_id, key, value)
-	SELECT p.id, 'Erworben am', p.acquired_on FROM plants p
-	WHERE coalesce(p.acquired_on, '') != ''
-		AND NOT EXISTS (SELECT 1 FROM plant_attrs a WHERE a.plant_id = p.id AND a.key = 'Erworben am');
-	INSERT INTO field_kinds (key, kind)
-	SELECT 'Erworben am', 'date' WHERE EXISTS (SELECT 1 FROM plant_attrs WHERE key = 'Erworben am');
-	ALTER TABLE plants DROP COLUMN acquired_on;
-	`
-];
+	CREATE TABLE settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL             -- JSON
+	);
+	`,
+	migrations: {
+		6: `
+		-- Neutral names: plants become objects, photos become files (any attachment).
+		-- Object IDs become plain numbers, in the order the objects were created.
+		CREATE TEMP TABLE object_ids AS
+		SELECT id AS old, row_number() OVER (ORDER BY created_at, id) AS new FROM plants;
 
-export function openDb(file: string, schema = DIARY_SCHEMA): Db {
+		CREATE TABLE files (
+			id TEXT PRIMARY KEY,            -- also the file name stem in photos/
+			file TEXT NOT NULL,             -- file name in photos/, never changed
+			mime TEXT NOT NULL,
+			original_name TEXT NOT NULL DEFAULT '',
+			taken_at TEXT,                  -- EXIF capture time, ISO
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+		INSERT INTO files SELECT id, file, mime, original_name, taken_at, created_at FROM photos;
+
+		CREATE TABLE objects (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			active INTEGER NOT NULL DEFAULT 1,
+			notes TEXT NOT NULL DEFAULT '',
+			cover_photo_id TEXT REFERENCES files(id) ON DELETE SET NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+		INSERT INTO objects SELECT m.new, p.name, p.active, p.notes, p.cover_photo_id, p.created_at
+		FROM plants p JOIN object_ids m ON m.old = p.id;
+
+		CREATE TABLE events_new (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL REFERENCES objects(id),
+			type_id INTEGER NOT NULL REFERENCES event_types(id),
+			date TEXT NOT NULL,             -- YYYY-MM-DD
+			note TEXT NOT NULL DEFAULT '',
+			batch_id TEXT,                  -- shared by events created together for several objects
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+		INSERT INTO events_new SELECT e.id, m.new, e.type_id, e.date, e.note, e.batch_id, e.created_at
+		FROM events e JOIN object_ids m ON m.old = e.plant_id;
+
+		-- Object properties with history. The current value of a key is the row with the
+		-- latest "since"; NULL means "from the beginning". Rows set by an event follow it.
+		CREATE TABLE object_attrs (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+			key TEXT NOT NULL,
+			value TEXT NOT NULL,
+			since TEXT,
+			event_id INTEGER REFERENCES events(id) ON DELETE CASCADE
+		);
+		INSERT INTO object_attrs SELECT a.id, m.new, a.key, a.value, a.since, a.event_id
+		FROM plant_attrs a JOIN object_ids m ON m.old = a.plant_id;
+
+		CREATE TABLE event_files (
+			event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			file_id TEXT NOT NULL REFERENCES files(id),
+			position INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (event_id, file_id)
+		);
+		INSERT INTO event_files SELECT event_id, photo_id, position FROM event_photos;
+
+		DROP TABLE event_photos;
+		DROP TABLE plant_attrs;
+		DROP TABLE events;
+		DROP TABLE plants;
+		DROP TABLE photos;
+		DROP TABLE temp.object_ids;
+		-- event_attrs keeps referring to "events", which is the new table after this.
+		ALTER TABLE events_new RENAME TO events;
+		CREATE INDEX events_object ON events(object_id, date);
+		CREATE INDEX events_type ON events(type_id, date);
+		CREATE INDEX events_batch ON events(batch_id);
+		CREATE INDEX object_attrs_object ON object_attrs(object_id, key);
+
+		-- Fields that set a property of the object.
+		UPDATE event_types SET fields = replace(fields, '"target":"plant"', '"target":"object"');
+		`
+	}
+};
+
+export function openDb(file: string, schema: Schema = DIARY_SCHEMA): Db {
 	if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
 	const db = new DatabaseSync(file, { timeout: 5000 });
 	db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
@@ -141,20 +184,34 @@ export function openDb(file: string, schema = DIARY_SCHEMA): Db {
 	return db;
 }
 
-function migrate(db: Db, migrations: string[]) {
+function migrate(db: Db, schema: Schema) {
 	const { user_version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
-	if (user_version >= migrations.length) return;
+	if (user_version === schema.version) return;
+	if (user_version === 0) {
+		transaction(db, () => {
+			db.exec(schema.create);
+			db.exec(`PRAGMA user_version = ${schema.version}`);
+		});
+		return;
+	}
+	if (user_version > schema.version) {
+		throw new Error(`Database version ${user_version} is newer than this app (${schema.version})`);
+	}
 	// Foreign keys are off while migrating so tables can be rebuilt (SQLite's documented
 	// way); each migration is checked before it is committed.
 	db.exec('PRAGMA foreign_keys = OFF');
 	try {
-		for (let v = user_version; v < migrations.length; v++) {
+		for (let v = user_version + 1; v <= schema.version; v++) {
+			const migration = schema.migrations[v];
+			if (migration === undefined) {
+				throw new Error(`Database version ${user_version} is too old to be migrated`);
+			}
 			transaction(db, () => {
-				db.exec(migrations[v]);
+				db.exec(migration);
 				if (db.prepare('PRAGMA foreign_key_check').all().length) {
-					throw new Error(`Migration ${v + 1} would break references between tables`);
+					throw new Error(`Migration ${v} would break references between tables`);
 				}
-				db.exec(`PRAGMA user_version = ${v + 1}`);
+				db.exec(`PRAGMA user_version = ${v}`);
 			});
 		}
 	} finally {

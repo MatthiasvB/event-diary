@@ -1,14 +1,14 @@
-<!-- Choose one or many plants: search, pick individually, or select all matching a filter. -->
+<!-- Choose one or many objects: search, pick individually, or select all matching a filter. -->
 <script lang="ts">
 	import TextInput from './TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { normalize } from '#lib/suggest.ts';
 
-	type PlantOption = { id: string; name: string; active: boolean; attrs: Record<string, string> };
-	type Props = { plants: PlantOption[]; selected: string[]; multiple?: boolean };
+	type ObjectOption = { id: number; name: string; active: boolean; attrs: Record<string, string> };
+	type Props = { objects: ObjectOption[]; selected: number[]; multiple?: boolean };
 
-	let { plants, selected = $bindable(), multiple = true }: Props = $props();
+	let { objects, selected = $bindable(), multiple = true }: Props = $props();
 
 	let query = $state('');
 	let onlyActive = $state(true);
@@ -17,11 +17,11 @@
 	// Collapsed once something is chosen, so the form stays short on a phone.
 	let expanded = $state(selected.length === 0);
 
-	const byId = $derived(new Map(plants.map((p) => [p.id, p])));
-	const keys = $derived([...new Set(plants.flatMap((p) => Object.keys(p.attrs)))].sort());
+	const byId = $derived(new Map(objects.map((p) => [p.id, p])));
+	const keys = $derived([...new Set(objects.flatMap((p) => Object.keys(p.attrs)))].sort());
 	const filterValues = $derived(
 		filterKey
-			? [...new Set(plants.map((p) => p.attrs[filterKey]).filter(Boolean))].sort((a, b) =>
+			? [...new Set(objects.map((p) => p.attrs[filterKey]).filter(Boolean))].sort((a, b) =>
 					a.localeCompare(b, 'de')
 				)
 			: []
@@ -29,15 +29,15 @@
 
 	const matching = $derived.by(() => {
 		const q = normalize(query);
-		return plants.filter(
+		return objects.filter(
 			(p) =>
 				(!onlyActive || p.active) &&
 				(!filterKey || !filterValue || p.attrs[filterKey] === filterValue) &&
-				(!q || normalize(`${p.name} ${p.id} ${Object.values(p.attrs).join(' ')}`).includes(q))
+				(!q || normalize(`${p.name} ${Object.values(p.attrs).join(' ')}`).includes(q))
 		);
 	});
 
-	function toggle(id: string) {
+	function toggle(id: number) {
 		if (!multiple) {
 			selected = [id];
 			expanded = false;
@@ -72,7 +72,7 @@
 			aria-expanded={expanded}
 			onclick={() => (expanded = !expanded)}
 		>
-			{selected.length ? t.common.edit : t.events.choosePlants}
+			{selected.length ? t.common.edit : t.events.chooseObjects}
 		</button>
 	</div>
 
@@ -81,7 +81,7 @@
 			<TextInput
 				type="search"
 				bind:value={query}
-				placeholder={t.plants.searchPlaceholder}
+				placeholder={t.objects.searchPlaceholder}
 				aria-label={t.common.search}
 			/>
 			<div class="row">
@@ -92,10 +92,10 @@
 					<select
 						class="grow"
 						bind:value={filterKey}
-						aria-label={t.plants.addFilter}
+						aria-label={t.objects.addFilter}
 						onchange={() => (filterValue = '')}
 					>
-						<option value="">{t.plants.addFilter}</option>
+						<option value="">{t.objects.addFilter}</option>
 						{#each keys as k (k)}<option value={k}>{k}</option>{/each}
 					</select>
 					{#if filterKey}

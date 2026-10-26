@@ -1,14 +1,15 @@
 // The registry: which diaries exist, who may use them, and login sessions.
 // Each diary has its own database (db/diaries/<id>.sqlite) and a type that decides its
-// views (for now only "plants"). Users reach a diary through a membership. The owner
-// shares it with one-time invite links, so nobody ever sees a list of all users.
+// views (for now only "objects": events of objects). Users reach a diary through a
+// membership. The owner shares it with one-time invite links, so nobody ever sees a list
+// of all users.
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.ts';
-import { openDb, transaction, type Db } from './db.ts';
+import { openDb, transaction, type Db, type Schema } from './db.ts';
 
-export const DIARY_TYPES = ['plants'] as const;
+export const DIARY_TYPES = ['objects'] as const;
 export type DiaryType = (typeof DIARY_TYPES)[number];
 /** The creator owns a diary; others join through an invite as editor or viewer. */
 export type Role = 'owner' | 'editor' | 'viewer';
@@ -19,8 +20,9 @@ export type DiaryInfo = { id: string; name: string; type: DiaryType; role: Role 
 /** The user when there is no login (AUTH_BACKEND=none). */
 export const LOCAL_USER = 'local';
 
-const SCHEMA = [
-	`
+const SCHEMA: Schema = {
+	version: 3,
+	create: `
 	CREATE TABLE sessions (
 		token_hash TEXT PRIMARY KEY,
 		username TEXT NOT NULL,
@@ -41,8 +43,7 @@ const SCHEMA = [
 		PRIMARY KEY (diary_id, username)
 	);
 	CREATE INDEX members_user ON members(username);
-	`,
-	`
+
 	-- One-time links to join a diary. Only the hash of the token is stored.
 	CREATE TABLE invites (
 		token_hash TEXT PRIMARY KEY,
@@ -51,8 +52,14 @@ const SCHEMA = [
 		created_by TEXT NOT NULL,
 		expires_at INTEGER NOT NULL     -- unix ms
 	);
-	`
-];
+	`,
+	migrations: {
+		3: `
+		-- The diary type was named after its first use.
+		UPDATE diaries SET type = 'objects' WHERE type = 'plants';
+		`
+	}
+};
 
 export function openRegistry(file: string): Db {
 	return openDb(file, SCHEMA);

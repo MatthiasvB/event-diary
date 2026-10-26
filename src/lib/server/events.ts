@@ -5,12 +5,12 @@ import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
-import { forgetInitialValue, pinCover, setInitialValue } from './plants.ts';
+import { forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
 
 type Row = {
 	id: number;
-	plant_id: string;
-	plant_name: string;
+	object_id: number;
+	object_name: string;
 	type_id: number;
 	type_name: string;
 	category: string;
@@ -22,16 +22,16 @@ type Row = {
 };
 
 const SELECT = `
-	SELECT e.id, e.plant_id, p.name AS plant_name, e.type_id, t.name AS type_name, t.category,
+	SELECT e.id, e.object_id, p.name AS object_name, e.type_id, t.name AS type_name, t.category,
 		t.milestone, e.date, e.note, e.batch_id,
 		CASE WHEN e.batch_id IS NULL THEN 1
 			ELSE (SELECT count(*) FROM events b WHERE b.batch_id = e.batch_id) END AS batch_size
 	FROM events e
-	JOIN plants p ON p.id = e.plant_id
+	JOIN objects p ON p.id = e.object_id
 	JOIN event_types t ON t.id = e.type_id`;
 
 export type EventFilter = {
-	plantId?: string;
+	objectId?: number;
 	typeId?: number;
 	category?: string;
 	from?: string;
@@ -49,7 +49,7 @@ export function listEvents(db: Db, f: EventFilter = {}): DiaryEvent[] {
 		where.push(sql);
 		params.push(value);
 	};
-	add('e.plant_id = ?', f.plantId);
+	add('e.object_id = ?', f.objectId);
 	add('e.type_id = ?', f.typeId);
 	add('t.category = ?', f.category);
 	add('e.date >= ?', f.from);
@@ -96,27 +96,27 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	for (const a of eventAttrs)
 		push(fields, a.event_id, { key: a.key, value: a.value, target: 'event' as const });
 
-	const plantAttrs = db
+	const objectAttrs = db
 		.prepare(
-			`SELECT event_id, key, value FROM plant_attrs WHERE event_id IN (${placeholders}) ORDER BY id`
+			`SELECT event_id, key, value FROM object_attrs WHERE event_id IN (${placeholders}) ORDER BY id`
 		)
 		.all(...ids) as { event_id: number; key: string; value: string }[];
-	for (const a of plantAttrs)
-		push(fields, a.event_id, { key: a.key, value: a.value, target: 'plant' as const });
+	for (const a of objectAttrs)
+		push(fields, a.event_id, { key: a.key, value: a.value, target: 'object' as const });
 
 	const links = db
 		.prepare(
-			`SELECT ep.event_id, f.id, f.mime, f.original_name AS name
-			FROM event_photos ep JOIN photos f ON f.id = ep.photo_id
-			WHERE ep.event_id IN (${placeholders}) ORDER BY ep.position`
+			`SELECT ef.event_id, f.id, f.mime, f.original_name AS name
+			FROM event_files ef JOIN files f ON f.id = ef.file_id
+			WHERE ef.event_id IN (${placeholders}) ORDER BY ef.position`
 		)
 		.all(...ids) as ({ event_id: number } & EventFile)[];
 	for (const { event_id, id, mime, name } of links) push(files, event_id, { id, mime, name });
 
 	return rows.map((r) => ({
 		id: r.id,
-		plantId: r.plant_id,
-		plantName: r.plant_name,
+		objectId: r.object_id,
+		objectName: r.object_name,
 		typeId: r.type_id,
 		typeName: r.type_name,
 		category: r.category,
@@ -144,31 +144,31 @@ export type EventInput = {
 	fileIds: string[];
 };
 
-function writeDetails(db: Db, eventId: number, plantId: string, input: EventInput) {
+function writeDetails(db: Db, eventId: number, objectId: number, input: EventInput) {
 	db.prepare('DELETE FROM event_attrs WHERE event_id = ?').run(eventId);
-	db.prepare('DELETE FROM plant_attrs WHERE event_id = ?').run(eventId);
-	db.prepare('DELETE FROM event_photos WHERE event_id = ?').run(eventId);
+	db.prepare('DELETE FROM object_attrs WHERE event_id = ?').run(eventId);
+	db.prepare('DELETE FROM event_files WHERE event_id = ?').run(eventId);
 	const eventAttr = db.prepare(
 		'INSERT OR REPLACE INTO event_attrs (event_id, key, value) VALUES (?, ?, ?)'
 	);
-	const plantAttr = db.prepare(
-		'INSERT INTO plant_attrs (plant_id, key, value, since, event_id) VALUES (?, ?, ?, ?, ?)'
+	const objectAttr = db.prepare(
+		'INSERT INTO object_attrs (object_id, key, value, since, event_id) VALUES (?, ?, ?, ?, ?)'
 	);
 	for (const f of input.fields) {
 		if (!f.key || !f.value) continue;
-		if (f.target === 'plant') {
-			plantAttr.run(plantId, f.key, f.value, input.date, eventId);
-			if (f.previous === null) forgetInitialValue(db, plantId, f.key, input.date);
-			else if (f.previous) setInitialValue(db, plantId, f.key, f.previous, input.date);
+		if (f.target === 'object') {
+			objectAttr.run(objectId, f.key, f.value, input.date, eventId);
+			if (f.previous === null) forgetInitialValue(db, objectId, f.key, input.date);
+			else if (f.previous) setInitialValue(db, objectId, f.key, f.previous, input.date);
 		} else {
 			eventAttr.run(eventId, f.key, f.value);
 		}
 	}
 	const photo = db.prepare(
-		'INSERT OR IGNORE INTO event_photos (event_id, photo_id, position) VALUES (?, ?, ?)'
+		'INSERT OR IGNORE INTO event_files (event_id, file_id, position) VALUES (?, ?, ?)'
 	);
 	input.fileIds.forEach((id, i) => photo.run(eventId, id, i));
-	if (input.fileIds.length) pinCover(db, plantId);
+	if (input.fileIds.length) pinCover(db, objectId);
 }
 
 /** The type learns which fields it is used with, so the next entry offers them. */
@@ -186,18 +186,18 @@ function learnFields(db: Db, typeId: number, fields: Field[]) {
 	);
 }
 
-/** One event per plant; several plants form a batch that can be corrected together. */
-export function createEvents(db: Db, plantIds: string[], input: EventInput): number[] {
+/** One event per object; several objects form a batch that can be corrected together. */
+export function createEvents(db: Db, objectIds: number[], input: EventInput): number[] {
 	return transaction(db, () => {
-		const batchId = plantIds.length > 1 ? randomUUID() : null;
+		const batchId = objectIds.length > 1 ? randomUUID() : null;
 		const insert = db.prepare(
-			'INSERT INTO events (plant_id, type_id, date, note, batch_id) VALUES (?, ?, ?, ?, ?)'
+			'INSERT INTO events (object_id, type_id, date, note, batch_id) VALUES (?, ?, ?, ?, ?)'
 		);
-		const ids = plantIds.map((plantId) => {
+		const ids = objectIds.map((objectId) => {
 			const id = Number(
-				insert.run(plantId, input.typeId, input.date, input.note, batchId).lastInsertRowid
+				insert.run(objectId, input.typeId, input.date, input.note, batchId).lastInsertRowid
 			);
-			writeDetails(db, id, plantId, input);
+			writeDetails(db, id, objectId, input);
 			return id;
 		});
 		learnFields(db, input.typeId, input.fields);
@@ -206,13 +206,13 @@ export function createEvents(db: Db, plantIds: string[], input: EventInput): num
 }
 
 /**
- * Updates an event, or all events of its batch. The plant can only be changed for a
- * single event. Returns photos that are no longer referenced.
+ * Updates an event, or all events of its batch. The object can only be changed for a
+ * single event. Returns files that are no longer referenced.
  */
 export function updateEvent(
 	db: Db,
 	id: number,
-	input: EventInput & { plantId: string },
+	input: EventInput & { objectId: number },
 	applyToBatch: boolean
 ): string[] {
 	return transaction(db, () => {
@@ -220,11 +220,11 @@ export function updateEvent(
 		if (!event) throw new Error(`Event ${id} not found`);
 		const targets =
 			applyToBatch && event.batchId
-				? (db.prepare('SELECT id, plant_id FROM events WHERE batch_id = ?').all(event.batchId) as {
+				? (db.prepare('SELECT id, object_id FROM events WHERE batch_id = ?').all(event.batchId) as {
 						id: number;
-						plant_id: string;
+						object_id: number;
 					}[])
-				: [{ id, plant_id: input.plantId }];
+				: [{ id, object_id: input.objectId }];
 		const before = filesOf(
 			db,
 			targets.map((t) => t.id)
@@ -232,10 +232,10 @@ export function updateEvent(
 		const update = db.prepare('UPDATE events SET type_id = ?, date = ?, note = ? WHERE id = ?');
 		for (const t of targets) {
 			update.run(input.typeId, input.date, input.note, t.id);
-			writeDetails(db, t.id, t.plant_id, input);
+			writeDetails(db, t.id, t.object_id, input);
 		}
 		if (targets.length === 1) {
-			db.prepare('UPDATE events SET plant_id = ? WHERE id = ?').run(input.plantId, id);
+			db.prepare('UPDATE events SET object_id = ? WHERE id = ?').run(input.objectId, id);
 		}
 		learnFields(db, input.typeId, input.fields);
 		return orphaned(db, before);
@@ -246,31 +246,31 @@ export function updateEvent(
 // parameter comes from outside.
 type Selection = { where: string; param: string | number };
 const ofEvent = (id: number): Selection => ({ where: 'id = ?', param: id });
-const ofPlant = (id: string): Selection => ({ where: 'plant_id = ?', param: id });
+const ofObject = (id: number): Selection => ({ where: 'object_id = ?', param: id });
 const ofType = (id: number): Selection => ({ where: 'type_id = ?', param: id });
 const ofCategory = (category: string): Selection => ({
 	where: 'type_id IN (SELECT id FROM event_types WHERE category = ?)',
 	param: category
 });
 
-/** What a deletion takes along: the events, and the photos no other event uses. */
-export type Impact = { events: number; photos: number };
+/** What a deletion takes along: the events, and the files no other event uses. */
+export type Impact = { events: number; files: number };
 
 function impact(db: Db, { where, param }: Selection): Impact {
 	return db
 		.prepare(
 			`WITH doomed AS (SELECT id FROM events WHERE ${where})
 			SELECT (SELECT count(*) FROM doomed) AS events,
-				(SELECT count(DISTINCT photo_id) FROM event_photos
-				WHERE event_id IN doomed AND photo_id NOT IN (
-					SELECT photo_id FROM event_photos WHERE event_id NOT IN doomed)) AS photos`
+				(SELECT count(DISTINCT file_id) FROM event_files
+				WHERE event_id IN doomed AND file_id NOT IN (
+					SELECT file_id FROM event_files WHERE event_id NOT IN doomed)) AS files`
 		)
 		.get(param) as Impact;
 }
 
 /**
  * Deletes the selected events and runs `then` in the same transaction. Photos go along
- * unless another event still uses them; plant attributes the events set fall back to
+ * unless another event still uses them; object attributes the events set fall back to
  * their previous value.
  */
 function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
@@ -278,11 +278,11 @@ function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
 		const before = (
 			db
 				.prepare(
-					`SELECT DISTINCT photo_id FROM event_photos
+					`SELECT DISTINCT file_id FROM event_files
 					WHERE event_id IN (SELECT id FROM events WHERE ${where})`
 				)
-				.all(param) as { photo_id: string }[]
-		).map((r) => r.photo_id);
+				.all(param) as { file_id: string }[]
+		).map((r) => r.file_id);
 		db.prepare(`DELETE FROM events WHERE ${where}`).run(param);
 		then();
 		return orphaned(db, before);
@@ -294,11 +294,11 @@ export function deleteEvent(db: Db, id: number) {
 	deleteEvents(db, ofEvent(id));
 }
 
-export const plantImpact = (db: Db, id: string) => impact(db, ofPlant(id));
+export const objectImpact = (db: Db, id: number) => impact(db, ofObject(id));
 
-/** Deletes a plant with all its events. Events of other plants stay as they are. */
-export function deletePlant(db: Db, id: string) {
-	deleteEvents(db, ofPlant(id), () => db.prepare('DELETE FROM plants WHERE id = ?').run(id));
+/** Deletes an object with all its events. Events of other objects stay as they are. */
+export function deleteObject(db: Db, id: number) {
+	deleteEvents(db, ofObject(id), () => db.prepare('DELETE FROM objects WHERE id = ?').run(id));
 }
 
 export const typeImpact = (db: Db, id: number) => impact(db, ofType(id));
@@ -320,22 +320,22 @@ export function deleteCategory(db: Db, category: string) {
 function filesOf(db: Db, eventIds: number[]): string[] {
 	const rows = db
 		.prepare(
-			`SELECT DISTINCT photo_id FROM event_photos WHERE event_id IN (${eventIds.map(() => '?').join(',')})`
+			`SELECT DISTINCT file_id FROM event_files WHERE event_id IN (${eventIds.map(() => '?').join(',')})`
 		)
-		.all(...eventIds) as { photo_id: string }[];
-	return rows.map((r) => r.photo_id);
+		.all(...eventIds) as { file_id: string }[];
+	return rows.map((r) => r.file_id);
 }
 
 function orphaned(db: Db, fileIds: string[]): string[] {
-	const used = db.prepare('SELECT 1 FROM event_photos WHERE photo_id = ? LIMIT 1');
+	const used = db.prepare('SELECT 1 FROM event_files WHERE file_id = ? LIMIT 1');
 	return fileIds.filter((p) => !used.get(p));
 }
 
-export function batchPlantIds(db: Db, batchId: string): string[] {
+export function batchObjectIds(db: Db, batchId: string): number[] {
 	const rows = db
-		.prepare('SELECT plant_id FROM events WHERE batch_id = ? ORDER BY id')
+		.prepare('SELECT object_id FROM events WHERE batch_id = ? ORDER BY id')
 		.all(batchId) as {
-		plant_id: string;
+		object_id: number;
 	}[];
-	return rows.map((r) => r.plant_id);
+	return rows.map((r) => r.object_id);
 }

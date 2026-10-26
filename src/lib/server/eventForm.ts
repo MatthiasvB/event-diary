@@ -10,7 +10,7 @@ import { ensureType } from './eventTypes.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 
 export type EventPayload = {
-	plantIds: string[];
+	objectIds: number[];
 	typeName: string;
 	category: string;
 	milestone: boolean;
@@ -40,7 +40,9 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
 	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
 	const payload: EventPayload = {
-		plantIds: [...new Set(list(raw.plantIds).map(str).filter(Boolean))],
+		objectIds: [...new Set(list(raw.objectIds).map(Number))].filter(
+			(id) => Number.isInteger(id) && id > 0
+		),
 		typeName: str(raw.typeName),
 		category: str(raw.category),
 		milestone: raw.milestone === true,
@@ -50,9 +52,9 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			.map((f) => ({
 				key: str(f?.key),
 				value: storedValue(str(f?.value), kindOf(kinds, str(f?.key))),
-				target: f?.target === 'plant' ? ('plant' as const) : ('event' as const),
+				target: f?.target === 'object' ? ('object' as const) : ('event' as const),
 				previous:
-					f?.target !== 'plant'
+					f?.target !== 'object'
 						? undefined
 						: f.previous === null
 							? null
@@ -66,9 +68,9 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 }
 
 export function validate(db: Db, p: EventPayload): string | null {
-	if (!p.plantIds.length) return t.events.noPlants;
-	const exists = db.prepare('SELECT 1 FROM plants WHERE id = ?');
-	if (p.plantIds.some((id) => !exists.get(id))) return t.events.noPlants;
+	if (!p.objectIds.length) return t.events.noObjects;
+	const exists = db.prepare('SELECT 1 FROM objects WHERE id = ?');
+	if (p.objectIds.some((id) => !exists.get(id))) return t.events.noObjects;
 	if (!p.typeName) return t.events.noType;
 	if (!isValidDate(p.date)) return t.events.badDate;
 	if (!filesExist(db, p.files)) return t.files.missing;
@@ -86,7 +88,7 @@ function resolveType(db: Db, p: EventPayload) {
 
 export function saveNewEvents(db: Db, p: EventPayload): number[] {
 	const type = resolveType(db, p);
-	return createEvents(db, p.plantIds, { ...p, typeId: type.id, fileIds: p.files });
+	return createEvents(db, p.objectIds, { ...p, typeId: type.id, fileIds: p.files });
 }
 
 export function saveEditedEvent(db: Db, id: number, p: EventPayload) {
@@ -94,7 +96,7 @@ export function saveEditedEvent(db: Db, id: number, p: EventPayload) {
 	const orphans = updateEvent(
 		db,
 		id,
-		{ ...p, plantId: p.plantIds[0], typeId: type.id, fileIds: p.files },
+		{ ...p, objectId: p.objectIds[0], typeId: type.id, fileIds: p.files },
 		p.applyToBatch
 	);
 	deleteFiles(db, orphans);

@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { deleteEvent, listEvents } from '#lib/server/events.ts';
 import { listTypes } from '#lib/server/eventTypes.ts';
-import { listPlants } from '#lib/server/plants.ts';
+import { listObjects } from '#lib/server/objects.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const PAGE = 100;
@@ -12,7 +12,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const q = url.searchParams;
 	const search = q.get('q') ?? '';
 	const filter = {
-		plantId: q.get('plant') ?? '',
+		objectId: q.get('object') ?? '',
 		typeId: q.get('type') ?? '',
 		category: q.get('category') ?? '',
 		from: q.get('from') ?? '',
@@ -21,6 +21,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const limit = Math.max(PAGE, Number(q.get('limit')) || PAGE);
 	const events = listEvents(d, {
 		...filter,
+		objectId: filter.objectId ? Number(filter.objectId) : undefined,
 		typeId: filter.typeId ? Number(filter.typeId) : undefined,
 		search,
 		limit: limit + 1
@@ -32,7 +33,7 @@ export const load: PageServerLoad = ({ url }) => {
 		limit,
 		events: events.slice(0, limit),
 		hasMore: events.length > limit,
-		plants: listPlants(d).map((p) => ({ id: p.id, name: p.name })),
+		objects: listObjects(d).map((o) => ({ id: o.id, name: o.name })),
 		types: types.map((ty) => ({ id: ty.id, name: ty.name, category: ty.category })),
 		categories: [...new Set(types.map((ty) => ty.category).filter(Boolean))].sort(),
 		saved: Number(q.get('saved')) || 0

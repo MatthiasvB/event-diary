@@ -22,8 +22,8 @@
 		{
 			href: '/[diary]',
 			key: 'h',
-			label: t.nav.plants,
-			icon: 'M12 21v-8m0 0c0-4 3-7 7-7 0 4-3 7-7 7Zm0 0c0-3-2.5-5.5-6-5.5 0 3.5 2.5 5.5 6 5.5Z'
+			label: t.nav.objects,
+			icon: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 9 8-4.5M12 12v9m0-9L4 7.5'
 		},
 		{ href: '/[diary]/events', label: t.nav.events, icon: 'M4 6h16M4 12h16M4 18h10' },
 		{
@@ -43,7 +43,7 @@
 
 	function isCurrent(href: NavItem['href']) {
 		const route = page.route.id ?? '';
-		if (href === '/[diary]') return route === '/[diary]' || route.startsWith('/[diary]/plants');
+		if (href === '/[diary]') return route === '/[diary]' || route.startsWith('/[diary]/objects');
 		if (href === '/[diary]/events')
 			return route === '/[diary]/events' || route === '/[diary]/events/[id]/edit';
 		if (href === '/[diary]/more')

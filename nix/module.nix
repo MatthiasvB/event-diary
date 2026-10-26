@@ -68,14 +68,6 @@ let
   };
 in
 {
-  imports = [
-    (lib.mkRemovedOptionModule [
-      "services"
-      "event-diary"
-      "plantIdPrefix"
-    ] "Plant IDs are internal and no longer shown, so they need no prefix.")
-  ];
-
   options.services.event-diary = {
     enable = mkEnableOption "the event diary web app";
 

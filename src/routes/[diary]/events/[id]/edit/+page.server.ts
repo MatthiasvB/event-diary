@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { parseEventForm, saveEditedEvent, validate } from '#lib/server/eventForm.ts';
 import { deleteEvent, getEvent, lastFieldsByType } from '#lib/server/events.ts';
-import { plantOptions } from '#lib/server/plantOptions.ts';
+import { objectOptions } from '#lib/server/objectOptions.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -18,11 +18,11 @@ export const load: PageServerLoad = ({ params }) => {
 	const event = eventOr404(params.id);
 	return {
 		event,
-		plants: plantOptions(d),
+		objects: objectOptions(d),
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
 		initial: {
-			plantIds: [event.plantId],
+			objectIds: [event.objectId],
 			typeName: event.typeName,
 			category: event.category,
 			date: event.date,
@@ -42,12 +42,12 @@ export const actions: Actions = {
 		if (message) return fail(400, { error: message });
 
 		saveEditedEvent(d, event.id, payload);
-		redirect(303, `/${params.diary}/plants/${encodeURIComponent(payload.plantIds[0])}`);
+		redirect(303, `/${params.diary}/objects/${payload.objectIds[0]}`);
 	},
 	delete: ({ params }) => {
 		const d = db();
 		const event = eventOr404(params.id);
 		deleteEvent(d, event.id);
-		redirect(303, `/${params.diary}/plants/${encodeURIComponent(event.plantId)}`);
+		redirect(303, `/${params.diary}/objects/${event.objectId}`);
 	}
 };

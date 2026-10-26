@@ -20,8 +20,8 @@
 	let attrFilters = $state<{ key: string; value: string }[]>([]);
 	let newKey = $state('');
 
-	// Keep filters when navigating back from a plant, but not the search: it was for
-	// finding that one plant.
+	// Keep filters when navigating back from an object, but not the search: it was for
+	// finding that one object.
 	export const snapshot: Snapshot<{
 		active: ActiveFilter;
 		attrFilters: typeof attrFilters;
@@ -30,26 +30,26 @@
 		restore: (s) => ({ active, attrFilters } = s)
 	};
 
-	const keys = $derived([...new Set(data.plants.flatMap((p) => Object.keys(p.attrs)))].sort());
+	const keys = $derived([...new Set(data.objects.flatMap((p) => Object.keys(p.attrs)))].sort());
 	const valuesOf = (key: string) =>
-		[...new Set(data.plants.map((p) => p.attrs[key]).filter(Boolean))].sort((a, b) =>
+		[...new Set(data.objects.map((p) => p.attrs[key]).filter(Boolean))].sort((a, b) =>
 			a.localeCompare(b, 'de')
 		);
 
 	const shown = $derived.by(() => {
 		const q = normalize(query);
-		return data.plants.filter(
+		return data.objects.filter(
 			(p) =>
 				(active === 'all' || p.active === (active === 'active')) &&
 				attrFilters.every((f) => !f.value || p.attrs[f.key] === f.value) &&
-				(!q || normalize([p.name, p.id, p.notes, ...Object.values(p.attrs)].join(' ')).includes(q))
+				(!q || normalize([p.name, p.notes, ...Object.values(p.attrs)].join(' ')).includes(q))
 		);
 	});
 
-	const summary = ({ count, last }: (typeof data.plants)[number]['stats']) =>
+	const summary = ({ count, last }: (typeof data.objects)[number]['stats']) =>
 		[
-			t.plants.events(count),
-			last && `${t.plants.lastEvent}: ${last.type}, ${relativeDays(last.date)}`
+			t.objects.events(count),
+			last && `${t.objects.lastEvent}: ${last.type}, ${relativeDays(last.date)}`
 		]
 			.filter(Boolean)
 			.join(' · ');
@@ -60,13 +60,13 @@
 	}
 </script>
 
-<svelte:head><title>{t.plants.title} · {data.appName}</title></svelte:head>
+<svelte:head><title>{t.objects.title} · {data.appName}</title></svelte:head>
 
 <div class="spread">
-	<h1>{t.plants.title}</h1>
+	<h1>{t.objects.title}</h1>
 	{#if canEdit()}
-		<a class="button small" href={resolve('/[diary]/plants/new', { diary: diaryId() })}
-			>+ {t.plants.new}</a
+		<a class="button small" href={resolve('/[diary]/objects/new', { diary: diaryId() })}
+			>+ {t.objects.new}</a
 		>
 	{/if}
 </div>
@@ -76,14 +76,14 @@
 	<TextInput
 		type="search"
 		bind:value={query}
-		placeholder={t.plants.searchPlaceholder}
+		placeholder={t.objects.searchPlaceholder}
 		aria-label={t.common.search}
 	/>
 </div>
 <div class="stack filters">
 	<div class="row">
-		<div class="segmented" role="group" aria-label={t.plants.active}>
-			{#each Object.entries(t.plants.activeFilter) as [value, label] (value)}
+		<div class="segmented" role="group" aria-label={t.objects.active}>
+			{#each Object.entries(t.objects.activeFilter) as [value, label] (value)}
 				<button
 					type="button"
 					aria-pressed={active === value}
@@ -92,8 +92,13 @@
 			{/each}
 		</div>
 		{#if keys.length}
-			<select class="grow" bind:value={newKey} onchange={addFilter} aria-label={t.plants.addFilter}>
-				<option value="">{t.plants.addFilter}</option>
+			<select
+				class="grow"
+				bind:value={newKey}
+				onchange={addFilter}
+				aria-label={t.objects.addFilter}
+			>
+				<option value="">{t.objects.addFilter}</option>
 				{#each keys as k (k)}<option value={k}>{k}</option>{/each}
 			</select>
 		{/if}
@@ -119,18 +124,18 @@
 	{#each shown as p (p.id)}
 		<li>
 			<a
-				class="card plant"
-				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: p.id })}
+				class="card object"
+				href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(p.id) })}
 				{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, p.id), isMedia)}
 			>
 				{#if p.coverPhotoId}
 					<img src={photoUrl(p.coverPhotoId, 's')} alt="" loading="lazy" />
 				{:else}
-					<div class="placeholder" aria-hidden="true">🌱</div>
+					<div class="placeholder" aria-hidden="true">{[...p.name][0]?.toUpperCase()}</div>
 				{/if}
 				<div class="body">
 					<strong>{p.name}</strong>
-					{#if !p.active}<span class="badge">{t.plants.inactive}</span>{/if}
+					{#if !p.active}<span class="badge">{t.objects.inactive}</span>{/if}
 					<dl class="small">
 						{#each data.columns as label, i (label)}
 							{@const date = p.stats.columns[i]}
@@ -145,7 +150,7 @@
 			</a>
 		</li>
 	{:else}
-		<li class="muted">{t.plants.empty}</li>
+		<li class="muted">{t.objects.empty}</li>
 	{/each}
 </ul>
 
@@ -184,7 +189,7 @@
 		grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
 		gap: 0.6rem;
 	}
-	.plant {
+	.object {
 		display: flex;
 		gap: 0.75rem;
 		padding: 0.6rem;
@@ -192,7 +197,7 @@
 		text-decoration: none;
 		height: 100%;
 	}
-	.plant img,
+	.object img,
 	.placeholder {
 		width: 76px;
 		height: 76px;
@@ -205,6 +210,8 @@
 		display: grid;
 		place-items: center;
 		font-size: 2rem;
+		font-weight: 600;
+		color: var(--accent);
 	}
 	.body {
 		flex: 1;

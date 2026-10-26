@@ -6,7 +6,7 @@ let
   '';
   payload = pkgs.writeText "payload.json" (
     builtins.toJSON {
-      plantIds = [ "P-001" ];
+      objectIds = [ 1 ];
       typeName = "Erste Blüte offen";
       category = "Blüte";
       milestone = true;
@@ -16,7 +16,7 @@ let
         {
           key = "Standort";
           value = "Südfenster";
-          target = "plant";
+          target = "object";
         }
       ];
       files = [ ]; # filled in with the uploaded photo
@@ -86,14 +86,14 @@ in
 
     with subtest("create a diary"):
         assert "Tagebücher" in get("/", cookie), "a new user starts at the (empty) diary list"
-        target = location(f"{auth} -F name=Testtagebuch -F type=plants '{base}/?/create'")
+        target = location(f"{auth} -F name=Testtagebuch -F type=objects '{base}/?/create'")
         assert target.endswith("/testtagebuch"), target
         diary = "/testtagebuch"
 
-    with subtest("create a plant and an event with a photo"):
+    with subtest("create an object and an event with a photo"):
         assert status(
             f"{auth} -F name=Testpflanze -F active=on "
-            f"-F attrKey=Standort -F attrValue=Ostfenster '{base}{diary}/plants/new?/save'"
+            f"-F attrKey=Standort -F attrValue=Ostfenster '{base}{diary}/objects/new?/save'"
         ) == "303"
         # Files are uploaded one by one first, then the event is saved with their IDs.
         def upload(path, name, type):
@@ -109,12 +109,12 @@ in
         assert status(
             f"{auth} -F 'payload=</tmp/payload.json' '{base}{diary}/events/new?/save'"
         ) == "303"
-        page = get(f"{diary}/plants/P-001", cookie)
+        page = get(f"{diary}/objects/1", cookie)
         assert "Restore me" in page and "Südfenster" in page
-        m = re.search(r"/photos/([0-9a-f-]{36})", page)
-        assert m, "plant page must show the photo"
+        m = re.search(r"/files/([0-9a-f-]{36})", page)
+        assert m, "object page must show the photo"
         photo = m.group(1)
-        machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb.jpg '{base}{diary}/photos/{photo}?size=s'")
+        machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb.jpg '{base}{diary}/files/{photo}?size=s'")
         machine.succeed("head -c 3 /tmp/thumb.jpg | od -An -tx1 | grep -q 'ff d8 ff'")
         assert location(f"-H 'Cookie: session={cookie}' {base}/").endswith(diary), "a single diary opens directly"
 
@@ -132,12 +132,12 @@ in
         event = json.load(open("${payload}")) | {"files": files, "note": "Mit Anhängen", "fields": []}
         machine.succeed(f"cat > /tmp/payload.json <<'EOF'\n{json.dumps(event)}\nEOF")
         assert status(f"{auth} -F 'payload=</tmp/payload.json' '{base}{diary}/events/new?/save'") == "303"
-        assert "Plan EG.pdf" in get(f"{diary}/plants/P-001", cookie), "documents are listed by name"
+        assert "Plan EG.pdf" in get(f"{diary}/objects/1", cookie), "documents are listed by name"
 
         def headers_of(id, extra=""):
             return machine.succeed(
                 f"curl -sf -D - -o /dev/null -H 'Cookie: session={cookie}' {extra} "
-                f"'{base}{diary}/photos/{id}?size=original'"
+                f"'{base}{diary}/files/{id}?size=original'"
             ).lower()
 
         h = headers_of(clip, "-H 'Range: bytes=1000-1999'")
@@ -148,7 +148,7 @@ in
         assert "application/octet-stream" in h and "attachment" in h, "HTML is only ever a download"
         h = machine.succeed(
             f"curl -sf -D - -o /dev/null -H 'Cookie: session={cookie}' "
-            f"'{base}{diary}/photos/{doc}?size=original&download=1'"
+            f"'{base}{diary}/files/{doc}?size=original&download=1'"
         ).lower()
         assert "filename*=utf-8'''plan%20eg.pdf" in h, "downloads keep their name"
         big = status(
@@ -161,10 +161,10 @@ in
         assert bob
         assert "Testtagebuch" not in get("/", bob)
         assert status(f"-H 'Cookie: session={bob}' {base}{diary}") == "404"
-        assert status(f"-H 'Cookie: session={bob}' {base}{diary}/plants/P-001") == "404"
-        assert status(f"-H 'Cookie: session={bob}' '{base}{diary}/photos/{photo}?size=original'") == "404"
+        assert status(f"-H 'Cookie: session={bob}' {base}{diary}/objects/1") == "404"
+        assert status(f"-H 'Cookie: session={bob}' '{base}{diary}/files/{photo}?size=original'") == "404"
         assert status(
-            f"{headers} -H 'Cookie: session={bob}' -F id=P-009 -F name=Fremd '{base}{diary}/plants/new?/save'"
+            f"{headers} -H 'Cookie: session={bob}' -F name=Fremd '{base}{diary}/objects/new?/save'"
         ) == "404", "nor can they write into it"
 
     with subtest("idle shutdown and socket activation"):
@@ -193,25 +193,25 @@ in
         machine.succeed("systemctl start event-diary.socket")
 
         cookie = login("alice", "secret")
-        page = get(f"{diary}/plants/P-001", cookie)
+        page = get(f"{diary}/objects/1", cookie)
         assert "Restore me" in page and "Südfenster" in page, "data must survive the restore"
         machine.succeed(
-            f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/original '{base}{diary}/photos/{photo}?size=original'",
+            f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/original '{base}{diary}/files/{photo}?size=original'",
             "cmp /tmp/original ${testImage}",
         )
-        machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb2.jpg '{base}{diary}/photos/{photo}?size=s'")
+        machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb2.jpg '{base}{diary}/files/{photo}?size=s'")
 
-    with subtest("deleting a plant takes its events and photos along"):
+    with subtest("deleting an object takes its events and photos along"):
         bob = login("bob", "bobsecret")
         assert status(
-            f"{headers} -H 'Cookie: session={bob}' -F go=1 '{base}{diary}/plants/P-001/edit?/delete'"
+            f"{headers} -H 'Cookie: session={bob}' -F go=1 '{base}{diary}/objects/1/edit?/delete'"
         ) == "404", "only members can delete"
         target = location(
-            f"{headers} -H 'Cookie: session={cookie}' -F go=1 '{base}{diary}/plants/P-001/edit?/delete'"
+            f"{headers} -H 'Cookie: session={cookie}' -F go=1 '{base}{diary}/objects/1/edit?/delete'"
         )
         assert target.endswith(diary), target
-        assert status(f"-H 'Cookie: session={cookie}' {base}{diary}/plants/P-001") == "404"
-        assert status(f"-H 'Cookie: session={cookie}' '{base}{diary}/photos/{photo}?size=s'") == "404"
+        assert status(f"-H 'Cookie: session={cookie}' {base}{diary}/objects/1") == "404"
+        assert status(f"-H 'Cookie: session={cookie}' '{base}{diary}/files/{photo}?size=s'") == "404"
         machine.succeed(f"test -z \"$(ls -A {data_dir}/photos)\"")
 
     with subtest("sharing a diary through one-time links"):
@@ -237,10 +237,10 @@ in
         assert accept(carol, token) == "410", "a link works only once"
         assert status(f"-H 'Cookie: session={carol}' {base}{diary}") == "404"
 
-        add_plant = f"-F name=Geteilt -F active=on '{base}{diary}/plants/new?/save'"
-        assert status(f"{headers} -H 'Cookie: session={bob}' {add_plant}") == "403", "viewers can't write"
+        add_object = f"-F name=Geteilt -F active=on '{base}{diary}/objects/new?/save'"
+        assert status(f"{headers} -H 'Cookie: session={bob}' {add_object}") == "403", "viewers can't write"
         assert status(f"{alice} -F username=bob -F role=editor '{base}{diary}/diary?/setRole'") == "200"
-        assert status(f"{headers} -H 'Cookie: session={bob}' {add_plant}") == "303", "editors can"
+        assert status(f"{headers} -H 'Cookie: session={bob}' {add_object}") == "303", "editors can"
         assert status(f"{headers} -H 'Cookie: session={bob}' -F name=Meins '{base}{diary}/diary?/rename'") == "403", "only the owner manages the diary"
 
         revoked = invite("editor")

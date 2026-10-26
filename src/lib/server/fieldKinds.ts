@@ -26,7 +26,7 @@ export function setFieldKind(db: Db, key: string, kind: FieldKind) {
 function isUsed(db: Db, key: string): boolean {
 	return !!db
 		.prepare(
-			`SELECT 1 FROM event_attrs WHERE key = ?1 UNION ALL SELECT 1 FROM plant_attrs WHERE key = ?1
+			`SELECT 1 FROM event_attrs WHERE key = ?1 UNION ALL SELECT 1 FROM object_attrs WHERE key = ?1
 			UNION ALL SELECT 1 FROM event_types, json_each(event_types.fields)
 				WHERE json_each.value ->> 'key' = ?1
 			LIMIT 1`

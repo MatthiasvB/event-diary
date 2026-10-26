@@ -6,18 +6,18 @@ const n = (count: number, one: string, many: string) =>
 	count === 1 ? `1 ${one}` : `${count} ${many}`;
 
 /** Confirmation for deletions that take events (and maybe photos) along. */
-const confirmWithEvents = (what: string, impact: { events: number; photos: number }) =>
+const confirmWithEvents = (what: string, impact: { events: number; files: number }) =>
 	`${what} endgültig löschen?` +
 	(impact.events
-		? ` Dabei ${impact.events === 1 && !impact.photos ? 'wird' : 'werden'} ${n(impact.events, 'Ereignis', 'Ereignisse')}` +
-			(impact.photos ? ` und ${n(impact.photos, 'Datei', 'Dateien')}` : '') +
+		? ` Dabei ${impact.events === 1 && !impact.files ? 'wird' : 'werden'} ${n(impact.events, 'Ereignis', 'Ereignisse')}` +
+			(impact.files ? ` und ${n(impact.files, 'Datei', 'Dateien')}` : '') +
 			' gelöscht.'
 		: '') +
 	' Das kann nicht rückgängig gemacht werden.';
 
 export const t = {
 	nav: {
-		plants: 'Objekte',
+		objects: 'Objekte',
 		events: 'Ereignisse',
 		add: 'Erfassen',
 		photo: 'Foto',
@@ -68,7 +68,7 @@ export const t = {
 		logout: 'Abmelden',
 		loggedInAs: (u: string) => `Angemeldet als ${u}`
 	},
-	plants: {
+	objects: {
 		title: 'Objekte',
 		new: 'Neues Objekt',
 		edit: 'Objekt bearbeiten',
@@ -106,7 +106,7 @@ export const t = {
 		isCover: 'Titelbild',
 		deleteHint:
 			'Löschen entfernt das Objekt mit seiner ganzen Chronik und seinen Fotos und Dateien. Ist es nur nicht mehr da (z. B. abgegeben), setze es besser auf inaktiv: Dann bleibt seine Geschichte erhalten.',
-		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
+		confirmDelete: (name: string, impact: { events: number; files: number }) =>
 			confirmWithEvents(`„${name}“`, impact) +
 			'\n\nWenn das Objekt nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
 		timeline: 'Chronik',
@@ -122,9 +122,9 @@ export const t = {
 		new: 'Ereignis erfassen',
 		edit: 'Ereignis bearbeiten',
 		confirmDelete: (type: string, date: string) => `„${type}“ vom ${date} löschen?`,
-		plants: 'Objekt(e)',
-		choosePlants: 'Objekte wählen',
-		selectedPlants: (n: number) => (n === 1 ? '1 Objekt' : `${n} Objekte`),
+		objects: 'Objekt(e)',
+		chooseObjects: 'Objekte wählen',
+		selectedObjects: (n: number) => (n === 1 ? '1 Objekt' : `${n} Objekte`),
 		selectAllMatching: (n: number) => `Alle ${n} auswählen`,
 		clearSelection: 'Auswahl leeren',
 		onlyActive: 'nur aktive',
@@ -137,8 +137,8 @@ export const t = {
 		addField: 'Angabe hinzufügen',
 		fieldKey: 'Angabe',
 		fieldValue: 'Wert',
-		targetPlant: 'ändert Objekt',
-		targetPlantHint: 'Wird als Eigenschaft des Objekts ab diesem Datum gespeichert.',
+		targetObject: 'ändert Objekt',
+		targetObjectHint: 'Wird als Eigenschaft des Objekts ab diesem Datum gespeichert.',
 		previous: 'Wert davor:',
 		previousKeep: 'unverändert',
 		previousValue: 'eintragen …',
@@ -158,14 +158,14 @@ export const t = {
 			`Änderungen auf alle ${n} Ereignisse dieser Sammelbuchung anwenden`,
 		batch: (n: number) => `Sammelbuchung (${n})`,
 		removePhoto: 'Entfernen',
-		noPlants: 'Bitte mindestens ein Objekt wählen.',
+		noObjects: 'Bitte mindestens ein Objekt wählen.',
 		noType: 'Bitte ein Ereignis angeben.',
 		badDate: 'Bitte ein gültiges Datum angeben.',
 		saved: (n: number) => (n === 1 ? 'Ereignis gespeichert.' : `${n} Ereignisse gespeichert.`),
 		empty: 'Keine Ereignisse gefunden.',
 		from: 'von',
 		to: 'bis',
-		allPlants: 'Alle Objekte',
+		allObjects: 'Alle Objekte',
 		allTypes: 'Alle Ereignisse',
 		allCategories: 'Alle Kategorien',
 		more: 'Mehr anzeigen',
@@ -190,7 +190,7 @@ export const t = {
 		renameHint: 'Umbenennen und Zusammenführen unter „Daten pflegen“.',
 		deleteHint:
 			'Löschen entfernt den Ereignistyp mit allen seinen Ereignissen und deren Fotos und Dateien. Eigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück. Um ihn mit einem anderen Typ zusammenzulegen, stattdessen „Daten pflegen“ nutzen.',
-		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
+		confirmDelete: (name: string, impact: { events: number; files: number }) =>
 			confirmWithEvents(`Ereignistyp „${name}“`, impact),
 		categoryTaken: (name: string, category: string) =>
 			`In „${category || 'Ohne Kategorie'}“ gibt es „${name}“ schon. Zum Zusammenführen „Daten pflegen“ nutzen.`,
@@ -198,7 +198,7 @@ export const t = {
 		confirmDeleteCategory: (
 			category: string,
 			types: number,
-			impact: { events: number; photos: number }
+			impact: { events: number; files: number }
 		) =>
 			confirmWithEvents(
 				`Kategorie „${category}“ mit ${n(types, 'Ereignistyp', 'Ereignistypen')}`,
@@ -302,8 +302,8 @@ export const t = {
 		delete: 'Tagebuch löschen',
 		deleteHint:
 			'Löscht das Tagebuch mit allen Objekten, Ereignissen, Fotos und Dateien, auch für alle, mit denen es geteilt ist.',
-		confirmDelete: (name: string, c: { plants: number; events: number; photos: number }) =>
-			`Tagebuch „${name}“ mit ${n(c.plants, 'Objekt', 'Objekten')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Datei', 'Dateien')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
+		confirmDelete: (name: string, c: { objects: number; events: number; files: number }) =>
+			`Tagebuch „${name}“ mit ${n(c.objects, 'Objekt', 'Objekten')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.files, 'Datei', 'Dateien')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
 	},
 	invite: {
 		title: 'Einladung',
@@ -322,7 +322,7 @@ export const t = {
 		name: 'Name',
 		nameRequired: 'Bitte einen Namen angeben.',
 		type: 'Art',
-		types: { plants: 'Ereignistagebuch' },
+		types: { objects: 'Ereignistagebuch' },
 		create: 'Anlegen',
 		shareHint: 'Für welches Tagebuch sind die geteilten Fotos?'
 	},
@@ -331,7 +331,7 @@ export const t = {
 		hint: 'Am Computer; auf dem Mac mit ⌘ statt Strg.',
 		modifier: 'Strg',
 		home: 'Übersicht',
-		newPlant: 'Neues Objekt',
+		newObject: 'Neues Objekt',
 		newEvent: 'Ereignis erfassen (auf einer Objektseite für dieses Objekt)',
 		search: 'Objekte durchsuchen',
 		save: 'Formular speichern'

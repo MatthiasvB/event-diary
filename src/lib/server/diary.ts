@@ -1,6 +1,6 @@
 // The diary of the current request (the /<diary>/… part of the URL). It is only opened
 // if the logged-in user is a member, so data can't leak between users or diaries.
-// Photo files are shared in photos/, but are only served when the diary references them.
+// Attached files are shared in photos/, but are only served when the diary references them.
 import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
@@ -39,23 +39,21 @@ export function db(): Db {
 }
 
 /** What deleting the current diary takes along. */
-export function diaryContents(): { plants: number; events: number; photos: number } {
+export function diaryContents(): { objects: number; events: number; files: number } {
 	return db()
 		.prepare(
-			`SELECT (SELECT count(*) FROM plants) AS plants, (SELECT count(*) FROM events) AS events,
-			(SELECT count(*) FROM photos) AS photos`
+			`SELECT (SELECT count(*) FROM objects) AS objects, (SELECT count(*) FROM events) AS events,
+			(SELECT count(*) FROM files) AS files`
 		)
-		.get() as { plants: number; events: number; photos: number };
+		.get() as { objects: number; events: number; files: number };
 }
 
 /** Deletes the current diary with everything in it, including its photo files. Owners only. */
 export function deleteCurrentDiary() {
 	const { id } = requireOwner();
 	const diary = db();
-	const photos = (diary.prepare('SELECT id FROM photos').all() as { id: string }[]).map(
-		(r) => r.id
-	);
-	deleteFiles(diary, photos);
+	const files = (diary.prepare('SELECT id FROM files').all() as { id: string }[]).map((r) => r.id);
+	deleteFiles(diary, files);
 	diary.close();
 	open.delete(id);
 	deleteDiary(registry(), config.dbDir, id);

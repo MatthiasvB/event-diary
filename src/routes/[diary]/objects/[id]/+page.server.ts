@@ -1,16 +1,16 @@
 import { error, fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { deleteEvent, listEvents } from '#lib/server/events.ts';
-import { plantStats } from '#lib/server/overview.ts';
+import { objectStats } from '#lib/server/overview.ts';
 import { FILE_ID, getFile } from '#lib/server/files.ts';
 import { fileKind } from '#lib/files.ts';
 import {
 	attrHistory,
 	forgetInitialValue,
-	getPlant,
+	getObject,
 	setCover,
 	setInitialValue
-} from '#lib/server/plants.ts';
+} from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { getFieldKinds } from '#lib/server/fieldKinds.ts';
 import { kindOf, storedValue } from '#lib/fieldKinds.ts';
@@ -18,16 +18,21 @@ import { getOverviewColumns } from '#lib/server/settings.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
+function objectOr404(id: string) {
+	const object = getObject(db(), Number(id));
+	if (!object) error(404, t.errors.notFound);
+	return object;
+}
+
 export const load: PageServerLoad = ({ params }) => {
 	const d = db();
-	const plant = getPlant(d, params.id);
-	if (!plant) error(404, t.errors.notFound);
+	const object = objectOr404(params.id);
 	const columns = getOverviewColumns(d);
-	const stats = plantStats(d, columns).get(plant.id);
+	const stats = objectStats(d, columns).get(object.id);
 	return {
-		plant,
-		history: attrHistory(d, plant.id),
-		events: listEvents(d, { plantId: plant.id, limit: 5000 }),
+		object,
+		history: attrHistory(d, object.id),
+		events: listEvents(d, { objectId: object.id, limit: 5000 }),
 		lastDates: columns.map((c, i) => ({ label: c.label, date: stats?.columns[i] ?? null })),
 		values: vocabulary(d).values
 	};
@@ -44,12 +49,12 @@ export const actions: Actions = {
 		const file = FILE_ID.test(photo) ? getFile(db(), photo) : undefined;
 		// Only photos can be the cover.
 		if (!file || fileKind(file.mime, file.original_name) !== 'image') return fail(400);
-		setCover(db(), params.id, photo);
+		setCover(db(), objectOr404(params.id).id, photo);
 	},
 	forgetInitial: async ({ request, params }) => {
 		const key = String((await request.formData()).get('key') ?? '');
 		if (!key) return fail(400);
-		forgetInitialValue(db(), params.id, key);
+		forgetInitialValue(db(), objectOr404(params.id).id, key);
 	},
 	setInitial: async ({ request, params }) => {
 		const form = await request.formData();
@@ -60,6 +65,6 @@ export const actions: Actions = {
 			kindOf(getFieldKinds(d), key)
 		);
 		if (!key || !value) return fail(400);
-		setInitialValue(d, params.id, key, value);
+		setInitialValue(d, objectOr404(params.id).id, key, value);
 	}
 };

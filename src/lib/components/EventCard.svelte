@@ -14,12 +14,12 @@
 
 	type Props = {
 		event: DiaryEvent;
-		showPlant?: boolean;
-		/** Plant page only: mark and choose the cover image. */
+		showObject?: boolean;
+		/** Object page only: mark and choose the cover image. */
 		coverPhotoId?: string | null;
 		canSetCover?: boolean;
 	};
-	let { event, showPlant = false, coverPhotoId = null, canSetCover = false }: Props = $props();
+	let { event, showObject = false, coverPhotoId = null, canSetCover = false }: Props = $props();
 
 	let viewer = $state<PhotoViewer>();
 
@@ -80,12 +80,12 @@
 		</div>
 	</header>
 
-	{#if showPlant}
+	{#if showObject}
 		<p>
 			<a
 				class="above"
-				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: event.plantId })}
-				>{event.plantName}</a
+				href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(event.objectId) })}
+				>{event.objectName}</a
 			>
 		</p>
 	{/if}
@@ -94,7 +94,7 @@
 		<ul class="fields">
 			{#each event.fields as f (f.target + f.key)}
 				<li>
-					<span class="muted">{f.key}{f.target === 'plant' ? ' →' : ':'}</span>
+					<span class="muted">{f.key}{f.target === 'object' ? ' →' : ':'}</span>
 					{showValue(f.key, f.value)}
 				</li>
 			{/each}
@@ -128,7 +128,7 @@
 					>
 						<MediaThumb file={p} />
 						{#if canSetCover && p.id === coverPhotoId}
-							<span class="cover" title={t.plants.isCover}>★</span>
+							<span class="cover" title={t.objects.isCover}>★</span>
 						{/if}
 					</button>
 				</li>

@@ -1,5 +1,5 @@
 <!--
-	History of one plant attribute. The initial value ("from the beginning") can be
+	History of one object attribute. The initial value ("from the beginning") can be
 	changed or marked as not recorded, e.g. when older changes were entered later.
 -->
 <script lang="ts">
@@ -11,9 +11,9 @@
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { Candidate } from '#lib/suggest.ts';
-	import type { PlantAttr } from '#lib/types.ts';
+	import type { ObjectAttr } from '#lib/types.ts';
 
-	type Props = { key: string; history: PlantAttr[]; candidates: Candidate[] };
+	type Props = { key: string; history: ObjectAttr[]; candidates: Candidate[] };
 	let { key, history, candidates }: Props = $props();
 
 	let editing = $state(false);
@@ -29,12 +29,12 @@
 </script>
 
 <details open={editing || undefined}>
-	<summary class="small">{t.plants.history} ({history.length})</summary>
+	<summary class="small">{t.objects.history} ({history.length})</summary>
 	<!-- Newest first, but numbered in chronological order. -->
 	<ol class="small" reversed>
 		{#each [...history].reverse() as h (h.id)}
 			<li>
-				<span class="muted">{h.since ? formatDate(h.since) : t.plants.initial}</span>
+				<span class="muted">{h.since ? formatDate(h.since) : t.objects.initial}</span>
 				{showValue(key, h.value)}
 				{#if h.eventId}
 					<a
@@ -43,16 +43,16 @@
 					>
 				{/if}
 				{#if h === initial && changed && !editing && canEdit()}
-					<button type="button" class="tiny" onclick={edit}>{t.plants.editInitial}</button>
+					<button type="button" class="tiny" onclick={edit}>{t.objects.editInitial}</button>
 					<form
 						method="POST"
 						action="?/forgetInitial"
 						use:enhance={({ cancel }) => {
-							if (!confirm(t.plants.confirmNotRecorded(key, showValue(key, h.value)))) cancel();
+							if (!confirm(t.objects.confirmNotRecorded(key, showValue(key, h.value)))) cancel();
 						}}
 					>
 						<input type="hidden" name="key" value={key} />
-						<button class="tiny">{t.plants.notRecorded}</button>
+						<button class="tiny">{t.objects.notRecorded}</button>
 					</form>
 				{/if}
 			</li>
@@ -60,9 +60,9 @@
 	</ol>
 	{#if !initial && !editing}
 		<p class="muted small">
-			{t.plants.beforeNotRecorded}
+			{t.objects.beforeNotRecorded}
 			{#if canEdit()}
-				<button type="button" class="tiny" onclick={edit}>{t.plants.addInitial}</button>
+				<button type="button" class="tiny" onclick={edit}>{t.objects.addInitial}</button>
 			{/if}
 		</p>
 	{/if}
@@ -83,8 +83,8 @@
 				{key}
 				bind:value={draft}
 				{candidates}
-				label={t.plants.initialValue}
-				placeholder={t.plants.initialValue}
+				label={t.objects.initialValue}
+				placeholder={t.objects.initialValue}
 			/>
 			<div class="row">
 				<button class="small primary" disabled={!draft.trim()}>{t.common.save}</button>

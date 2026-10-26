@@ -7,18 +7,18 @@ export const pendingPhotos: { files: File[] } = $state({ files: [] });
 
 /**
  * Camera shortcut: after taking a photo, open the event form in photo mode
- * (photo event type and capture date prefilled), optionally for a given plant.
+ * (photo event type and capture date prefilled), optionally for a given object.
  */
-export async function startPhotoEvent(e: Event, plantId?: string) {
+export async function startPhotoEvent(e: Event, objectId?: number) {
 	const input = e.currentTarget as HTMLInputElement;
 	const files = [...(input.files ?? [])];
 	input.value = '';
-	if (files.length) await openPhotoEvent(files, plantId);
+	if (files.length) await openPhotoEvent(files, objectId);
 }
 
-/** Opens the event form in photo mode with these files, e.g. dropped onto a plant. */
-export async function openPhotoEvent(files: File[], plantId?: string) {
+/** Opens the event form in photo mode with these files, e.g. dropped onto an object. */
+export async function openPhotoEvent(files: File[], objectId?: number) {
 	pendingPhotos.files = files;
-	const plant = plantId ? `&plant=${encodeURIComponent(plantId)}` : '';
-	await goto(resolve(`/[diary]/events/new?photo=1${plant}`, { diary: diaryId() }));
+	const object = objectId ? `&object=${objectId}` : '';
+	await goto(resolve(`/[diary]/events/new?photo=1${object}`, { diary: diaryId() }));
 }

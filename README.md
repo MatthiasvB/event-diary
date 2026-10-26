@@ -1,24 +1,24 @@
 # Event diary
 
-A small self-hosted web app for keeping a diary of objects and what happens to them, for
-example plants: care, growth, flowering, problems and treatments. It answers questions like
-"when did I last fertilize this plant?" or "how did that root rot develop?".
+A small self-hosted web app for keeping a diary of objects ("Objekte") and what happens
+to them: plants and their care, a house being built, a car and its repairs. It answers
+questions like "when did I last fertilize this plant?" or "what was done on the cellar
+ceiling, and when?".
 
 It is mobile first, installable as a PWA on the phone's home screen, and has a German UI.
-Nothing in it is specific to plants; the UI calls them objects ("Objekte").
 
 ## Using it
 
 - **Diaries**: after logging in you see your diaries (with only one, it opens directly).
-  Each diary has its own plants, events, event types, suggestions and settings, and its
+  Each diary has its own objects, events, event types, suggestions and settings, and its
   own URL: `/<diary>/…`. New diaries are created on that list; _Mehr → Alle Tagebücher_
   leads back to it.
-- **Plants** (start page of a diary): cards with cover photo, name and "last …" columns
-  (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any attribute.
+- **Objekte** (start page of a diary): cards with cover photo, name and "last …" columns
+  (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any property.
   The columns are chosen under _Mehr → Einstellungen_.
-- **Erfassen (+)**: the main flow. Choose plant(s), type or choose the event type, add
+- **Erfassen (+)**: the main flow. Choose object(s), type or choose the event type, add
   fields, a note, photos, videos and other files, then save. Choosing a type fills in its
-  usual fields and shows its hint. Several plants at once create a _batch_ that can later be
+  usual fields and shows its hint. Several objects at once create a _batch_ that can later be
   corrected in one go.
 - **Attachments**: photos (thumbnails, viewer, cover image), videos (played in the
   browser's own player, with seeking) and any other files such as PDFs, which are listed by
@@ -26,18 +26,18 @@ Nothing in it is specific to plants; the UI calls them objects ("Objekte").
   are kept exactly as uploaded. When saving, they are uploaded one by one, so the size
   limit (`maxUploadSize`) applies per file. Videos play if the browser supports their
   format (e.g. iPhone HEVC `.mov` not everywhere); they can always be downloaded.
-- **Foto** (camera in the navigation): photo first, then the plant, then save. The photo's
+- **Foto** (camera in the navigation): photo first, then the object, then save. The photo's
   capture date is offered as the event date.
 - **Sharing photos into the app** (Android): installed via Chrome (or another
   Chromium-based browser), the app appears in the system share sheet for photos and
   videos. Shared files open the event form in photo mode. Firefox for Android and iOS don't support
   this for web apps. A minimal service worker receives the shared images; it doesn't
   cache the app or provide offline use.
-- **Drag and drop** (desktop): drop photos or videos onto a plant's card or page, or any
+- **Drag and drop** (desktop): drop photos or videos onto an object's card or page, or any
   files onto the file area of a form.
-- **Plant page**: current attributes with their history, a timeline with photos, and
+- **Object page**: current properties with their history, a timeline with photos, and
   _Wiederholen_ (repeat) on every event.
-- **Ereignisse**: all events, filtered by plant, type, category and date range.
+- **Ereignisse**: all events, filtered by object, type, category and date range.
 - **Mehr → Daten pflegen**: rename or merge values (categories, event types, field names,
   values). Similar spellings are listed automatically ("Catleya" → "Cattleya").
 - **Kinds of values**: properties and event details are plain text by default. A new name
@@ -45,9 +45,8 @@ Nothing in it is specific to plants; the UI calls them objects ("Objekte").
   von Angaben/Eigenschaften_. A name can be a date (entered as
   `YYYY-MM-DD`, with a calendar) or a number with an optional unit ("12,5 cm"). Values
   stay text in the database (dates as `YYYY-MM-DD`, numbers with a dot), so changing the
-  kind never loses data; a value that doesn't fit is shown as typed. "Erworben am" used to
-  be a fixed field of every plant; existing diaries now have it as an ordinary date
-  property, and "Speichern & weitere" carries date properties over to the next object.
+  kind never loses data; a value that doesn't fit is shown as typed. "Speichern & weitere"
+  carries date properties (e.g. _Erworben am_) over to the next object.
 
 ### Free values with suggestions
 
@@ -57,12 +56,12 @@ field suggests existing values, ranked by match quality, frequency, recency and 
 small typos. A value that doesn't exist yet is marked "+ Neu: …", and close existing
 values are offered to avoid near-duplicates.
 
-Events and plants have a small fixed core. Everything else is a key/value field:
+Events and objects have a small fixed core. Everything else is a key/value field:
 
 - **Event fields** (e.g. _Produkt_, _Wert_, _Einheit_) belong to the event.
-- **Plant fields** ("ändert Pflanze", e.g. _Standort_, _Substrat_, _Topfgröße_) set a plant
-  attribute from the event's date on. The plant page shows the current value and its
-  history. Deleting the event restores the previous value.
+- **Object fields** ("ändert Objekt", e.g. _Standort_, _Substrat_, _Topfgröße_) set a
+  property of the object from the event's date on. The object page shows the current value
+  and its history. Deleting the event restores the previous value.
 
 Event types learn which fields they are used with. On the event type page you can edit
 them and set default values; without a default, the value from the last use is suggested.
@@ -132,7 +131,7 @@ in
     prepareServices = [ config.systemd.services.event-diary-backup.name ];
   };
 
-  services.nginx.virtualHosts."plants.example.org" = {
+  services.nginx.virtualHosts."diary.example.org" = {
     forceSSL = true;
     locations."/" = {
       proxyPass = "http://127.0.0.1:${toString diary.port}";
@@ -166,11 +165,11 @@ Users log in with their system account (PAM) and get a session cookie for 90 day
 Each user sees only the diaries they are a member of. A diary is its own database
 (`db/diaries/<id>.sqlite`); a central database (`db/registry.sqlite`) records the diaries
 (name, type), the memberships (user, diary, role) and the sessions. Every access to a
-diary's data checks the membership, so another user's diary, its pages and its photos
+diary's data checks the membership, so another user's diary, its pages and its files
 are simply "not found".
 
 A user can have several diaries ("Mehr → Alle Tagebücher"); the owner renames or
-deletes one under "Mehr → Tagebuch & Teilen". Deleting removes its database and photos.
+deletes one under "Mehr → Tagebuch & Teilen". Deleting removes its database and files.
 
 **Sharing** works with one-time invite links, so nobody ever picks from (or learns) the
 list of accounts on the server:
@@ -185,7 +184,7 @@ still apply (`auth.allowedUsers`). The owner sees the members, changes their rol
 removes them, which takes effect immediately; members can leave. Viewers can't change
 anything: every change is a POST inside the diary, and those are refused for viewers.
 
-Diaries have a type; for now there is only `plants`, whose views are the pages under
+Diaries have a type; for now there is only `objects`, whose views are the pages under
 `src/routes/[diary]/`. Another type would get its own views.
 
 Without login (`auth.backend = "none"`) there is one implicit user, `local`.

@@ -78,14 +78,14 @@ export async function saveFile(
 
 	const taken = fileKind(mime, originalName) === 'image' ? await captureTime(target) : null;
 	db.prepare(
-		'INSERT INTO photos (id, file, mime, original_name, taken_at) VALUES (?, ?, ?, ?, ?)'
+		'INSERT INTO files (id, file, mime, original_name, taken_at) VALUES (?, ?, ?, ?, ?)'
 	).run(id, name, mime, originalName, taken);
 	return id;
 }
 
 /** Whether all these files exist (uploads that weren't attached are removed after a day). */
 export function filesExist(db: Db, ids: string[]): boolean {
-	const exists = db.prepare('SELECT 1 FROM photos WHERE id = ?');
+	const exists = db.prepare('SELECT 1 FROM files WHERE id = ?');
 	return ids.every((id) => exists.get(id));
 }
 
@@ -96,9 +96,9 @@ export function filesExist(db: Db, ids: string[]): boolean {
 export function deleteStaleUploads(db: Db) {
 	const stale = db
 		.prepare(
-			`SELECT id FROM photos WHERE created_at < datetime('now', '-1 day')
-			AND id NOT IN (SELECT photo_id FROM event_photos)
-			AND id NOT IN (SELECT cover_photo_id FROM plants WHERE cover_photo_id IS NOT NULL)`
+			`SELECT id FROM files WHERE created_at < datetime('now', '-1 day')
+			AND id NOT IN (SELECT file_id FROM event_files)
+			AND id NOT IN (SELECT cover_photo_id FROM objects WHERE cover_photo_id IS NOT NULL)`
 		)
 		.all() as { id: string }[];
 	deleteFiles(
@@ -121,9 +121,8 @@ export async function captureTime(data: string | Uint8Array): Promise<string | n
 }
 
 export function getFile(db: Db, id: string): (Row & { path: string }) | undefined {
-	const row = db
-		.prepare('SELECT id, file, mime, original_name FROM photos WHERE id = ?')
-		.get(id) as Row | undefined;
+	const row = db.prepare('SELECT id, file, mime, original_name FROM files WHERE id = ?').get(id) as
+		Row | undefined;
 	return row && { ...row, path: path.join(config.photosDir, row.file) };
 }
 
@@ -174,7 +173,7 @@ export function deleteFiles(db: Db, ids: string[]) {
 	for (const id of ids) {
 		const photo = getFile(db, id);
 		if (!photo) continue;
-		db.prepare('DELETE FROM photos WHERE id = ?').run(id);
+		db.prepare('DELETE FROM files WHERE id = ?').run(id);
 		fs.rmSync(photo.path, { force: true });
 		for (const px of Object.values(SIZES)) {
 			fs.rmSync(path.join(config.cacheDir, 'thumbs', `${id}-${px}.jpg`), { force: true });

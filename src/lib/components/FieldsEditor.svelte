@@ -15,13 +15,13 @@
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		/** Event type for context-aware value suggestions. */
 		typeId?: number;
-		/** Allow choosing whether a field is stored on the plant (event form only). */
+		/** Allow choosing whether a field is stored on the object (event form only). */
 		showTarget?: boolean;
 		defaultTarget?: FieldTarget;
-		/** Current plant attribute values, shown next to fields that change the plant. */
+		/** Current object attribute values, shown next to fields that change the object. */
 		current?: Record<string, string>;
 		addLabel?: string;
-		/** Offer setting the value before the change for plant fields (event form only). */
+		/** Offer setting the value before the change for object fields (event form only). */
 		showPrevious?: boolean;
 	};
 
@@ -58,7 +58,7 @@
 
 	// A name used for the first time can get a kind (date, number) right here.
 	const knownNames = $derived(
-		new Set([...vocab.keys.event, ...vocab.keys.plant].map((k) => k.value))
+		new Set([...vocab.keys.event, ...vocab.keys.object].map((k) => k.value))
 	);
 	function isNewName(key: string) {
 		const name = key.trim();
@@ -93,7 +93,7 @@
 					kind={chosenKind(field)}
 					bind:value={field.value}
 					candidates={valueCandidates(field.key)}
-					placeholder={field.target === 'plant' && current[field.key]
+					placeholder={field.target === 'object' && current[field.key]
 						? t.events.currently(showValue(field.key, current[field.key]))
 						: t.events.fieldValue}
 					label={field.key || t.events.fieldValue}
@@ -126,22 +126,22 @@
 			<div class="spread">
 				{#if showTarget}
 					<div class="grow">
-						<label class="check small" title={t.events.targetPlantHint}>
+						<label class="check small" title={t.events.targetObjectHint}>
 							<input
 								type="checkbox"
-								checked={field.target === 'plant'}
-								onchange={(e) => (field.target = e.currentTarget.checked ? 'plant' : 'event')}
+								checked={field.target === 'object'}
+								onchange={(e) => (field.target = e.currentTarget.checked ? 'object' : 'event')}
 							/>
 							<span>
-								{t.events.targetPlant}
-								{#if field.target === 'plant' && current[field.key]}
+								{t.events.targetObject}
+								{#if field.target === 'object' && current[field.key]}
 									<span class="muted"
 										>({t.events.currently(showValue(field.key, current[field.key]))})</span
 									>
 								{/if}
 							</span>
 						</label>
-						{#if field.target === 'plant' && showPrevious}
+						{#if field.target === 'object' && showPrevious}
 							<label class="previous small" title={t.events.previousHint}>
 								{t.events.previous}
 								<select
@@ -149,7 +149,7 @@
 									onchange={(e) => setPreviousMode(field, e.currentTarget.value)}
 								>
 									<option value="keep">{t.events.previousKeep}</option>
-									<option value="unknown">{t.plants.notRecorded}</option>
+									<option value="unknown">{t.objects.notRecorded}</option>
 									<option value="value">{t.events.previousValue}</option>
 								</select>
 							</label>

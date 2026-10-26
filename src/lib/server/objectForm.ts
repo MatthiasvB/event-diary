@@ -3,17 +3,17 @@ import { t } from '../i18n.ts';
 import type { Db } from './db.ts';
 import { chosenKinds } from './eventForm.ts';
 import { learnKinds } from './fieldKinds.ts';
-import type { PlantInput } from './plants.ts';
+import type { ObjectInput } from './objects.ts';
 
 /**
- * The plant's fields; its ID is internal (new plants get the next free one). Kinds chosen
+ * The object's fields; its ID is internal (new objects get the next free one). Kinds chosen
  * for new property names are stored right away (learnKinds).
  */
-export function parsePlantForm(
+export function parseObjectForm(
 	form: FormData,
 	db: Db
 ): {
-	input: Omit<PlantInput, 'id'>;
+	input: Omit<ObjectInput, 'id'>;
 	error: string | null;
 } {
 	const get = (k: string) => String(form.get(k) ?? '').trim();
@@ -29,5 +29,5 @@ export function parsePlantForm(
 			.map((key, i) => ({ key, value: storedValue(values[i] ?? '', kindOf(kinds, key)) }))
 			.filter((a) => a.key)
 	};
-	return { input, error: input.name ? null : t.plants.nameRequired };
+	return { input, error: input.name ? null : t.objects.nameRequired };
 }

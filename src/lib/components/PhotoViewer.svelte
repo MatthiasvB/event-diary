@@ -65,7 +65,7 @@
 
 <dialog
 	bind:this={dialog}
-	aria-label={t.plants.photos}
+	aria-label={t.objects.photos}
 	onclose={close}
 	{onkeydown}
 	ontouchstart={(e) => {
@@ -100,11 +100,11 @@
 		<div class="top">
 			{#if canSetCover && !video}
 				{#if photo.id === coverPhotoId}
-					<span class="badge">★ {t.plants.isCover}</span>
+					<span class="badge">★ {t.objects.isCover}</span>
 				{:else}
 					<form method="POST" action="?/cover" use:enhance>
 						<input type="hidden" name="photo" value={photo.id} />
-						<button class="small">☆ {t.plants.cover}</button>
+						<button class="small">☆ {t.objects.cover}</button>
 					</form>
 				{/if}
 			{/if}

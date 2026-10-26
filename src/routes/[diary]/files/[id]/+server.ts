@@ -53,8 +53,8 @@ function send(file: string, type: string, { downloadName, range }: SendOptions =
 }
 
 /**
- * /photos/:id?size=s|l: resized JPEG of a photo
- * /photos/:id?size=original: the file as uploaded (any kind); &download=1 as a download
+ * /files/:id?size=s|l: resized JPEG of a photo
+ * /files/:id?size=original: the file as uploaded (any kind); &download=1 as a download
  */
 export const GET: RequestHandler = async ({ params, url, request }) => {
 	if (!FILE_ID.test(params.id)) error(404);
