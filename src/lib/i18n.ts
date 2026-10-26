@@ -265,7 +265,12 @@ export const t = {
 		addColumn: 'Spalte hinzufügen',
 		up: 'Nach oben',
 		down: 'Nach unten',
-		saved: 'Gespeichert.'
+		saved: 'Gespeichert.',
+		propertyOrder: 'Reihenfolge der Eigenschaften',
+		propertyOrderHint:
+			'In dieser Reihenfolge stehen die Eigenschaften auf jedem Objekt und im Formular. Neue Eigenschaften kommen ans Ende, alphabetisch.',
+		alphabetical: 'Alphabetisch sortieren',
+		noProperties: 'Noch keine Eigenschaften.'
 	},
 	more: {
 		title: 'Mehr',

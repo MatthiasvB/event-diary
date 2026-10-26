@@ -34,7 +34,6 @@
 			)
 			.filter((p, i, all) => all.findIndex((q) => q.id === p.id) === i)
 	);
-	const attrKeys = $derived(Object.keys(data.history).sort((a, b) => a.localeCompare(b, 'de')));
 </script>
 
 <svelte:head><title>{object.name} · {data.appName}</title></svelte:head>
@@ -108,11 +107,11 @@
 
 	{#if object.notes}<p class="notes">{object.notes}</p>{/if}
 
-	{#if attrKeys.length}
+	{#if data.attrKeys.length}
 		<section>
 			<h2>{t.objects.attributes}</h2>
 			<dl class="attrs">
-				{#each attrKeys as key (key)}
+				{#each data.attrKeys as key (key)}
 					{@const history = data.history[key]}
 					{@const current = history[history.length - 1]}
 					<dt>{key}</dt>

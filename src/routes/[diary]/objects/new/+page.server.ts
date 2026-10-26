@@ -7,6 +7,7 @@ import { parseObjectForm } from '#lib/server/objectForm.ts';
 import { createObject, currentAttrs, getObject } from '#lib/server/objects.ts';
 import { getFieldKinds } from '#lib/server/fieldKinds.ts';
 import { kindOf } from '#lib/fieldKinds.ts';
+import { sortProperties } from '#lib/server/settings.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { isValidDate, today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -23,7 +24,12 @@ export const load: PageServerLoad = ({ url }) => {
 	const carried = Object.entries(created ? (currentAttrs(d).get(created.id) ?? {}) : {}).filter(
 		([key]) => kindOf(kinds, key).kind === 'date'
 	);
-	const attrs = new Map(keys.map((k) => [k.value, '']));
+	const attrs = new Map(
+		sortProperties(
+			d,
+			keys.map((k) => k.value)
+		).map((key) => [key, ''])
+	);
 	for (const [key, value] of carried) attrs.set(key, value);
 	return {
 		object: {

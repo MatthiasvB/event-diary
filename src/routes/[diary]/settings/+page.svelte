@@ -8,11 +8,17 @@
 	let { data, form }: PageProps = $props();
 
 	let columns = $state(untrack(() => $state.snapshot(data.columns)));
+	let properties = $state(untrack(() => [...data.properties]));
+
+	/** The list with entry i moved by one step up (-1) or down (1). */
+	function moved<T>(list: T[], i: number, step: number): T[] {
+		const next = [...list];
+		[next[i], next[i + step]] = [next[i + step], next[i]];
+		return next;
+	}
 
 	function move(i: number, step: number) {
-		const next = [...columns];
-		[next[i], next[i + step]] = [next[i + step], next[i]];
-		columns = next;
+		columns = moved(columns, i, step);
 	}
 
 	function toggle(i: number, id: number, on: boolean) {
@@ -95,9 +101,58 @@
 			>+ {t.settings.addColumn}</button
 		>
 	</div>
-	{#if form?.message}<p class="notice">{form.message}</p>{/if}
+	{#if form?.saved === 'columns'}<p class="notice">{form.message}</p>{/if}
 	<div class="sticky-actions"><button class="primary">{t.common.save}</button></div>
 </form>
+
+<h2>{t.settings.propertyOrder}</h2>
+<p class="muted small">{t.settings.propertyOrderHint}</p>
+
+{#if properties.length}
+	<form
+		method="POST"
+		action="?/propertyOrder"
+		class="stack"
+		use:enhance={() =>
+			async ({ update }) =>
+				update({ reset: false })}
+	>
+		<input type="hidden" name="keys" value={JSON.stringify(properties)} />
+		<ol class="properties">
+			{#each properties as key, i (key)}
+				<li class="row">
+					<span class="grow">{key}</span>
+					<button
+						type="button"
+						class="small"
+						aria-label="{t.settings.up}: {key}"
+						disabled={i === 0}
+						onclick={() => (properties = moved(properties, i, -1))}>↑</button
+					>
+					<button
+						type="button"
+						class="small"
+						aria-label="{t.settings.down}: {key}"
+						disabled={i === properties.length - 1}
+						onclick={() => (properties = moved(properties, i, 1))}>↓</button
+					>
+				</li>
+			{/each}
+		</ol>
+		<div>
+			<button
+				type="button"
+				class="small"
+				onclick={() => (properties = [...properties].sort((a, b) => a.localeCompare(b, 'de')))}
+				>{t.settings.alphabetical}</button
+			>
+		</div>
+		{#if form?.saved === 'properties'}<p class="notice">{form.message}</p>{/if}
+		<div><button class="primary">{t.common.save}</button></div>
+	</form>
+{:else}
+	<p class="muted">{t.settings.noProperties}</p>
+{/if}
 
 <style>
 	.types {
@@ -108,6 +163,20 @@
 	}
 	summary {
 		cursor: pointer;
+	}
+	h2 {
+		margin-top: 2rem;
+	}
+	.properties {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.properties li {
+		padding: 0.25rem 0;
+	}
+	.properties li + li {
+		border-top: 1px solid var(--border);
 	}
 	p {
 		margin: 0 0 0.5rem;

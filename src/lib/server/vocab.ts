@@ -4,7 +4,14 @@ import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, FieldTemplate, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { listTypes, PHOTO_TYPE_SETTING } from './eventTypes.ts';
-import { getSetting, setOverviewColumns, setSetting, type OverviewColumn } from './settings.ts';
+import {
+	getPropertyOrder,
+	getSetting,
+	setOverviewColumns,
+	setPropertyOrder,
+	setSetting,
+	type OverviewColumn
+} from './settings.ts';
 
 type UsageRow = {
 	key: string;
@@ -123,6 +130,13 @@ function renameKey(db: Db, from: string, to: string): number {
 	const a = db.prepare('UPDATE event_attrs SET key = ? WHERE key = ?').run(to, from);
 	const b = db.prepare('UPDATE object_attrs SET key = ? WHERE key = ?').run(to, from);
 	updateTemplates(db, (f) => (f.key === from ? { ...f, key: to } : f));
+	// The place in the property order goes along; merged into a placed name, that place wins.
+	const order = getPropertyOrder(db);
+	if (order.includes(from))
+		setPropertyOrder(
+			db,
+			order.map((k) => (k === from ? to : k))
+		);
 	// The kind goes along, unless the name merged into already has one.
 	db.prepare('UPDATE OR IGNORE field_kinds SET key = ? WHERE key = ?').run(to, from);
 	db.prepare('DELETE FROM field_kinds WHERE key = ?').run(from);

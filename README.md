@@ -37,6 +37,8 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   files onto the file area of a form.
 - **Object page**: current properties with their history, a timeline with photos, and
   _Wiederholen_ (repeat) on every event.
+  The order of the properties is set once for the whole diary under _Mehr →
+  Einstellungen_; names not placed there follow alphabetically.
 - **Ereignisse**: all events, filtered by object, type, category and date range.
 - **Mehr → Daten pflegen**: rename or merge values (categories, event types, field names,
   values). Similar spellings are listed automatically ("Catleya" → "Cattleya").

@@ -3,6 +3,7 @@ import { db } from '#lib/server/diary.ts';
 import { parseObjectForm } from '#lib/server/objectForm.ts';
 import { deleteObject, objectImpact } from '#lib/server/events.ts';
 import { currentAttrs, getObject, updateObject } from '#lib/server/objects.ts';
+import { sortProperties } from '#lib/server/settings.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -22,7 +23,7 @@ export const load: PageServerLoad = ({ params }) => {
 	return {
 		object,
 		impact: objectImpact(d, object.id),
-		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value })),
+		attrs: sortProperties(d, Object.keys(attrs)).map((key) => ({ key, value: attrs[key] })),
 		vocab: { keys: vocab.keys, values: vocab.values }
 	};
 };

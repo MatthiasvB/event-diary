@@ -14,7 +14,7 @@ import {
 import { vocabulary } from '#lib/server/vocab.ts';
 import { getFieldKinds } from '#lib/server/fieldKinds.ts';
 import { kindOf, storedValue } from '#lib/fieldKinds.ts';
-import { getOverviewColumns } from '#lib/server/settings.ts';
+import { getOverviewColumns, sortProperties } from '#lib/server/settings.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -29,9 +29,12 @@ export const load: PageServerLoad = ({ params }) => {
 	const object = objectOr404(params.id);
 	const columns = getOverviewColumns(d);
 	const stats = objectStats(d, columns).get(object.id);
+	const history = attrHistory(d, object.id);
 	return {
 		object,
-		history: attrHistory(d, object.id),
+		history,
+		/** In the order chosen in the settings. */
+		attrKeys: sortProperties(d, Object.keys(history)),
 		events: listEvents(d, { objectId: object.id, limit: 5000 }),
 		lastDates: columns.map((c, i) => ({ label: c.label, date: stats?.columns[i] ?? null })),
 		values: vocabulary(d).values

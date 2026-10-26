@@ -21,7 +21,13 @@ import {
 	setInitialValue
 } from './objects.ts';
 import { getFieldKinds, learnKinds, setFieldKind } from './fieldKinds.ts';
-import { getOverviewColumns, setOverviewColumns } from './settings.ts';
+import {
+	getOverviewColumns,
+	getPropertyOrder,
+	setOverviewColumns,
+	setPropertyOrder,
+	sortProperties
+} from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
 
 let db: Db;
@@ -393,5 +399,21 @@ describe('kinds chosen for new names', () => {
 			Höhe: { kind: 'number', unit: 'cm' }
 		});
 		expect(getFieldKinds(db)).toEqual(kinds);
+	});
+});
+
+describe('property order', () => {
+	it('puts arranged names first, the others alphabetically, and follows renames', () => {
+		const keys = ['Substrat', 'Standort', 'Erworben am', 'Art'];
+		expect(sortProperties(db, keys)).toEqual(['Art', 'Erworben am', 'Standort', 'Substrat']);
+		setPropertyOrder(db, ['Standort', 'Erworben am', 'Standort', '']);
+		expect(getPropertyOrder(db)).toEqual(['Standort', 'Erworben am']);
+		expect(sortProperties(db, keys)).toEqual(['Standort', 'Erworben am', 'Art', 'Substrat']);
+
+		rename(db, { kind: 'key' }, 'Erworben am', 'Gekauft am');
+		expect(getPropertyOrder(db)).toEqual(['Standort', 'Gekauft am']);
+		// Merged into a name that has a place: that place wins.
+		rename(db, { kind: 'key' }, 'Gekauft am', 'Standort');
+		expect(getPropertyOrder(db)).toEqual(['Standort']);
 	});
 });
