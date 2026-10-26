@@ -21,12 +21,40 @@
 	let { event, showPlant = false, coverPhotoId = null, canSetCover = false }: Props = $props();
 
 	let viewer = $state<PhotoViewer>();
+
+	// Long notes are cut to a few lines until expanded.
+	let expanded = $state(false);
+	let long = $state(false);
+	function measureNote(node: HTMLElement) {
+		const check = () => {
+			if (!node.classList.contains('collapsed')) return;
+			long = node.scrollHeight > node.clientHeight + 1;
+		};
+		const observer = new ResizeObserver(check);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}
+
+	// Many photos: three rows until expanded. The number per row follows the width.
+	const PHOTO_ROWS = 3;
+	let perRow = $state(4);
+	let allPhotos = $state(false);
+	function measureGrid(node: HTMLElement) {
+		const update = () => {
+			perRow = getComputedStyle(node).gridTemplateColumns.split(' ').length || 1;
+		};
+		const observer = new ResizeObserver(update);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}
 	const photos = $derived(
 		event.files
 			.filter((f) => isMedia({ type: f.mime, name: f.name }))
 			.map((f) => ({ ...f, date: formatDate(event.date), label: event.typeName }))
 	);
 	const documents = $derived(event.files.filter((f) => !isMedia({ type: f.mime, name: f.name })));
+	const hiddenPhotos = $derived(allPhotos ? 0 : Math.max(0, photos.length - perRow * PHOTO_ROWS));
+	const visiblePhotos = $derived(hiddenPhotos ? photos.slice(0, perRow * PHOTO_ROWS) : photos);
 </script>
 
 <article class="card" class:milestone={event.milestone}>
@@ -69,11 +97,24 @@
 		</ul>
 	{/if}
 
-	{#if event.note}<p class="note">{event.note}</p>{/if}
+	{#if event.note}
+		<p class="note" class:collapsed={!expanded} {@attach measureNote}>{event.note}</p>
+		{#if long}
+			<div>
+				<button
+					type="button"
+					class="link small above"
+					aria-expanded={expanded}
+					onclick={() => (expanded = !expanded)}
+					>{expanded ? t.events.showLess : t.events.showMore}</button
+				>
+			</div>
+		{/if}
+	{/if}
 
 	{#if photos.length}
-		<ul class="photos">
-			{#each photos as p, i (p.id)}
+		<ul class="photos" {@attach measureGrid}>
+			{#each visiblePhotos as p, i (p.id)}
 				<li>
 					<button
 						type="button"
@@ -89,6 +130,17 @@
 				</li>
 			{/each}
 		</ul>
+		{#if hiddenPhotos || allPhotos}
+			<div>
+				<button
+					type="button"
+					class="link small above"
+					aria-expanded={allPhotos}
+					onclick={() => (allPhotos = !allPhotos)}
+					>{allPhotos ? t.events.showLess : t.gallery.showAll(photos.length)}</button
+				>
+			</div>
+		{/if}
 		<PhotoViewer bind:this={viewer} {photos} {coverPhotoId} {canSetCover} />
 	{/if}
 
@@ -153,6 +205,16 @@
 	}
 	.note {
 		white-space: pre-line;
+	}
+	.note.collapsed {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 4;
+		line-clamp: 4;
+		overflow: hidden;
+	}
+	.link {
+		padding: 0;
 	}
 	.fields {
 		list-style: none;

@@ -14,7 +14,8 @@ export const GET: RequestHandler = () =>
 			display: 'standalone',
 			background_color: '#f5f6f2',
 			theme_color: '#2e7a4d',
-			// Android: appear in the share sheet for images (handled by the service worker)
+			// Android: appear in the share sheet for photos and videos (handled by the service
+			// worker). Installed apps pick up changes here only when Chrome updates them.
 			share_target: {
 				action: SHARE_PATH,
 				method: 'POST',

@@ -25,11 +25,23 @@ export function plantStats(db: Db, columns: OverviewColumn[]): Map<string, Plant
 			stats.set(r.plant_id, s);
 		}
 		s.count += r.n;
-		if (!s.last || r.last > s.last.date) s.last = { date: r.last, type: r.name };
 		columns.forEach((c, i) => {
 			if (c.typeIds.includes(r.type_id) && (!s.columns[i] || r.last > s.columns[i]!))
 				s.columns[i] = r.last;
 		});
+	}
+
+	// The last event in the same order as the timeline: by date, then the one entered last.
+	const last = db
+		.prepare(
+			`SELECT e.plant_id, e.date, t.name FROM events e JOIN event_types t ON t.id = e.type_id
+			WHERE e.id = (SELECT l.id FROM events l WHERE l.plant_id = e.plant_id
+				ORDER BY l.date DESC, l.id DESC LIMIT 1)`
+		)
+		.all() as { plant_id: string; date: string; name: string }[];
+	for (const r of last) {
+		const s = stats.get(r.plant_id);
+		if (s) s.last = { date: r.date, type: r.name };
 	}
 	return stats;
 }
