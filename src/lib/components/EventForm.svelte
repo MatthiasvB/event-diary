@@ -101,15 +101,15 @@
 		}))
 	);
 
-	// A name in one category takes that category; a name in several asks for one.
+	// Changing the type resets the category: a name in one category takes that one, a name
+	// in several asks for one, a new or cleared name starts without.
 	let lastName = start.typeName.trim();
 	$effect(() => {
 		const name = typeName.trim();
 		if (name === lastName) return;
 		lastName = name;
 		const matches = vocab.types.filter((ty) => ty.name === name);
-		if (matches.length === 1) category = matches[0].category;
-		else if (matches.length > 1) category = '';
+		category = matches.length === 1 ? matches[0].category : '';
 		categoryChosen = matches.length < 2;
 	});
 
