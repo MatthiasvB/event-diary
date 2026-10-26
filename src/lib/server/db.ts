@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 export type Db = DatabaseSync;
 
 // Schema of a diary. Append-only list; the index + 1 is stored in PRAGMA user_version.
-const DIARY_SCHEMA = [
+export const DIARY_SCHEMA = [
 	`
 	CREATE TABLE photos (
 		id TEXT PRIMARY KEY,            -- also the file name stem in photos/
@@ -94,6 +94,22 @@ const DIARY_SCHEMA = [
 	`
 	-- Sessions live in the registry.
 	DROP TABLE sessions;
+	`,
+	`
+	-- Type names are unique per category only: several categories may have "Umtopfen".
+	-- Rebuilt, since SQLite can't drop a constraint; events keep pointing at the same IDs.
+	CREATE TABLE event_types_new (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		category TEXT NOT NULL DEFAULT '',
+		milestone INTEGER NOT NULL DEFAULT 0,
+		hint TEXT NOT NULL DEFAULT '',
+		fields TEXT NOT NULL DEFAULT '[]',  -- JSON FieldTemplate[]
+		UNIQUE (name, category)
+	);
+	INSERT INTO event_types_new SELECT id, name, category, milestone, hint, fields FROM event_types;
+	DROP TABLE event_types;
+	ALTER TABLE event_types_new RENAME TO event_types;
 	`
 ];
 
@@ -107,11 +123,22 @@ export function openDb(file: string, schema = DIARY_SCHEMA): Db {
 
 function migrate(db: Db, migrations: string[]) {
 	const { user_version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
-	for (let v = user_version; v < migrations.length; v++) {
-		transaction(db, () => {
-			db.exec(migrations[v]);
-			db.exec(`PRAGMA user_version = ${v + 1}`);
-		});
+	if (user_version >= migrations.length) return;
+	// Foreign keys are off while migrating so tables can be rebuilt (SQLite's documented
+	// way); each migration is checked before it is committed.
+	db.exec('PRAGMA foreign_keys = OFF');
+	try {
+		for (let v = user_version; v < migrations.length; v++) {
+			transaction(db, () => {
+				db.exec(migrations[v]);
+				if (db.prepare('PRAGMA foreign_key_check').all().length) {
+					throw new Error(`Migration ${v + 1} would break references between tables`);
+				}
+				db.exec(`PRAGMA user_version = ${v + 1}`);
+			});
+		}
+	} finally {
+		db.exec('PRAGMA foreign_keys = ON');
 	}
 }
 

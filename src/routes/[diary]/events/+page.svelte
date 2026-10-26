@@ -37,7 +37,9 @@
 		<div class="row">
 			<select name="type" class="grow" value={data.filter.typeId} aria-label={t.events.allTypes}>
 				<option value="">{t.events.allTypes}</option>
-				{#each data.types as ty (ty.id)}<option value={String(ty.id)}>{ty.name}</option>{/each}
+				{#each data.types as ty (ty.id)}
+					<option value={String(ty.id)}>{ty.name}{ty.category ? ` (${ty.category})` : ''}</option>
+				{/each}
 			</select>
 			<select
 				name="category"

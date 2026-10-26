@@ -1,4 +1,4 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { deleteType, typeImpact } from '#lib/server/events.ts';
 import { getType, listTypes, updateType } from '#lib/server/eventTypes.ts';
@@ -35,13 +35,15 @@ export const actions: Actions = {
 				...(values[i] ? { default: values[i] } : {})
 			}))
 			.filter((f) => f.key);
-		updateType(d, {
+		const category = String(form.get('category') ?? '').trim();
+		const saved = updateType(d, {
 			id: type.id,
-			category: String(form.get('category') ?? '').trim(),
+			category,
 			milestone: form.get('milestone') === 'on',
 			hint: String(form.get('hint') ?? '').trim(),
 			fields
 		});
+		if (!saved) return fail(400, { error: t.types.categoryTaken(type.name, category) });
 		redirect(303, `/${params.diary}/types`);
 	},
 	delete: ({ params }) => {

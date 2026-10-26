@@ -30,7 +30,7 @@ export const load: PageServerLoad = ({ url }) => {
 		events: events.slice(0, limit),
 		hasMore: events.length > limit,
 		plants: listPlants(d).map((p) => ({ id: p.id, name: p.name })),
-		types: types.map((ty) => ({ id: ty.id, name: ty.name })),
+		types: types.map((ty) => ({ id: ty.id, name: ty.name, category: ty.category })),
 		categories: [...new Set(types.map((ty) => ty.category).filter(Boolean))].sort(),
 		saved: Number(q.get('saved')) || 0
 	};

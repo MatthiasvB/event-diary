@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import DateInput from './DateInput.svelte';
+	import TextInput from './TextInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
 	import PhotoInput from './PhotoInput.svelte';
 	import { t } from '#lib/i18n.ts';
@@ -40,7 +41,7 @@
 >
 	<label>
 		{t.plants.name}
-		<input name="name" value={plant.name} required />
+		<TextInput name="name" value={plant.name} required />
 	</label>
 	{#if isNew}
 		<div class="stack photo">
@@ -51,7 +52,7 @@
 	<div class="row bottom">
 		<label class="grow">
 			{t.plants.acquiredOn}
-			<DateInput name="acquiredOn" value={plant.acquiredOn ?? ''} clearable />
+			<DateInput name="acquiredOn" value={plant.acquiredOn ?? ''} />
 		</label>
 		<label class="check"
 			><input name="active" type="checkbox" checked={plant.active} /> {t.plants.active}</label

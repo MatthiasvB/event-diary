@@ -35,7 +35,8 @@ export const load: PageServerLoad = ({ url }) => {
 	let candidates: Candidate[] = [];
 	if (kind?.kind === 'category') candidates = vocab.categories;
 	else if (kind?.kind === 'type')
-		candidates = vocab.types.map((ty) => ({ value: ty.name, count: ty.count }));
+		// One entry per name; renaming applies in every category that has it.
+		candidates = merged([vocab.types.map((ty) => ({ value: ty.name, count: ty.count }))]);
 	else if (kind?.kind === 'key') candidates = allKeys;
 	else if (kind?.kind === 'value')
 		candidates = (vocab.values[kind.key] ?? []).map(({ value, count }) => ({ value, count }));

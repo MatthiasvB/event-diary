@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { dropImages } from '#lib/dropImages.ts';
+	import TextInput from '#lib/components/TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { openPhotoEvent } from '#lib/pending.svelte.ts';
 	import { normalize } from '#lib/suggest.ts';
@@ -70,7 +71,7 @@
 
 <!-- Stays visible while scrolling, so you can search from anywhere in the list. -->
 <div class="search">
-	<input
+	<TextInput
 		type="search"
 		bind:value={query}
 		placeholder={t.plants.searchPlaceholder}

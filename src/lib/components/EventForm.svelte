@@ -20,6 +20,7 @@
 	export type EventFormInitial = {
 		plantIds: string[];
 		typeName: string;
+		category: string;
 		date: string;
 		note: string;
 		fields: Field[];
@@ -56,7 +57,7 @@
 	// (pages re-create the form with {#key} when they change).
 	const start = untrack(() => {
 		const s = $state.snapshot(initial);
-		const ty = vocab.types.find((x) => x.name === s.typeName);
+		const ty = vocab.types.find((x) => x.name === s.typeName && x.category === s.category);
 		// A preset type (photo mode) fills in its usual fields right away.
 		const fields = !edit && !s.fields.length && ty ? proposeFields(ty, []) : s.fields;
 		return { ...s, fields, typeId: ty?.id };
@@ -67,18 +68,55 @@
 	let note = $state(start.note);
 	let fields = $state(start.fields);
 	let keptPhotos = $state(start.keptPhotos);
-	let category = $state('');
+	let category = $state(start.category);
+	// A preset type (edit, repeat, photo) comes with its category.
+	let categoryChosen = $state(!!start.typeName);
 	let milestone = $state(false);
 	let applyToBatch = $state(false);
 	let exifDate = $state<string | null>(null);
 	let dateTouched = false;
 	let submitting = $state(false);
 
-	const type = $derived(vocab.types.find((ty) => ty.name === typeName.trim()));
+	// Several categories may have a type of the same name; name and category pick one.
+	const named = $derived(vocab.types.filter((ty) => ty.name === typeName.trim()));
+	const type = $derived(named.find((ty) => ty.category === category.trim()));
 	const isNewType = $derived(typeName.trim() !== '' && !type);
+	// The name exists in several categories and the user hasn't said which one.
+	const mustChoose = $derived(named.length > 1 && !categoryChosen);
+	// One suggestion per name, counting all its categories.
 	const typeCandidates = $derived(
-		vocab.types.map((ty) => ({ value: ty.name, count: ty.count, last: ty.last }))
+		Object.entries(Object.groupBy(vocab.types, (ty) => ty.name)).map(([value, types = []]) => ({
+			value,
+			count: types.reduce((n, ty) => n + ty.count, 0),
+			last: types.reduce<string | null>(
+				(l, ty) => (ty.last && (!l || ty.last > l) ? ty.last : l),
+				null
+			)
+		}))
 	);
+
+	// A name in one category takes that category; a name in several asks for one.
+	let lastName = start.typeName.trim();
+	$effect(() => {
+		const name = typeName.trim();
+		if (name === lastName) return;
+		lastName = name;
+		const matches = vocab.types.filter((ty) => ty.name === name);
+		if (matches.length === 1) category = matches[0].category;
+		else if (matches.length > 1) category = '';
+		categoryChosen = matches.length < 2;
+	});
+
+	function chooseCategory(value: string) {
+		category = value;
+		categoryChosen = true;
+	}
+
+	// Typing counts as a choice; an emptied field doesn't (use the buttons for "none").
+	function typeCategory(value: string) {
+		category = value;
+		categoryChosen = value.trim() !== '' || named.length < 2;
+	}
 	const current = $derived(
 		plantIds.length === 1 ? (plants.find((p) => p.id === plantIds[0])?.attrs ?? {}) : {}
 	);
@@ -122,7 +160,12 @@
 	action="?/save"
 	enctype="multipart/form-data"
 	class="stack"
-	use:enhance={({ formData }) => {
+	use:enhance={({ formData, cancel }) => {
+		if (mustChoose) {
+			cancel();
+			document.getElementById('category')?.focus();
+			return;
+		}
 		submitting = true;
 		formData.set(
 			'payload',
@@ -157,17 +200,38 @@
 	<div class="stack tight">
 		<label for="type">{t.events.type}</label>
 		<Combobox id="type" bind:value={typeName} candidates={typeCandidates} required />
+	</div>
+
+	<div class="stack tight">
+		<label for="category">{t.events.category}</label>
+		{#if named.length > 1}
+			<p class="hint small">{t.events.chooseCategory(typeName.trim())}</p>
+			<div class="row">
+				{#each named as ty (ty.id)}
+					<button
+						type="button"
+						class="small"
+						aria-pressed={categoryChosen && category === ty.category}
+						onclick={() => chooseCategory(ty.category)}>{ty.category || t.types.noCategory}</button
+					>
+				{/each}
+			</div>
+		{/if}
+		<Combobox
+			id="category"
+			bind:value={() => category, typeCategory}
+			candidates={vocab.categories}
+		/>
 		{#if type}
-			<p class="row small">
-				{#if type.category}<span class="badge">{type.category}</span>{/if}
-				{#if type.milestone}<span class="badge milestone">★ {t.events.milestone}</span>{/if}
-			</p>
+			{#if type.milestone}
+				<p class="row small"><span class="badge milestone">★ {t.events.milestone}</span></p>
+			{/if}
 			{#if type.hint}<p class="hint">💡 {type.hint}</p>{/if}
-		{:else if isNewType}
+		{:else if isNewType && !mustChoose}
 			<div class="new-type stack tight">
-				<strong class="small">{t.events.newType}</strong>
-				<label for="category">{t.events.category}</label>
-				<Combobox id="category" bind:value={category} candidates={vocab.categories} />
+				<strong class="small"
+					>{t.events.newTypeIn(typeName.trim(), category.trim() || t.types.noCategory)}</strong
+				>
 				<label class="check"
 					><input type="checkbox" bind:checked={milestone} /> {t.events.milestone}</label
 				>
@@ -235,9 +299,10 @@
 	{/if}
 
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
+	{#if mustChoose}<p class="error" role="alert">{t.events.categoryRequired}</p>{/if}
 
 	<div class="sticky-actions">
-		<button class="primary" disabled={submitting}>{t.common.save}</button>
+		<button class="primary" disabled={submitting || mustChoose}>{t.common.save}</button>
 	</div>
 </form>
 
@@ -262,6 +327,10 @@
 		margin-bottom: 0.4rem;
 		color: var(--muted);
 		font-size: 0.9rem;
+	}
+	button[aria-pressed='true'] {
+		background: var(--accent);
+		color: var(--accent-text);
 	}
 	.new-type {
 		padding: 0.6rem;

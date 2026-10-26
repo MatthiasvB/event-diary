@@ -18,7 +18,15 @@
 		onchange?: (date: string) => void;
 	};
 
-	let { value = $bindable(''), id, name, required, label, clearable, onchange }: Props = $props();
+	let {
+		value = $bindable(''),
+		id,
+		name,
+		required,
+		label,
+		clearable = true,
+		onchange
+	}: Props = $props();
 
 	let field: HTMLInputElement;
 	let picker: HTMLInputElement;

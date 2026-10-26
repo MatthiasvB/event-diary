@@ -41,18 +41,24 @@ export function getType(db: Db, id: number): EventType | undefined {
 	return row && fromRow(row);
 }
 
-export function findTypeByName(db: Db, name: string): EventType | undefined {
-	const row = db.prepare('SELECT * FROM event_types WHERE name = ?').get(name) as Row | undefined;
+/** A type is identified by name and category: several categories may share a name. */
+export function findType(db: Db, name: string, category: string): EventType | undefined {
+	const row = db
+		.prepare('SELECT * FROM event_types WHERE name = ? AND category = ?')
+		.get(name, category) as Row | undefined;
 	return row && fromRow(row);
 }
 
-/** Returns the type with this name, creating it (as typed in the event form) if needed. */
+/**
+ * Returns the type with this name in `init.category` (none if not given), creating it
+ * (as typed in the event form) if needed.
+ */
 export function ensureType(
 	db: Db,
 	name: string,
 	init: Partial<Omit<EventType, 'id'>> = {}
 ): EventType {
-	const existing = findTypeByName(db, name);
+	const existing = findType(db, name, init.category ?? '');
 	if (existing) return existing;
 	const { lastInsertRowid } = db
 		.prepare(
@@ -68,10 +74,19 @@ export function ensureType(
 	return getType(db, Number(lastInsertRowid))!;
 }
 
-export function updateType(db: Db, t: Omit<EventType, 'name'>) {
+/** Saves a type's settings. False if its new category already has a type of that name. */
+export function updateType(db: Db, t: Omit<EventType, 'name'>): boolean {
+	const clash = db
+		.prepare(
+			`SELECT 1 FROM event_types o JOIN event_types s ON s.id = ?
+			WHERE o.name = s.name AND o.category = ? AND o.id != s.id`
+		)
+		.get(t.id, t.category);
+	if (clash) return false;
 	db.prepare(
 		'UPDATE event_types SET category = ?, milestone = ?, hint = ?, fields = ? WHERE id = ?'
 	).run(t.category, t.milestone ? 1 : 0, t.hint, JSON.stringify(t.fields), t.id);
+	return true;
 }
 
 /**

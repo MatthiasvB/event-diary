@@ -14,9 +14,11 @@ export const load: PageServerLoad = ({ url }) => {
 	const known = new Set(plants.map((p) => p.id));
 	const photoMode = url.searchParams.has('photo');
 
+	const preset = photoMode ? photoType(d) : undefined;
 	let initial = {
 		plantIds: url.searchParams.getAll('plant').filter((id) => known.has(id)),
-		typeName: photoMode ? photoType(d).name : '',
+		typeName: preset?.name ?? '',
+		category: preset?.category ?? '',
 		date: today(),
 		note: '',
 		fields: [] as { key: string; value: string; target: 'event' | 'plant' }[],
@@ -31,6 +33,7 @@ export const load: PageServerLoad = ({ url }) => {
 			...initial,
 			plantIds,
 			typeName: from.typeName,
+			category: from.category,
 			note: from.note,
 			fields: from.fields
 		};

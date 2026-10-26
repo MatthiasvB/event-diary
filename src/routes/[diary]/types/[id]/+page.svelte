@@ -8,7 +8,7 @@
 	import type { Field } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	const leave = leaveFormOnRedirect();
 
 	// Field templates reuse the field editor: the value is the default.
@@ -48,6 +48,7 @@
 			<input type="hidden" name="fieldTarget" value={f.target} />
 		{/each}
 	</fieldset>
+	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 	<div class="sticky-actions"><button class="primary">{t.common.save}</button></div>
 </form>
 

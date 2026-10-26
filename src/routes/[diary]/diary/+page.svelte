@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import TextInput from '#lib/components/TextInput.svelte';
 	import { isoDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
@@ -38,7 +39,7 @@
 	<form method="POST" action="?/rename" class="row bottom" use:enhance={keepInput}>
 		<label class="grow">
 			{t.diary.name}
-			<input name="name" value={data.diary.name} required />
+			<TextInput name="name" value={data.diary.name} required />
 		</label>
 		<button>{t.common.save}</button>
 	</form>

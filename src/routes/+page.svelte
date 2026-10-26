@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import TextInput from '#lib/components/TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
 
@@ -37,7 +38,7 @@
 <form method="POST" action="?/create" class="stack" use:enhance>
 	<label>
 		{t.diaries.name}
-		<input name="name" required value={data.diaries.length ? '' : data.appName} />
+		<TextInput name="name" required value={data.diaries.length ? '' : data.appName} />
 	</label>
 	<label>
 		{t.diaries.type}

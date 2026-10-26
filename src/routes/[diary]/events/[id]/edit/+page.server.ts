@@ -24,6 +24,7 @@ export const load: PageServerLoad = ({ params }) => {
 		initial: {
 			plantIds: [event.plantId],
 			typeName: event.typeName,
+			category: event.category,
 			date: event.date,
 			note: event.note,
 			fields: event.fields,

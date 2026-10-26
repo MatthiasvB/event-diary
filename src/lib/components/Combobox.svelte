@@ -91,30 +91,45 @@
 </script>
 
 <div class="combobox">
-	<input
-		bind:this={input}
-		{id}
-		{placeholder}
-		{required}
-		bind:value
-		role="combobox"
-		autocomplete="off"
-		aria-label={label}
-		aria-expanded={open && options.length > 0}
-		aria-controls={listId}
-		aria-autocomplete="list"
-		aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
-		onfocus={show}
-		onblur={() => {
-			open = false;
-			if (exists) onselect?.(trimmed);
-		}}
-		oninput={() => {
-			show();
-			active = -1;
-		}}
-		{onkeydown}
-	/>
+	<div class="has-clear">
+		<input
+			bind:this={input}
+			{id}
+			{placeholder}
+			{required}
+			bind:value
+			role="combobox"
+			autocomplete="off"
+			aria-label={label}
+			aria-expanded={open && options.length > 0}
+			aria-controls={listId}
+			aria-autocomplete="list"
+			aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
+			onfocus={show}
+			onblur={() => {
+				open = false;
+				if (exists) onselect?.(trimmed);
+			}}
+			oninput={() => {
+				show();
+				active = -1;
+			}}
+			{onkeydown}
+		/>
+		{#if value}
+			<button
+				type="button"
+				class="input-clear"
+				aria-label={t.common.clear}
+				onmousedown={(e) => e.preventDefault()}
+				onclick={() => {
+					value = '';
+					input.focus();
+					show();
+				}}>×</button
+			>
+		{/if}
+	</div>
 	{#if open && options.length}
 		<ul id={listId} role="listbox" class:up style:max-height="{maxHeight}px">
 			{#each options as option, i (option.isNew ? '\0new' : option.value)}

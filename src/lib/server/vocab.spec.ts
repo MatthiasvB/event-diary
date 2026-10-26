@@ -10,7 +10,7 @@ import {
 	plantImpact,
 	typeImpact
 } from './events.ts';
-import { ensureType, getType, photoType } from './eventTypes.ts';
+import { ensureType, getType, photoType, updateType } from './eventTypes.ts';
 import {
 	attrHistory,
 	createPlant,
@@ -127,7 +127,7 @@ describe('photo type', () => {
 		rename(db, { kind: 'type' }, 'Foto dokumentiert', 'Foto');
 		expect(photoType(db)).toMatchObject({ id: created.id, name: 'Foto' });
 
-		const other = ensureType(db, 'Fotodoku');
+		const other = ensureType(db, 'Fotodoku', { category: created.category });
 		rename(db, { kind: 'type' }, 'Foto', 'Fotodoku');
 		expect(photoType(db)).toMatchObject({ id: other.id, name: 'Fotodoku' });
 		expect(getType(db, created.id)).toBeUndefined();
@@ -336,5 +336,39 @@ describe('deleting event types and categories', () => {
 				.map((r) => r.id)
 		).toEqual([kept]);
 		expect(getType(db, bloom.id)).toBeDefined();
+	});
+});
+
+describe('types of the same name in several categories', () => {
+	it('are separate types, picked by name and category', () => {
+		const care = ensureType(db, 'Umtopfen', { category: 'Pflege' });
+		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
+		expect(house.id).not.toBe(care.id);
+		expect(ensureType(db, 'Umtopfen', { category: 'Haus' }).id).toBe(house.id);
+		expect(ensureType(db, 'Umtopfen').category).toBe('');
+	});
+
+	it('are merged when renaming brings them into one category', () => {
+		plant('P-001');
+		const care = ensureType(db, 'Umtopfen', { category: 'Pflege' });
+		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
+		const water = ensureType(db, 'Gießen', { category: 'Haus' });
+		const input = { note: '', fields: [], photoIds: [], date: '2026-09-01' };
+		const [moved] = createEvents(db, ['P-001'], { ...input, typeId: house.id });
+
+		rename(db, { kind: 'category' }, 'Haus', 'Pflege');
+
+		expect(getType(db, house.id)).toBeUndefined();
+		expect(getEvent(db, moved)?.typeId).toBe(care.id);
+		expect(getType(db, water.id)?.category).toBe('Pflege');
+	});
+
+	it("can't be moved into a category that already has the name", () => {
+		const care = ensureType(db, 'Umtopfen', { category: 'Pflege' });
+		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
+		const update = { id: house.id, milestone: false, hint: '', fields: [] };
+		expect(updateType(db, { ...update, category: 'Pflege' })).toBe(false);
+		expect(updateType(db, { ...update, category: 'Garten' })).toBe(true);
+		expect(getType(db, care.id)?.category).toBe('Pflege');
 	});
 });

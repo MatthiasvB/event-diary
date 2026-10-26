@@ -40,7 +40,8 @@ export const t = {
 		add: 'Hinzufügen',
 		remove: 'Entfernen',
 		apply: 'Übernehmen',
-		confirmDelete: 'Wirklich löschen? Das kann nicht rückgängig gemacht werden.'
+		confirmDelete: 'Wirklich löschen? Das kann nicht rückgängig gemacht werden.',
+		clear: 'Leeren'
 	},
 	combobox: {
 		create: (v: string) => `+ Neu: „${v}“`,
@@ -150,7 +151,10 @@ export const t = {
 		camera: 'Kamera',
 		gallery: 'Galerie',
 		exifDate: (d: string) => `Aufnahmedatum übernehmen: ${d}`,
-		newType: 'Neuer Ereignistyp',
+		newTypeIn: (name: string, category: string) => `Neuer Ereignistyp „${name}“ in „${category}“`,
+		chooseCategory: (name: string) =>
+			`„${name}“ gibt es in mehreren Kategorien. Welche ist gemeint?`,
+		categoryRequired: 'Bitte eine Kategorie wählen.',
 		applyToBatch: (n: number) =>
 			`Änderungen auf alle ${n} Ereignisse dieser Sammelbuchung anwenden`,
 		batch: (n: number) => `Sammelbuchung (${n})`,
@@ -186,6 +190,8 @@ export const t = {
 			'Löschen entfernt den Ereignistyp mit allen seinen Ereignissen und deren Fotos. Eigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück. Um ihn mit einem anderen Typ zusammenzulegen, stattdessen „Daten pflegen“ nutzen.',
 		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
 			confirmWithEvents(`Ereignistyp „${name}“`, impact),
+		categoryTaken: (name: string, category: string) =>
+			`In „${category || 'Ohne Kategorie'}“ gibt es „${name}“ schon. Zum Zusammenführen „Daten pflegen“ nutzen.`,
 		deleteCategory: 'Kategorie löschen',
 		confirmDeleteCategory: (
 			category: string,

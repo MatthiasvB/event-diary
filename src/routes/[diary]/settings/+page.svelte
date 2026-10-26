@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import TextInput from '#lib/components/TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
 
@@ -39,7 +40,7 @@
 	{#each columns as column, i (i)}
 		<div class="card stack">
 			<div class="row">
-				<label class="grow">{t.settings.label} <input bind:value={column.label} /></label>
+				<label class="grow">{t.settings.label} <TextInput bind:value={column.label} /></label>
 				<button
 					type="button"
 					class="small"

@@ -81,9 +81,7 @@ export function rename(db: Db, what: ValueKind, from: string, to: string): numbe
 	return transaction(db, () => {
 		switch (what.kind) {
 			case 'category':
-				return Number(
-					db.prepare('UPDATE event_types SET category = ? WHERE category = ?').run(to, from).changes
-				);
+				return renameCategory(db, from, to);
 			case 'type':
 				return renameType(db, from, to);
 			case 'key':
@@ -128,15 +126,32 @@ function renameKey(db: Db, from: string, to: string): number {
 	return both.length + Number(a.changes) + Number(b.changes);
 }
 
+type TypeRow = { id: number; name: string; category: string };
+
+/**
+ * Renames the type in every category. Where a category already has a type named `to`,
+ * the two are merged.
+ */
 function renameType(db: Db, from: string, to: string): number {
-	const source = db.prepare('SELECT id FROM event_types WHERE name = ?').get(from) as
-		{ id: number } | undefined;
-	if (!source) return 0;
-	const target = db.prepare('SELECT id FROM event_types WHERE name = ?').get(to) as
-		{ id: number } | undefined;
+	const sources = db.prepare('SELECT * FROM event_types WHERE name = ?').all(from) as TypeRow[];
+	return sources.reduce((n, s) => n + moveType(db, s, to, s.category), 0);
+}
+
+/** Moves the category's types; a type whose name exists in `to` is merged into it. */
+function renameCategory(db: Db, from: string, to: string): number {
+	const sources = db.prepare('SELECT * FROM event_types WHERE category = ?').all(from) as TypeRow[];
+	return sources.reduce((n, s) => n + moveType(db, s, s.name, to), 0);
+}
+
+function moveType(db: Db, source: TypeRow, name: string, category: string): number {
+	const target = db
+		.prepare('SELECT id FROM event_types WHERE name = ? AND category = ? AND id != ?')
+		.get(name, category, source.id) as { id: number } | undefined;
 	if (!target) {
 		return Number(
-			db.prepare('UPDATE event_types SET name = ? WHERE id = ?').run(to, source.id).changes
+			db
+				.prepare('UPDATE event_types SET name = ?, category = ? WHERE id = ?')
+				.run(name, category, source.id).changes
 		);
 	}
 	const moved = db

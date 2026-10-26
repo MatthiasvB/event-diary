@@ -29,11 +29,13 @@ export function getOverviewColumns(db: Db): OverviewColumn[] {
 		id: number;
 		name: string;
 	}[];
-	const byName = new Map(types.map((ty) => [normalize(ty.name), ty.id]));
+	// A name may exist in several categories; the column then covers all of them.
 	return t.defaultOverviewColumns
 		.map((c) => ({
 			label: c.label,
-			typeIds: c.types.map((n) => byName.get(normalize(n))).filter((id) => id !== undefined)
+			typeIds: types
+				.filter((ty) => c.types.some((n) => normalize(n) === normalize(ty.name)))
+				.map((ty) => ty.id)
 		}))
 		.filter((c) => c.typeIds.length);
 }

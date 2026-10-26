@@ -1,5 +1,6 @@
 <!-- Choose one or many plants: search, pick individually, or select all matching a filter. -->
 <script lang="ts">
+	import TextInput from './TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { normalize } from '#lib/suggest.ts';
 
@@ -53,7 +54,7 @@
 	<div class="chips">
 		{#each selected as id (id)}
 			<span class="chip">
-				{byId.get(id)?.name ?? id} <span class="muted small">{id}</span>
+				{byId.get(id)?.name}
 				{#if multiple}
 					<button
 						type="button"
@@ -76,7 +77,7 @@
 
 	{#if expanded}
 		<div class="panel stack">
-			<input
+			<TextInput
 				type="search"
 				bind:value={query}
 				placeholder={t.plants.searchPlaceholder}
