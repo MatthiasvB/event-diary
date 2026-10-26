@@ -46,6 +46,7 @@
 			<input type="hidden" name="fieldKey" value={f.key} />
 			<input type="hidden" name="fieldValue" value={f.value} />
 			<input type="hidden" name="fieldTarget" value={f.target} />
+			<input type="hidden" name="fieldKind" value={f.kind ? JSON.stringify(f.kind) : ''} />
 		{/each}
 	</fieldset>
 	{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}

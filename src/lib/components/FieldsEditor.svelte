@@ -1,6 +1,11 @@
 <!-- Generic key/value fields with suggestions for both keys and values. -->
 <script lang="ts">
 	import Combobox from './Combobox.svelte';
+	import { page } from '$app/state';
+	import FieldValueInput from './FieldValueInput.svelte';
+	import TextInput from './TextInput.svelte';
+	import { FIELD_KINDS, TEXT, type FieldKindName, type FieldKinds } from '#lib/fieldKinds.ts';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { Candidate } from '#lib/suggest.ts';
 	import type { Field, FieldTarget, Vocabulary } from '#lib/types.ts';
@@ -51,6 +56,23 @@
 		else f.previous = mode === 'unknown' ? null : '';
 	}
 
+	// A name used for the first time can get a kind (date, number) right here.
+	const knownNames = $derived(
+		new Set([...vocab.keys.event, ...vocab.keys.plant].map((k) => k.value))
+	);
+	function isNewName(key: string) {
+		const name = key.trim();
+		const kinds = page.data.fieldKinds as FieldKinds | undefined;
+		return !!name && !knownNames.has(name) && !kinds?.[name];
+	}
+	/** The kind chosen for a new name; otherwise the input uses the name's stored kind. */
+	function chosenKind(f: Field) {
+		return isNewName(f.key) ? (f.kind ?? TEXT) : undefined;
+	}
+	function setKind(f: Field, kind: string) {
+		f.kind = { kind: kind as FieldKindName, unit: f.kind?.unit ?? '' };
+	}
+
 	function add() {
 		fields = [...fields, { key: '', value: '', target: defaultTarget }];
 	}
@@ -66,15 +88,41 @@
 					placeholder={t.events.fieldKey}
 					label={t.events.fieldKey}
 				/>
-				<Combobox
+				<FieldValueInput
+					key={field.key}
+					kind={chosenKind(field)}
 					bind:value={field.value}
 					candidates={valueCandidates(field.key)}
 					placeholder={field.target === 'plant' && current[field.key]
-						? t.events.currently(current[field.key])
+						? t.events.currently(showValue(field.key, current[field.key]))
 						: t.events.fieldValue}
 					label={field.key || t.events.fieldValue}
 				/>
 			</div>
+			{#if isNewName(field.key)}
+				<div class="row kind small">
+					<label class="inline">
+						{t.fieldKinds.kind}
+						<select
+							value={field.kind?.kind ?? 'text'}
+							onchange={(e) => setKind(field, e.currentTarget.value)}
+						>
+							{#each FIELD_KINDS as k (k)}<option value={k}>{t.fieldKinds.names[k]}</option>{/each}
+						</select>
+					</label>
+					{#if field.kind?.kind === 'number'}
+						<label class="inline grow">
+							{t.fieldKinds.unit}
+							<TextInput
+								bind:value={
+									() => field.kind?.unit ?? '', (v) => (field.kind = { kind: 'number', unit: v })
+								}
+								placeholder={t.fieldKinds.unitPlaceholder}
+							/>
+						</label>
+					{/if}
+				</div>
+			{/if}
 			<div class="spread">
 				{#if showTarget}
 					<div class="grow">
@@ -87,7 +135,9 @@
 							<span>
 								{t.events.targetPlant}
 								{#if field.target === 'plant' && current[field.key]}
-									<span class="muted">({t.events.currently(current[field.key])})</span>
+									<span class="muted"
+										>({t.events.currently(showValue(field.key, current[field.key]))})</span
+									>
 								{/if}
 							</span>
 						</label>
@@ -104,7 +154,9 @@
 								</select>
 							</label>
 							{#if typeof field.previous === 'string'}
-								<Combobox
+								<FieldValueInput
+									key={field.key}
+									kind={chosenKind(field)}
 									bind:value={() => field.previous ?? '', (v) => (field.previous = v)}
 									candidates={valueCandidates(field.key)}
 									placeholder={t.events.previousPlaceholder}
@@ -130,6 +182,18 @@
 </div>
 
 <style>
+	.kind {
+		align-items: center;
+		margin-top: 0.4rem;
+	}
+	.inline {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.inline select {
+		width: auto;
+	}
 	.fields {
 		display: flex;
 		flex-direction: column;

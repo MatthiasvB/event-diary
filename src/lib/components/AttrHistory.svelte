@@ -6,7 +6,8 @@
 	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import Combobox from './Combobox.svelte';
+	import FieldValueInput from './FieldValueInput.svelte';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { Candidate } from '#lib/suggest.ts';
@@ -34,7 +35,7 @@
 		{#each [...history].reverse() as h (h.id)}
 			<li>
 				<span class="muted">{h.since ? formatDate(h.since) : t.plants.initial}</span>
-				{h.value}
+				{showValue(key, h.value)}
 				{#if h.eventId}
 					<a
 						href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(h.eventId) })}
@@ -47,7 +48,7 @@
 						method="POST"
 						action="?/forgetInitial"
 						use:enhance={({ cancel }) => {
-							if (!confirm(t.plants.confirmNotRecorded(key, h.value))) cancel();
+							if (!confirm(t.plants.confirmNotRecorded(key, showValue(key, h.value)))) cancel();
 						}}
 					>
 						<input type="hidden" name="key" value={key} />
@@ -78,7 +79,8 @@
 		>
 			<input type="hidden" name="key" value={key} />
 			<input type="hidden" name="value" value={draft} />
-			<Combobox
+			<FieldValueInput
+				{key}
 				bind:value={draft}
 				{candidates}
 				label={t.plants.initialValue}

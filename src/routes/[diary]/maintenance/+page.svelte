@@ -4,6 +4,8 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import Combobox from '#lib/components/Combobox.svelte';
+	import TextInput from '#lib/components/TextInput.svelte';
+	import { FIELD_KINDS, kindOf } from '#lib/fieldKinds.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
 
@@ -12,6 +14,10 @@
 	let targets = $state<Record<string, string>>({});
 	const existing = $derived(new Set(data.candidates.map((c) => c.value)));
 	const kinds = Object.entries(t.maintenance.kinds);
+
+	// Field names: kind of their values (text, date, number with unit).
+	let chosenKind = $state<Record<string, string>>({});
+	const kindOfKey = (key: string) => kindOf(data.fieldKinds, key);
 
 	function href(kind: string, key = data.key) {
 		const q = new URLSearchParams(kind === 'value' && key ? { kind, key } : { kind });
@@ -74,7 +80,16 @@
 		<li class="card">
 			<details>
 				<summary class="spread"
-					><span>{c.value}</span>
+					><span
+						>{c.value}
+						{#if data.kind === 'key' && kindOfKey(c.value).kind !== 'text'}
+							<span class="badge"
+								>{t.fieldKinds.names[kindOfKey(c.value).kind]}{kindOfKey(c.value).unit
+									? ` (${kindOfKey(c.value).unit})`
+									: ''}</span
+							>
+						{/if}</span
+					>
 					<span class="muted small">{t.maintenance.uses(c.count)}</span></summary
 				>
 				<div class="stack rename">
@@ -88,6 +103,41 @@
 					{/if}
 					<div>{@render renameForm(c.value, targets[c.value] ?? c.value, t.common.save)}</div>
 				</div>
+				{#if data.kind === 'key'}
+					{@const kind = kindOfKey(c.value)}
+					<form
+						method="POST"
+						action="?/setKind"
+						class="row field-kind"
+						use:enhance={() =>
+							async ({ update }) =>
+								update({ reset: false })}
+					>
+						<input type="hidden" name="key" value={c.value} />
+						<label>
+							{t.fieldKinds.kind}
+							<select
+								name="kind"
+								value={kind.kind}
+								onchange={(e) => (chosenKind[c.value] = e.currentTarget.value)}
+							>
+								{#each FIELD_KINDS as k (k)}<option value={k}>{t.fieldKinds.names[k]}</option
+									>{/each}
+							</select>
+						</label>
+						{#if (chosenKind[c.value] ?? kind.kind) === 'number'}
+							<label class="grow">
+								{t.fieldKinds.unit}
+								<TextInput
+									name="unit"
+									value={kind.unit}
+									placeholder={t.fieldKinds.unitPlaceholder}
+								/>
+							</label>
+						{/if}
+						<button class="small">{t.common.save}</button>
+					</form>
+				{/if}
 			</details>
 		</li>
 	{/each}
@@ -109,6 +159,12 @@
 	.rename {
 		margin-top: 0.6rem;
 		gap: 0.5rem;
+	}
+	.field-kind {
+		align-items: flex-end;
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--border);
 	}
 	p {
 		margin: 0;

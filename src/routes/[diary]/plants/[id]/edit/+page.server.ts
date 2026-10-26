@@ -26,7 +26,7 @@ export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
 		if (!getPlant(d, params.id)) error(404, t.errors.notFound);
-		const { input, error: message } = parsePlantForm(await request.formData());
+		const { input, error: message } = parsePlantForm(await request.formData(), d);
 		if (message) return fail(400, { error: message });
 		updatePlant(d, { ...input, id: params.id }, today());
 		redirect(303, `/${params.diary}/plants/${encodeURIComponent(params.id)}`);

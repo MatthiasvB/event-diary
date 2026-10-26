@@ -32,3 +32,31 @@ it('lets existing diaries have a type name in several categories', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+it('turns the acquisition date of existing diaries into an ordinary date property', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-diary-'));
+	try {
+		const file = path.join(dir, 'diary.sqlite');
+		const before = openDb(file, DIARY_SCHEMA.slice(0, 4));
+		before.exec(`
+			INSERT INTO plants (id, name, acquired_on) VALUES ('P-001', 'A', '2025-03-01'), ('P-002', 'B', NULL);
+			INSERT INTO plant_attrs (plant_id, key, value) VALUES ('P-001', 'Standort', 'Küche');`);
+		before.close();
+
+		const db = openDb(file);
+		expect(
+			db.prepare('SELECT plant_id, key, value FROM plant_attrs ORDER BY plant_id, key').all()
+		).toEqual([
+			{ plant_id: 'P-001', key: 'Erworben am', value: '2025-03-01' },
+			{ plant_id: 'P-001', key: 'Standort', value: 'Küche' }
+		]);
+		expect(db.prepare('SELECT key, kind FROM field_kinds').all()).toEqual([
+			{ key: 'Erworben am', kind: 'date' }
+		]);
+		const columns = db.prepare('PRAGMA table_info(plants)').all() as { name: string }[];
+		expect(columns.map((c) => c.name)).not.toContain('acquired_on');
+		db.close();
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});

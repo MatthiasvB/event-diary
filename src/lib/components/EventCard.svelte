@@ -8,6 +8,7 @@
 	import PhotoViewer from './PhotoViewer.svelte';
 	import { isMedia } from '#lib/files.ts';
 	import { formatDate } from '#lib/format.ts';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { DiaryEvent } from '#lib/types.ts';
 
@@ -92,7 +93,10 @@
 	{#if event.fields.length}
 		<ul class="fields">
 			{#each event.fields as f (f.target + f.key)}
-				<li><span class="muted">{f.key}{f.target === 'plant' ? ' →' : ':'}</span> {f.value}</li>
+				<li>
+					<span class="muted">{f.key}{f.target === 'plant' ? ' →' : ':'}</span>
+					{showValue(f.key, f.value)}
+				</li>
 			{/each}
 		</ul>
 	{/if}

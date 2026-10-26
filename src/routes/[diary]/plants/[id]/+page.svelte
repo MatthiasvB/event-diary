@@ -6,6 +6,7 @@
 	import EventCard from '#lib/components/EventCard.svelte';
 	import Gallery from '#lib/components/Gallery.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
 	import { isMedia } from '#lib/files.ts';
@@ -51,13 +52,9 @@
 		<div class="spread">
 			<div>
 				<h1>{plant.name}</h1>
-				{#if !plant.active || plant.acquiredOn}
-					<p class="row muted">
-						{#if !plant.active}<span class="badge">{t.plants.inactive}</span>{/if}
-						{#if plant.acquiredOn}<span>{t.plants.acquiredOn} {formatDate(plant.acquiredOn)}</span
-							>{/if}
-					</p>
-				{/if}
+				{#if !plant.active}<p class="row muted">
+						<span class="badge">{t.plants.inactive}</span>
+					</p>{/if}
 			</div>
 			{#if canEdit()}
 				<a
@@ -116,7 +113,7 @@
 					{@const current = history[history.length - 1]}
 					<dt>{key}</dt>
 					<dd>
-						{current.value}
+						{showValue(key, current.value)}
 						{#if current.since}<span class="muted small"
 								>{t.plants.since} {formatDate(current.since)}</span
 							>{/if}

@@ -37,7 +37,7 @@ export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
 		const event = eventOr404(params.id);
-		const payload = parseEventForm(await request.formData());
+		const payload = parseEventForm(await request.formData(), d);
 		const message = validate(d, payload);
 		if (message) return fail(400, { error: message });
 

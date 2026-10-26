@@ -6,6 +6,7 @@
 	import { isMedia } from '#lib/files.ts';
 	import TextInput from '#lib/components/TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { openPhotoEvent } from '#lib/pending.svelte.ts';
 	import { normalize } from '#lib/suggest.ts';
 	import type { Snapshot } from './$types';
@@ -102,7 +103,7 @@
 			<span class="muted">{f.key}</span>
 			<select class="grow" bind:value={f.value} aria-label={f.key}>
 				<option value="">{t.common.all}</option>
-				{#each valuesOf(f.key) as v (v)}<option value={v}>{v}</option>{/each}
+				{#each valuesOf(f.key) as v (v)}<option value={v}>{showValue(f.key, v)}</option>{/each}
 			</select>
 			<button
 				type="button"

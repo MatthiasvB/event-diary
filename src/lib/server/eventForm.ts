@@ -1,4 +1,6 @@
 // Parsing and saving the event form (new, repeat, edit).
+import { kindOf, parseKind, storedValue, type FieldKinds } from '../fieldKinds.ts';
+import { learnKinds } from './fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import type { Field } from '../types.ts';
@@ -22,9 +24,21 @@ export type EventPayload = {
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-export function parseEventForm(form: FormData): EventPayload {
+/** Kinds chosen in the form for (new) field names: { key, kind } entries. */
+export function chosenKinds(fields: { key?: unknown; kind?: unknown }[]): FieldKinds {
+	return Object.fromEntries(
+		fields.flatMap((f) => {
+			const kind = parseKind(f?.kind);
+			return kind && str(f?.key) ? [[str(f?.key), kind]] : [];
+		})
+	);
+}
+
+/** Parses the form. Kinds chosen for new field names are stored right away (learnKinds). */
+export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
+	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
 	const payload: EventPayload = {
 		plantIds: [...new Set(list(raw.plantIds).map(str).filter(Boolean))],
 		typeName: str(raw.typeName),
@@ -35,14 +49,14 @@ export function parseEventForm(form: FormData): EventPayload {
 		fields: list(raw.fields)
 			.map((f) => ({
 				key: str(f?.key),
-				value: str(f?.value),
+				value: storedValue(str(f?.value), kindOf(kinds, str(f?.key))),
 				target: f?.target === 'plant' ? ('plant' as const) : ('event' as const),
 				previous:
 					f?.target !== 'plant'
 						? undefined
 						: f.previous === null
 							? null
-							: str(f.previous) || undefined
+							: storedValue(str(f.previous), kindOf(kinds, str(f?.key))) || undefined
 			}))
 			.filter((f) => f.key && f.value),
 		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),

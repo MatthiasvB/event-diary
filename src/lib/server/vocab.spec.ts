@@ -20,6 +20,7 @@ import {
 	setCover,
 	setInitialValue
 } from './plants.ts';
+import { getFieldKinds, learnKinds, setFieldKind } from './fieldKinds.ts';
 import { getOverviewColumns, setOverviewColumns } from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
 
@@ -30,7 +31,6 @@ function plant(id: string, attrs: Record<string, string> = {}) {
 		id,
 		name: id,
 		active: true,
-		acquiredOn: '2026-01-01',
 		notes: '',
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value }))
 	});
@@ -360,5 +360,40 @@ describe('types of the same name in several categories', () => {
 		expect(updateType(db, { ...update, category: 'Pflege' })).toBe(false);
 		expect(updateType(db, { ...update, category: 'Garten' })).toBe(true);
 		expect(getType(db, care.id)?.category).toBe('Pflege');
+	});
+});
+
+describe('field kinds', () => {
+	it('stay with a field name when it is renamed, and plain text is not stored', () => {
+		setFieldKind(db, 'Hoehe', { kind: 'number', unit: 'cm' });
+		setFieldKind(db, 'Notiz', { kind: 'text', unit: 'x' });
+		rename(db, { kind: 'key' }, 'Hoehe', 'Höhe');
+		expect(getFieldKinds(db)).toEqual({ Höhe: { kind: 'number', unit: 'cm' } });
+
+		setFieldKind(db, 'Breite', { kind: 'date', unit: 'ignored' });
+		rename(db, { kind: 'key' }, 'Breite', 'Höhe');
+		expect(getFieldKinds(db)).toEqual({ Höhe: { kind: 'number', unit: 'cm' } });
+	});
+});
+
+describe('kinds chosen for new names', () => {
+	it('apply only to names that are neither used nor typed yet', () => {
+		plant('P-001', { Standort: 'Küche' });
+		ensureType(db, 'Umtopfen', { fields: [{ key: 'Substrat', target: 'event' }] });
+		setFieldKind(db, 'Erworben am', { kind: 'date', unit: '' });
+
+		const kinds = learnKinds(db, {
+			Höhe: { kind: 'number', unit: 'cm' },
+			Standort: { kind: 'date', unit: '' },
+			Substrat: { kind: 'number', unit: 'l' },
+			'Erworben am': { kind: 'number', unit: '' },
+			Notiz: { kind: 'text', unit: '' }
+		});
+
+		expect(kinds).toEqual({
+			'Erworben am': { kind: 'date', unit: '' },
+			Höhe: { kind: 'number', unit: 'cm' }
+		});
+		expect(getFieldKinds(db)).toEqual(kinds);
 	});
 });

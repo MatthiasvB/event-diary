@@ -1,6 +1,7 @@
 // A submitted form doesn't stay in the browser history: "back" from the page it leads to
 // must not land on the form again.
-import { afterNavigate, goto } from '$app/navigation';
+import { afterNavigate, goto, invalidate } from '$app/navigation';
+import { FIELD_KINDS_DATA } from './fieldKinds.ts';
 import type { ActionResult } from '$app/forms';
 
 type Submitted = {
@@ -22,6 +23,8 @@ export function leaveFormOnRedirect() {
 
 	return async ({ result, update }: Submitted) => {
 		if (result.type !== 'redirect') return update({ reset: false });
+		// Saving may have given new field names a kind; the diary's data must know them.
+		await invalidate(FIELD_KINDS_DATA);
 		const target = new URL(result.location, location.href);
 		const path = target.pathname + target.search;
 		if (path === origin) history.back();

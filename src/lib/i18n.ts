@@ -76,7 +76,6 @@ export const t = {
 		active: 'Aktiv',
 		inactive: 'Inaktiv',
 		activeFilter: { active: 'Aktive', inactive: 'Inaktive', all: 'Alle' },
-		acquiredOn: 'Erworben am',
 		notes: 'Notizen',
 		attributes: 'Eigenschaften',
 		attributesHint:
@@ -230,6 +229,13 @@ export const t = {
 	},
 	photos: {
 		dropHint: 'oder Fotos hierher ziehen'
+	},
+	fieldKinds: {
+		kind: 'Art der Werte',
+		names: { text: 'Text', date: 'Datum', number: 'Zahl' },
+		unit: 'Einheit',
+		unitPlaceholder: 'z. B. cm',
+		saved: (key: string) => `„${key}“ gespeichert.`
 	},
 	files: {
 		add: 'Datei',

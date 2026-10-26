@@ -3,6 +3,9 @@ import { db } from '#lib/server/diary.ts';
 import { deleteType, typeImpact } from '#lib/server/events.ts';
 import { getType, listTypes, updateType } from '#lib/server/eventTypes.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
+import { chosenKinds } from '#lib/server/eventForm.ts';
+import { learnKinds } from '#lib/server/fieldKinds.ts';
+import { kindOf, parseKind, storedValue } from '#lib/fieldKinds.ts';
 import { t } from '#lib/i18n.ts';
 import type { FieldTemplate } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -28,11 +31,14 @@ export const actions: Actions = {
 		const keys = form.getAll('fieldKey').map((v) => String(v).trim());
 		const values = form.getAll('fieldValue').map((v) => String(v).trim());
 		const targets = form.getAll('fieldTarget').map(String);
+		const chosen = form.getAll('fieldKind').map((v) => parseKind(String(v)));
+		// Kinds chosen for new names are stored first, so defaults are stored in their form.
+		const kinds = learnKinds(d, chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i] }))));
 		const fields: FieldTemplate[] = keys
 			.map((key, i) => ({
 				key,
 				target: targets[i] === 'plant' ? ('plant' as const) : ('event' as const),
-				...(values[i] ? { default: values[i] } : {})
+				...(values[i] ? { default: storedValue(values[i], kindOf(kinds, key)) } : {})
 			}))
 			.filter((f) => f.key);
 		const category = String(form.get('category') ?? '').trim();

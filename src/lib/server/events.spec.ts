@@ -7,7 +7,7 @@ import { createPlant } from './plants.ts';
 it('searches event type names and notes, ignoring case and umlauts', () => {
 	const db = openDb(':memory:');
 	for (const id of ['P-001', 'P-002']) {
-		createPlant(db, { id, name: id, active: true, acquiredOn: null, notes: '', attrs: [] });
+		createPlant(db, { id, name: id, active: true, notes: '', attrs: [] });
 	}
 	const log = ensureType(db, 'Log', { category: 'Sonstiges' });
 	const fertilize = ensureType(db, 'Düngen');

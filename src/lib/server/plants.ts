@@ -5,7 +5,6 @@ type Row = {
 	id: string;
 	name: string;
 	active: number;
-	acquired_on: string | null;
 	notes: string;
 	cover_photo_id: string | null;
 };
@@ -14,7 +13,6 @@ const fromRow = (r: Row): Plant => ({
 	id: r.id,
 	name: r.name,
 	active: !!r.active,
-	acquiredOn: r.acquired_on,
 	notes: r.notes,
 	coverPhotoId: r.cover_photo_id
 });
@@ -46,7 +44,7 @@ const FIRST_PHOTO = `(
 
 // The cover is pinned (see pinCover); the fallback only covers a deleted cover photo.
 const SELECT_PLANT = `
-	SELECT p.id, p.name, p.active, p.acquired_on, p.notes,
+	SELECT p.id, p.name, p.active, p.notes,
 		coalesce(p.cover_photo_id, ${FIRST_PHOTO}) AS cover_photo_id
 	FROM plants p`;
 
@@ -119,16 +117,18 @@ export type PlantInput = {
 	id: string;
 	name: string;
 	active: boolean;
-	acquiredOn: string | null;
 	notes: string;
 	attrs: { key: string; value: string }[];
 };
 
 export function createPlant(db: Db, input: PlantInput) {
 	transaction(db, () => {
-		db.prepare(
-			'INSERT INTO plants (id, name, active, acquired_on, notes) VALUES (?, ?, ?, ?, ?)'
-		).run(input.id, input.name, input.active ? 1 : 0, input.acquiredOn, input.notes);
+		db.prepare('INSERT INTO plants (id, name, active, notes) VALUES (?, ?, ?, ?)').run(
+			input.id,
+			input.name,
+			input.active ? 1 : 0,
+			input.notes
+		);
 		const insert = db.prepare('INSERT INTO plant_attrs (plant_id, key, value) VALUES (?, ?, ?)');
 		for (const a of input.attrs) if (a.value) insert.run(input.id, a.key, a.value);
 	});
@@ -141,9 +141,12 @@ export function createPlant(db: Db, input: PlantInput) {
  */
 export function updatePlant(db: Db, input: PlantInput, today: string) {
 	transaction(db, () => {
-		db.prepare(
-			'UPDATE plants SET name = ?, active = ?, acquired_on = ?, notes = ? WHERE id = ?'
-		).run(input.name, input.active ? 1 : 0, input.acquiredOn, input.notes, input.id);
+		db.prepare('UPDATE plants SET name = ?, active = ?, notes = ? WHERE id = ?').run(
+			input.name,
+			input.active ? 1 : 0,
+			input.notes,
+			input.id
+		);
 		const history = attrHistory(db, input.id);
 		const wanted = new Map(input.attrs.map((a) => [a.key, a.value]));
 		for (const key of Object.keys(history)) if (!wanted.has(key)) wanted.set(key, '');

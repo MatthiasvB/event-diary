@@ -111,6 +111,23 @@ export const DIARY_SCHEMA = [
 	INSERT INTO event_types_new SELECT id, name, category, milestone, hint, fields FROM event_types;
 	DROP TABLE event_types;
 	ALTER TABLE event_types_new RENAME TO event_types;
+	`,
+	`
+	-- Kinds of values per field name (date, number with unit); not listed means text.
+	CREATE TABLE field_kinds (
+		key TEXT PRIMARY KEY,
+		kind TEXT NOT NULL,
+		unit TEXT NOT NULL DEFAULT ''
+	);
+
+	-- "Erworben am" was a column of every plant; now it is an ordinary property, a date.
+	INSERT INTO plant_attrs (plant_id, key, value)
+	SELECT p.id, 'Erworben am', p.acquired_on FROM plants p
+	WHERE coalesce(p.acquired_on, '') != ''
+		AND NOT EXISTS (SELECT 1 FROM plant_attrs a WHERE a.plant_id = p.id AND a.key = 'Erworben am');
+	INSERT INTO field_kinds (key, kind)
+	SELECT 'Erworben am', 'date' WHERE EXISTS (SELECT 1 FROM plant_attrs WHERE key = 'Erworben am');
+	ALTER TABLE plants DROP COLUMN acquired_on;
 	`
 ];
 

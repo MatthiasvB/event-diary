@@ -54,7 +54,7 @@ export const load: PageServerLoad = ({ url }) => {
 export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
-		const payload = parseEventForm(await request.formData());
+		const payload = parseEventForm(await request.formData(), d);
 		const error = validate(d, payload);
 		if (error) return fail(400, { error });
 

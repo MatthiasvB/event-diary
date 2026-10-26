@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
-	import DateInput from './DateInput.svelte';
 	import TextInput from './TextInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
 	import FileInput from './FileInput.svelte';
@@ -11,7 +10,7 @@
 	import type { Field, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
-		plant: { name: string; active: boolean; acquiredOn: string | null; notes: string };
+		plant: { name: string; active: boolean; notes: string };
 		attrs: { key: string; value: string }[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		isNew?: boolean;
@@ -63,15 +62,9 @@
 			<p class="muted small">{t.plants.photoHint}</p>
 		</div>
 	{/if}
-	<div class="row bottom">
-		<label class="grow">
-			{t.plants.acquiredOn}
-			<DateInput name="acquiredOn" value={plant.acquiredOn ?? ''} />
-		</label>
-		<label class="check"
-			><input name="active" type="checkbox" checked={plant.active} /> {t.plants.active}</label
-		>
-	</div>
+	<label class="check"
+		><input name="active" type="checkbox" checked={plant.active} /> {t.plants.active}</label
+	>
 
 	<fieldset>
 		<legend>{t.plants.attributes}</legend>
@@ -80,6 +73,7 @@
 		{#each fields as f, i (i)}
 			<input type="hidden" name="attrKey" value={f.key} />
 			<input type="hidden" name="attrValue" value={f.value} />
+			<input type="hidden" name="attrKind" value={f.kind ? JSON.stringify(f.kind) : ''} />
 		{/each}
 	</fieldset>
 
@@ -101,10 +95,6 @@
 </form>
 
 <style>
-	/* Align the checkbox with the input, not with its label. */
-	.bottom {
-		align-items: flex-end;
-	}
 	.photo {
 		gap: 0.3rem;
 	}

@@ -32,7 +32,7 @@ export function vocabulary(db: Db): Vocabulary {
 		.all() as UsageRow[];
 	const plantRows = db
 		.prepare(
-			`SELECT a.key, a.value, e.type_id, count(*) AS n, max(coalesce(a.since, p.acquired_on)) AS last
+			`SELECT a.key, a.value, e.type_id, count(*) AS n, max(a.since) AS last
 			FROM plant_attrs a JOIN plants p ON p.id = a.plant_id LEFT JOIN events e ON e.id = a.event_id
 			GROUP BY a.key, a.value, e.type_id`
 		)
@@ -123,6 +123,9 @@ function renameKey(db: Db, from: string, to: string): number {
 	const a = db.prepare('UPDATE event_attrs SET key = ? WHERE key = ?').run(to, from);
 	const b = db.prepare('UPDATE plant_attrs SET key = ? WHERE key = ?').run(to, from);
 	updateTemplates(db, (f) => (f.key === from ? { ...f, key: to } : f));
+	// The kind goes along, unless the name merged into already has one.
+	db.prepare('UPDATE OR IGNORE field_kinds SET key = ? WHERE key = ?').run(to, from);
+	db.prepare('DELETE FROM field_kinds WHERE key = ?').run(from);
 	return both.length + Number(a.changes) + Number(b.changes);
 }
 

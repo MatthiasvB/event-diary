@@ -40,6 +40,14 @@ Nothing in it is specific to plants; the UI calls them objects ("Objekte").
 - **Ereignisse**: all events, filtered by plant, type, category and date range.
 - **Mehr → Daten pflegen**: rename or merge values (categories, event types, field names,
   values). Similar spellings are listed automatically ("Catleya" → "Cattleya").
+- **Kinds of values**: properties and event details are plain text by default. A new name
+  can get its kind right where it is first entered; later, under _Daten pflegen → Namen
+  von Angaben/Eigenschaften_. A name can be a date (entered as
+  `YYYY-MM-DD`, with a calendar) or a number with an optional unit ("12,5 cm"). Values
+  stay text in the database (dates as `YYYY-MM-DD`, numbers with a dot), so changing the
+  kind never loses data; a value that doesn't fit is shown as typed. "Erworben am" used to
+  be a fixed field of every plant; existing diaries now have it as an ordinary date
+  property, and "Speichern & weitere" carries date properties over to the next object.
 
 ### Free values with suggestions
 

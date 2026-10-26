@@ -2,6 +2,7 @@
 <script lang="ts">
 	import TextInput from './TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
+	import { showValue } from '#lib/fieldValues.ts';
 	import { normalize } from '#lib/suggest.ts';
 
 	type PlantOption = { id: string; name: string; active: boolean; attrs: Record<string, string> };
@@ -100,7 +101,8 @@
 					{#if filterKey}
 						<select class="grow" bind:value={filterValue} aria-label={filterKey}>
 							<option value="">{t.common.all}</option>
-							{#each filterValues as v (v)}<option value={v}>{v}</option>{/each}
+							{#each filterValues as v (v)}<option value={v}>{showValue(filterKey, v)}</option
+								>{/each}
 						</select>
 					{/if}
 				{/if}

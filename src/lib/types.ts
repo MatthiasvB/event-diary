@@ -1,3 +1,4 @@
+import type { FieldKind } from './fieldKinds.ts';
 import type { EventFile } from './files.ts';
 
 import type { Candidate } from './suggest.ts';
@@ -14,6 +15,8 @@ export type Field = {
 	 * Omitted: leave as is; null: not recorded; a string: that value.
 	 */
 	previous?: string | null;
+	/** A name used for the first time: the kind of its values, chosen while entering it. */
+	kind?: FieldKind;
 };
 
 /** A field an event type usually needs, optionally with a default value. */
@@ -34,7 +37,6 @@ export type Plant = {
 	id: string;
 	name: string;
 	active: boolean;
-	acquiredOn: string | null;
 	notes: string;
 	coverPhotoId: string | null;
 };

@@ -12,6 +12,8 @@ import {
 	setInitialValue
 } from '#lib/server/plants.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
+import { getFieldKinds } from '#lib/server/fieldKinds.ts';
+import { kindOf, storedValue } from '#lib/fieldKinds.ts';
 import { getOverviewColumns } from '#lib/server/settings.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -52,8 +54,12 @@ export const actions: Actions = {
 	setInitial: async ({ request, params }) => {
 		const form = await request.formData();
 		const key = String(form.get('key') ?? '');
-		const value = String(form.get('value') ?? '').trim();
+		const d = db();
+		const value = storedValue(
+			String(form.get('value') ?? '').trim(),
+			kindOf(getFieldKinds(d), key)
+		);
 		if (!key || !value) return fail(400);
-		setInitialValue(db(), params.id, key, value);
+		setInitialValue(d, params.id, key, value);
 	}
 };

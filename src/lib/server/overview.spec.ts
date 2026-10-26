@@ -7,7 +7,7 @@ import { createPlant } from './plants.ts';
 
 it('shows as last event the one the timeline shows first, also on the same day', () => {
 	const db = openDb(':memory:');
-	createPlant(db, { id: 'P-001', name: 'X', active: true, acquiredOn: null, notes: '', attrs: [] });
+	createPlant(db, { id: 'P-001', name: 'X', active: true, notes: '', attrs: [] });
 	const water = ensureType(db, 'Gießen');
 	const fertilize = ensureType(db, 'Düngen');
 	const event = { note: '', fields: [], fileIds: [] };
