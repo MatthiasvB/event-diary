@@ -1,16 +1,15 @@
 import type { Attachment } from 'svelte/attachments';
 
-export function isImage(file: File) {
-	return file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name);
-}
-
 const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 
 /**
- * Accepts image files dropped onto the element (desktop drag and drop). While files are
- * dragged over it, the element has the class "dropping".
+ * Accepts files dropped onto the element (desktop drag and drop), optionally only some
+ * (`accept`). While files are dragged over it, the element has the class "dropping".
  */
-export function dropImages(ondrop: (files: File[]) => void): Attachment<HTMLElement> {
+export function dropFiles(
+	ondrop: (files: File[]) => void,
+	accept: (file: File) => boolean = () => true
+): Attachment<HTMLElement> {
 	return (node) => {
 		let depth = 0; // dragenter/dragleave also fire for child elements
 		const reset = () => {
@@ -36,7 +35,7 @@ export function dropImages(ondrop: (files: File[]) => void): Attachment<HTMLElem
 			e.preventDefault();
 			e.stopPropagation(); // the innermost drop zone wins
 			reset();
-			const files = [...e.dataTransfer!.files].filter(isImage);
+			const files = [...e.dataTransfer!.files].filter(accept);
 			if (files.length) ondrop(files);
 		};
 		node.addEventListener('dragenter', enter);

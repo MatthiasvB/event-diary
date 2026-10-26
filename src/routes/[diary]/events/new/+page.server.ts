@@ -6,6 +6,7 @@ import { photoType } from '#lib/server/eventTypes.ts';
 import { plantOptions } from '#lib/server/plantOptions.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
+import type { EventFile } from '#lib/files.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -22,7 +23,7 @@ export const load: PageServerLoad = ({ url }) => {
 		date: today(),
 		note: '',
 		fields: [] as { key: string; value: string; target: 'event' | 'plant' }[],
-		keptPhotos: [] as string[]
+		files: [] as EventFile[]
 	};
 
 	// Repeat: copy an event (for all plants of its batch) with today's date.
@@ -53,11 +54,11 @@ export const load: PageServerLoad = ({ url }) => {
 export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
-		const { payload, files } = parseEventForm(await request.formData());
+		const payload = parseEventForm(await request.formData());
 		const error = validate(d, payload);
 		if (error) return fail(400, { error });
 
-		const ids = await saveNewEvents(d, payload, files);
+		const ids = saveNewEvents(d, payload);
 		if (payload.plantIds.length === 1)
 			redirect(303, `/${params.diary}/plants/${encodeURIComponent(payload.plantIds[0])}`);
 		redirect(303, `/${params.diary}/events?saved=${ids.length}`);

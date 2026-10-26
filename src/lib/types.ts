@@ -1,3 +1,5 @@
+import type { EventFile } from './files.ts';
+
 import type { Candidate } from './suggest.ts';
 
 /** Where a field's value is stored: on the event, or as a (historized) plant attribute. */
@@ -58,7 +60,8 @@ export type DiaryEvent = {
 	batchId: string | null;
 	batchSize: number;
 	fields: Field[];
-	photos: string[];
+	/** Photos, videos and other files, in order. */
+	files: EventFile[];
 };
 
 export type ValueCandidate = Candidate & { byType: Record<number, number> };

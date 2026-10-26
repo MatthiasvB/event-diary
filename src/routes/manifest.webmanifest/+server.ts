@@ -19,7 +19,7 @@ export const GET: RequestHandler = () =>
 				action: SHARE_PATH,
 				method: 'POST',
 				enctype: 'multipart/form-data',
-				params: { files: [{ name: 'photos', accept: ['image/*'] }] }
+				params: { files: [{ name: 'photos', accept: ['image/*', 'video/*'] }] }
 			},
 			icons: [
 				{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' },

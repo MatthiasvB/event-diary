@@ -9,6 +9,18 @@ const PUBLIC_PATHS = new Set(['/login', '/manifest.webmanifest']);
 const READ_METHODS = new Set(['GET', 'HEAD']);
 
 export const handle: Handle = async ({ event, resolve }) => {
+	try {
+		return await authorize({ event, resolve });
+	} finally {
+		// A request answered without reading its body (too large, not logged in, not allowed)
+		// never ends in Node, so adapter-node would never exit when idle. Once the short
+		// response is out, such a request is closed.
+		const req = event.platform?.req;
+		if (req && !req.complete) setTimeout(() => req.complete || req.destroy(), 1000).unref();
+	}
+};
+
+const authorize: Handle = async ({ event, resolve }) => {
 	if (!auth().requiresLogin) {
 		// Without login there is one implicit user.
 		event.locals.user = LOCAL_USER;

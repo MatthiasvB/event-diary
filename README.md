@@ -17,17 +17,24 @@ Nothing in it is specific to plants; the UI calls them objects ("Objekte").
   (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any attribute.
   The columns are chosen under _Mehr → Einstellungen_.
 - **Erfassen (+)**: the main flow. Choose plant(s), type or choose the event type, add
-  fields, a note and photos, then save. Choosing a type fills in its usual fields and shows
-  its hint. Several plants at once create a _batch_ that can later be corrected in one go.
+  fields, a note, photos, videos and other files, then save. Choosing a type fills in its
+  usual fields and shows its hint. Several plants at once create a _batch_ that can later be
+  corrected in one go.
+- **Attachments**: photos (thumbnails, viewer, cover image), videos (played in the
+  browser's own player, with seeking) and any other files such as PDFs, which are listed by
+  name and can be downloaded; PDFs and plain text can also be opened in the browser. Files
+  are kept exactly as uploaded. When saving, they are uploaded one by one, so the size
+  limit (`maxUploadSize`) applies per file. Videos play if the browser supports their
+  format (e.g. iPhone HEVC `.mov` not everywhere); they can always be downloaded.
 - **Foto** (camera in the navigation): photo first, then the plant, then save. The photo's
   capture date is offered as the event date.
 - **Sharing photos into the app** (Android): installed via Chrome (or another
-  Chromium-based browser), the app appears in the system share sheet for images. Shared
-  photos open the event form in photo mode. Firefox for Android and iOS don't support
+  Chromium-based browser), the app appears in the system share sheet for photos and
+  videos. Shared files open the event form in photo mode. Firefox for Android and iOS don't support
   this for web apps. A minimal service worker receives the shared images; it doesn't
   cache the app or provide offline use.
-- **Drag and drop** (desktop): drop photos onto a plant's card or page, or onto the photo
-  area of a form.
+- **Drag and drop** (desktop): drop photos or videos onto a plant's card or page, or any
+  files onto the file area of a form.
 - **Plant page**: current attributes with their history, a timeline with photos, and
   _Wiederholen_ (repeat) on every event.
 - **Ereignisse**: all events, filtered by plant, type, category and date range.
@@ -81,7 +88,7 @@ UI strings live in [src/lib/i18n.ts](src/lib/i18n.ts).
 | `PAM_SERVICE`        | `event-diary`      | PAM service name                              |
 | `AUTH_ALLOWED_USERS` | (all)              | Comma-separated users allowed to log in       |
 | `SESSION_DAYS`       | `90`               | Login lifetime                                |
-| `BODY_SIZE_LIMIT`    | `512K`             | Max. upload size (adapter-node), e.g. `100M`  |
+| `BODY_SIZE_LIMIT`    | `512K`             | Max. size per uploaded file, e.g. `100M`      |
 | `IDLE_TIMEOUT`       | (none)             | Exit after N idle seconds (socket activation) |
 
 ## NixOS
@@ -189,13 +196,15 @@ To add one (e.g. trusting a proxy header), implement `AuthBackend` and register 
 ├── db/                        live databases (+ -wal/-shm); don't back up directly
 │   ├── registry.sqlite        diaries, memberships, sessions
 │   └── diaries/<id>.sqlite    one per diary
-├── photos/<uuid>.<ext>        photo originals of all diaries, written once   ← back up
+├── photos/<uuid>.<ext>        attachments of all diaries (photos, videos, documents),
+│                              written once                                   ← back up
 └── snapshot/                  consistent copies of db/ from the backup command  ← back up
 /var/cache/event-diary/thumbs/ resized JPEGs, regenerated on demand
 ```
 
-Photo files are shared by all diaries, but a photo is only served through the diary that
-references it.
+Attachment files are shared by all diaries, but a file is only served through the diary
+that references it. Types a browser could run as code (HTML, SVG, …) are only ever served
+as downloads, so a shared diary can't be used to inject scripts.
 
 ## Backup and restore
 
@@ -215,5 +224,5 @@ chown -R event-diary:event-diary /mnt/data/event-diary/db /mnt/data/event-diary/
 systemctl start event-diary.socket
 ```
 
-Thumbnails are regenerated on demand. Photos uploaded after the last snapshot are just
+Thumbnails are regenerated on demand. Files uploaded after the last snapshot are just
 unreferenced files after a restore.

@@ -1,9 +1,12 @@
 <!-- An event as a tile: the whole tile opens the editor; photos open the viewer. -->
 <script lang="ts">
-	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
+	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import FileList from './FileList.svelte';
+	import MediaThumb from './MediaThumb.svelte';
 	import PhotoViewer from './PhotoViewer.svelte';
+	import { isMedia } from '#lib/files.ts';
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { DiaryEvent } from '#lib/types.ts';
@@ -19,8 +22,11 @@
 
 	let viewer = $state<PhotoViewer>();
 	const photos = $derived(
-		event.photos.map((id) => ({ id, date: formatDate(event.date), label: event.typeName }))
+		event.files
+			.filter((f) => isMedia({ type: f.mime, name: f.name }))
+			.map((f) => ({ ...f, date: formatDate(event.date), label: event.typeName }))
 	);
+	const documents = $derived(event.files.filter((f) => !isMedia({ type: f.mime, name: f.name })));
 </script>
 
 <article class="card" class:milestone={event.milestone}>
@@ -75,7 +81,7 @@
 						onclick={() => viewer?.open(i)}
 						aria-label="{p.label}, {p.date}"
 					>
-						<img src={photoUrl(p.id, 's')} alt="" loading="lazy" />
+						<MediaThumb file={p} />
 						{#if canSetCover && p.id === coverPhotoId}
 							<span class="cover" title={t.plants.isCover}>★</span>
 						{/if}
@@ -85,6 +91,8 @@
 		</ul>
 		<PhotoViewer bind:this={viewer} {photos} {coverPhotoId} {canSetCover} />
 	{/if}
+
+	{#if documents.length}<FileList files={documents} />{/if}
 
 	{#if canEdit()}
 		<footer class="row">
@@ -131,7 +139,8 @@
 		inset: 0;
 		border-radius: inherit;
 	}
-	.above {
+	/* Also the links in the file list. */
+	article :global(.above) {
 		position: relative;
 		z-index: 1;
 	}
@@ -171,11 +180,6 @@
 		border-radius: 8px;
 		overflow: hidden;
 		background: var(--surface-2);
-	}
-	.photos img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
 	}
 	.cover {
 		position: absolute;

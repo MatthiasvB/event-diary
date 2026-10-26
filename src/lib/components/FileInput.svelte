@@ -1,8 +1,12 @@
-<!-- Camera and gallery buttons; collects files and reports the earliest EXIF capture date. -->
+<!--
+	Camera, gallery and (with `documents`) file buttons; collects the chosen files and reports
+	the earliest EXIF capture date of the photos.
+-->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { isoDate } from '#lib/format.ts';
-	import { dropImages } from '#lib/dropImages.ts';
+	import { dropFiles } from '#lib/dropFiles.ts';
+	import { fileKind, isMedia } from '#lib/files.ts';
 	import { t } from '#lib/i18n.ts';
 
 	type Props = {
@@ -10,8 +14,11 @@
 		onexifdate?: (date: string) => void;
 		/** Highlight the camera button. */
 		prominent?: boolean;
+		/** Also any other files (documents), not only photos and videos. */
+		documents?: boolean;
 	};
-	let { files = $bindable(), onexifdate, prominent = false }: Props = $props();
+	let { files = $bindable(), onexifdate, prominent = false, documents = false }: Props = $props();
+	const kind = (file: File) => fileKind(file.type, file.name);
 
 	// Plain cache of object URLs, not reactive state.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -29,7 +36,7 @@
 	async function captureDate(list: File[]) {
 		const { default: exifr } = await import('exifr');
 		const dates: string[] = [];
-		for (const f of list) {
+		for (const f of list.filter((f) => kind(f) === 'image')) {
 			try {
 				const exif = await exifr.parse(f, ['DateTimeOriginal', 'CreateDate']);
 				const d = exif?.DateTimeOriginal ?? exif?.CreateDate;
@@ -60,7 +67,7 @@
 	});
 </script>
 
-<div class="stack photos drop-zone" {@attach dropImages(addFiles)}>
+<div class="stack photos drop-zone" {@attach dropFiles(addFiles, documents ? undefined : isMedia)}>
 	<div class="row">
 		<label class="button" class:primary={prominent}>
 			<input
@@ -73,20 +80,33 @@
 			📷 {t.events.camera}
 		</label>
 		<label class="button">
-			<input type="file" accept="image/*" multiple class="visually-hidden" onchange={add} />
+			<input type="file" accept="image/*,video/*" multiple class="visually-hidden" onchange={add} />
 			🖼 {t.events.gallery}
 		</label>
+		{#if documents}
+			<label class="button">
+				<input type="file" multiple class="visually-hidden" onchange={add} />
+				📎 {t.files.add}
+			</label>
+		{/if}
 	</div>
-	<p class="drop-hint muted small">{t.photos.dropHint}</p>
+	<p class="drop-hint muted small">{documents ? t.files.dropHint : t.photos.dropHint}</p>
 	{#if files.length}
 		<ul class="thumbs">
 			{#each files as file (file)}
 				<li>
-					<img
-						src={preview(file)}
-						alt={file.name}
-						onerror={(e) => e.currentTarget.classList.add('broken')}
-					/>
+					{#if kind(file) === 'image'}
+						<img
+							src={preview(file)}
+							alt={file.name}
+							onerror={(e) => e.currentTarget.classList.add('broken')}
+						/>
+					{:else if kind(file) === 'video'}
+						<video src="{preview(file)}#t=0.1" preload="metadata" muted playsinline></video>
+						<span class="badge-icon" aria-hidden="true">▶</span>
+					{:else}
+						<span class="badge-icon" aria-hidden="true">📄</span>
+					{/if}
 					<span class="name small">{file.name}</span>
 					<button
 						type="button"
@@ -126,10 +146,23 @@
 		overflow: hidden;
 		background: var(--surface-2);
 	}
-	img {
+	img,
+	video {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+	.badge-icon {
+		position: absolute;
+		inset: 0 0 1.2rem;
+		display: grid;
+		place-items: center;
+		font-size: 1.6rem;
+		color: var(--muted);
+	}
+	video + .badge-icon {
+		color: #fff;
+		text-shadow: 0 1px 4px rgb(0 0 0 / 0.7);
 	}
 	/* e.g. HEIC outside Safari: show the file name instead */
 	:global(img.broken) {

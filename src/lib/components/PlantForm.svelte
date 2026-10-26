@@ -4,9 +4,10 @@
 	import DateInput from './DateInput.svelte';
 	import TextInput from './TextInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
-	import PhotoInput from './PhotoInput.svelte';
+	import FileInput from './FileInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
+	import { uploadFiles } from '#lib/upload.ts';
 	import type { Field, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
@@ -26,15 +27,28 @@
 	// New plants only: first photos, saved as a photo event.
 	let files = $state<File[]>([]);
 	let photoDate = $state('');
+	let uploaded = $state<number | null>(null);
+	let uploadError = $state('');
 </script>
 
 <form
 	method="POST"
 	action="?/save"
-	enctype="multipart/form-data"
 	class="stack"
-	use:enhance={({ formData }) => {
-		for (const f of files) formData.append('photos', f);
+	use:enhance={async ({ formData, cancel }) => {
+		// Photos are uploaded one by one first; the plant is saved with their IDs.
+		uploadError = '';
+		try {
+			uploaded = 0;
+			const ids = await uploadFiles(files, (n) => (uploaded = n));
+			for (const id of ids) formData.append('file', id);
+		} catch (e) {
+			uploadError = (e as Error).message;
+			cancel();
+			return;
+		} finally {
+			uploaded = null;
+		}
 		formData.set('photoDate', photoDate);
 		return leave;
 	}}
@@ -45,7 +59,7 @@
 	</label>
 	{#if isNew}
 		<div class="stack photo">
-			<PhotoInput bind:files prominent onexifdate={(d) => (photoDate = d)} />
+			<FileInput bind:files prominent onexifdate={(d) => (photoDate = d)} />
 			<p class="muted small">{t.plants.photoHint}</p>
 		</div>
 	{/if}
@@ -75,8 +89,13 @@
 	</label>
 
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
+	{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 	<div class="sticky-actions">
-		<button class="primary">{t.common.save}</button>
+		<button class="primary" disabled={uploaded !== null}
+			>{uploaded !== null && files.length
+				? t.files.uploading(uploaded, files.length)
+				: t.common.save}</button
+		>
 		{#if isNew}<button name="next" value="1">{t.plants.saveAndNext}</button>{/if}
 	</div>
 </form>

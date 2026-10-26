@@ -2,7 +2,8 @@ import { error, fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { deleteEvent, listEvents } from '#lib/server/events.ts';
 import { plantStats } from '#lib/server/overview.ts';
-import { PHOTO_ID } from '#lib/server/photos.ts';
+import { FILE_ID, getFile } from '#lib/server/files.ts';
+import { fileKind } from '#lib/files.ts';
 import {
 	attrHistory,
 	forgetInitialValue,
@@ -38,7 +39,9 @@ export const actions: Actions = {
 	},
 	cover: async ({ request, params }) => {
 		const photo = String((await request.formData()).get('photo') ?? '');
-		if (!PHOTO_ID.test(photo)) return fail(400);
+		const file = FILE_ID.test(photo) ? getFile(db(), photo) : undefined;
+		// Only photos can be the cover.
+		if (!file || fileKind(file.mime, file.original_name) !== 'image') return fail(400);
 		setCover(db(), params.id, photo);
 	},
 	forgetInitial: async ({ request, params }) => {

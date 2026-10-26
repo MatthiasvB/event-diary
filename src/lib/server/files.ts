@@ -1,9 +1,15 @@
+// Stored attachments (photos, videos, other files) and photo thumbnails. Files are kept
+// unchanged under a new ID in photos/ and never modified.
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { promisify } from 'node:util';
 import exifr from 'exifr';
+import { fileKind } from '../files.ts';
 import { config } from './config.ts';
 import type { Db } from './db.ts';
 
@@ -18,40 +24,91 @@ const EXTENSIONS: Record<string, string> = {
 	'image/heic': 'heic',
 	'image/heif': 'heif'
 };
-const MIME_BY_EXT = Object.fromEntries([
+// For uploads without a type (e.g. HEIC on some systems).
+const MIME_BY_EXT: Record<string, string> = Object.fromEntries([
 	...Object.entries(EXTENSIONS).map(([m, e]) => [e, m]),
-	['jpeg', 'image/jpeg']
+	['jpeg', 'image/jpeg'],
+	['mp4', 'video/mp4'],
+	['mov', 'video/quicktime'],
+	['webm', 'video/webm'],
+	['pdf', 'application/pdf'],
+	['txt', 'text/plain']
 ]);
 /** Formats every browser can show; others (HEIC) are only shown as thumbnails. */
 const BROWSER_SAFE = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+/**
+ * Served for display in the browser. Anything else (HTML, SVG, …) is only ever offered as
+ * a download, so a file can't run as part of the app, e.g. in a shared diary.
+ */
+const INLINE =
+	/^(image\/(jpeg|png|webp|gif|avif)|video\/[\w.+-]+|audio\/[\w.+-]+|application\/pdf|text\/plain)$/;
 
 export const SIZES = { s: 480, l: 1600 } as const;
 export type Size = keyof typeof SIZES;
 
-export const PHOTO_ID = /^[0-9a-f-]{36}$/;
+export const FILE_ID = /^[0-9a-f-]{36}$/;
 
 type Row = { id: string; file: string; mime: string; original_name: string };
 
-/** Stores an upload unchanged under a new stable ID. Returns the ID. */
-export async function savePhoto(db: Db, file: File): Promise<string> {
-	const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-	const mime = EXTENSIONS[file.type] ? file.type : MIME_BY_EXT[ext];
-	if (!mime) throw new Error(`Unsupported image type: ${file.type || file.name}`);
-
-	const data = Buffer.from(await file.arrayBuffer());
+/**
+ * Stores an upload (photo, video or any file) unchanged under a new stable ID. The data is
+ * streamed to disk, so even a large video is never held in memory.
+ */
+export async function saveFile(
+	db: Db,
+	data: ReadableStream<Uint8Array>,
+	originalName: string,
+	type: string
+): Promise<string> {
+	const ext = /\.([a-z0-9]{1,10})$/i.exec(originalName)?.[1].toLowerCase() ?? '';
+	const mime = (type || MIME_BY_EXT[ext] || 'application/octet-stream').toLowerCase();
 	const id = randomUUID();
-	const name = `${id}.${EXTENSIONS[mime]}`;
+	const name = ext ? `${id}.${ext}` : id;
+	const target = path.join(config.photosDir, name);
 	fs.mkdirSync(config.photosDir, { recursive: true });
-	fs.writeFileSync(path.join(config.photosDir, name), data, { flag: 'wx', mode: 0o640 });
+	try {
+		await pipeline(
+			Readable.fromWeb(data as NodeReadableStream),
+			fs.createWriteStream(target, { flags: 'wx', mode: 0o640 })
+		);
+	} catch (e) {
+		fs.rmSync(target, { force: true });
+		throw e;
+	}
 
+	const taken = fileKind(mime, originalName) === 'image' ? await captureTime(target) : null;
 	db.prepare(
 		'INSERT INTO photos (id, file, mime, original_name, taken_at) VALUES (?, ?, ?, ?, ?)'
-	).run(id, name, mime, file.name, await captureTime(data));
+	).run(id, name, mime, originalName, taken);
 	return id;
 }
 
+/** Whether all these files exist (uploads that weren't attached are removed after a day). */
+export function filesExist(db: Db, ids: string[]): boolean {
+	const exists = db.prepare('SELECT 1 FROM photos WHERE id = ?');
+	return ids.every((id) => exists.get(id));
+}
+
+/**
+ * Files are uploaded one by one before the form that uses them is saved. Those never
+ * attached (form abandoned) are removed after a day.
+ */
+export function deleteStaleUploads(db: Db) {
+	const stale = db
+		.prepare(
+			`SELECT id FROM photos WHERE created_at < datetime('now', '-1 day')
+			AND id NOT IN (SELECT photo_id FROM event_photos)
+			AND id NOT IN (SELECT cover_photo_id FROM plants WHERE cover_photo_id IS NOT NULL)`
+		)
+		.all() as { id: string }[];
+	deleteFiles(
+		db,
+		stale.map((r) => r.id)
+	);
+}
+
 /** EXIF capture time as local "YYYY-MM-DDTHH:MM:SS", if present. */
-export async function captureTime(data: Uint8Array): Promise<string | null> {
+export async function captureTime(data: string | Uint8Array): Promise<string | null> {
 	try {
 		const exif = await exifr.parse(data, ['DateTimeOriginal', 'CreateDate']);
 		const d: unknown = exif?.DateTimeOriginal ?? exif?.CreateDate;
@@ -63,7 +120,7 @@ export async function captureTime(data: Uint8Array): Promise<string | null> {
 	}
 }
 
-export function getPhoto(db: Db, id: string): (Row & { path: string }) | undefined {
+export function getFile(db: Db, id: string): (Row & { path: string }) | undefined {
 	const row = db
 		.prepare('SELECT id, file, mime, original_name FROM photos WHERE id = ?')
 		.get(id) as Row | undefined;
@@ -77,7 +134,7 @@ const pending = new Map<string, Promise<string | null>>();
  * Returns null if it can't be generated.
  */
 export function thumbnail(db: Db, id: string, size: Size): Promise<string | null> {
-	const photo = getPhoto(db, id);
+	const photo = getFile(db, id);
 	if (!photo) return Promise.resolve(null);
 	const target = path.join(config.cacheDir, 'thumbs', `${id}-${SIZES[size]}.jpg`);
 	if (fs.existsSync(target)) return Promise.resolve(target);
@@ -108,10 +165,14 @@ export function isBrowserSafe(mime: string) {
 	return BROWSER_SAFE.has(mime);
 }
 
-/** Removes photos (rows, originals, cached thumbnails) that no event references any more. */
-export function deletePhotos(db: Db, ids: string[]) {
+export function servesInline(mime: string) {
+	return INLINE.test(mime);
+}
+
+/** Removes files (rows, originals, cached thumbnails) that no event references any more. */
+export function deleteFiles(db: Db, ids: string[]) {
 	for (const id of ids) {
-		const photo = getPhoto(db, id);
+		const photo = getFile(db, id);
 		if (!photo) continue;
 		db.prepare('DELETE FROM photos WHERE id = ?').run(id);
 		fs.rmSync(photo.path, { force: true });

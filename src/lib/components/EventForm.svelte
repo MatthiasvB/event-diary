@@ -1,19 +1,22 @@
 <!--
 	The main entry flow: plant(s) → event type (prefills fields and shows its hint) →
-	optional fields, note and photos → save. Used for new events, repeats and edits.
+	optional fields, note, photos and files → save. Used for new events, repeats and edits.
+	New files are uploaded one by one when saving, then the event is saved with their IDs.
 -->
 <script lang="ts">
-	import { photoUrl } from '#lib/paths.ts';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Combobox from './Combobox.svelte';
 	import DateInput from './DateInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
-	import PhotoInput from './PhotoInput.svelte';
+	import FileInput from './FileInput.svelte';
+	import MediaThumb from './MediaThumb.svelte';
 	import PlantPicker from './PlantPicker.svelte';
 	import { formatDate, shiftDays, today } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
+	import { isMedia, type EventFile } from '#lib/files.ts';
+	import { uploadFiles } from '#lib/upload.ts';
 	import type { EventType, Field, Vocabulary } from '#lib/types.ts';
 
 	type PlantOption = { id: string; name: string; active: boolean; attrs: Record<string, string> };
@@ -24,7 +27,8 @@
 		date: string;
 		note: string;
 		fields: Field[];
-		keptPhotos: string[];
+		/** Already attached (edit). */
+		files: EventFile[];
 	};
 
 	type Props = {
@@ -67,7 +71,7 @@
 	let date = $state(start.date);
 	let note = $state(start.note);
 	let fields = $state(start.fields);
-	let keptPhotos = $state(start.keptPhotos);
+	let keptFiles = $state(start.files);
 	let category = $state(start.category);
 	// A preset type (edit, repeat, photo) comes with its category.
 	let categoryChosen = $state(!!start.typeName);
@@ -76,6 +80,8 @@
 	let exifDate = $state<string | null>(null);
 	let dateTouched = false;
 	let submitting = $state(false);
+	let uploaded = $state<number | null>(null);
+	let uploadError = $state('');
 
 	// Several categories may have a type of the same name; name and category pick one.
 	const named = $derived(vocab.types.filter((ty) => ty.name === typeName.trim()));
@@ -158,15 +164,27 @@
 <form
 	method="POST"
 	action="?/save"
-	enctype="multipart/form-data"
 	class="stack"
-	use:enhance={({ formData, cancel }) => {
+	use:enhance={async ({ formData, cancel }) => {
 		if (mustChoose) {
 			cancel();
 			document.getElementById('category')?.focus();
 			return;
 		}
 		submitting = true;
+		uploadError = '';
+		let newFiles: string[];
+		try {
+			uploaded = 0;
+			newFiles = await uploadFiles(files, (n) => (uploaded = n));
+		} catch (e) {
+			uploadError = (e as Error).message;
+			submitting = false;
+			cancel();
+			return;
+		} finally {
+			uploaded = null;
+		}
 		formData.set(
 			'payload',
 			JSON.stringify({
@@ -177,11 +195,10 @@
 				date,
 				note,
 				fields,
-				keptPhotos,
+				files: [...keptFiles.map((f) => f.id), ...newFiles],
 				applyToBatch
 			})
 		);
-		for (const f of files) formData.append('photos', f);
 		return async (submitted) => {
 			await leave(submitted);
 			submitting = false;
@@ -189,7 +206,7 @@
 	}}
 >
 	{#if photoMode}
-		<PhotoInput bind:files onexifdate={onExifDate} />
+		<FileInput bind:files onexifdate={onExifDate} documents />
 	{/if}
 
 	<div>
@@ -272,22 +289,26 @@
 	{#if !photoMode}
 		<fieldset>
 			<legend>{t.events.photos}</legend>
-			{#if keptPhotos.length}
+			{#if keptFiles.length}
 				<ul class="kept">
-					{#each keptPhotos as id (id)}
-						<li>
-							<img src={photoUrl(id, 's')} alt="" />
+					{#each keptFiles as file (file.id)}
+						<li title={file.name}>
+							{#if isMedia({ type: file.mime, name: file.name })}
+								<MediaThumb {file} />
+							{:else}
+								<span class="doc small">📄 {file.name}</span>
+							{/if}
 							<button
 								type="button"
 								class="small"
-								aria-label={t.events.removePhoto}
-								onclick={() => (keptPhotos = keptPhotos.filter((k) => k !== id))}>×</button
+								aria-label="{t.events.removePhoto}: {file.name}"
+								onclick={() => (keptFiles = keptFiles.filter((k) => k !== file))}>×</button
 							>
 						</li>
 					{/each}
 				</ul>
 			{/if}
-			<PhotoInput bind:files onexifdate={onExifDate} />
+			<FileInput bind:files onexifdate={onExifDate} documents />
 		</fieldset>
 	{/if}
 
@@ -299,10 +320,15 @@
 	{/if}
 
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
+	{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 	{#if mustChoose}<p class="error" role="alert">{t.events.categoryRequired}</p>{/if}
 
 	<div class="sticky-actions">
-		<button class="primary" disabled={submitting || mustChoose}>{t.common.save}</button>
+		<button class="primary" disabled={submitting || mustChoose}
+			>{uploaded !== null && files.length
+				? t.files.uploading(uploaded, files.length)
+				: t.common.save}</button
+		>
 	</div>
 </form>
 
@@ -347,12 +373,18 @@
 	}
 	.kept li {
 		position: relative;
-	}
-	.kept img {
 		width: 88px;
 		height: 88px;
-		object-fit: cover;
 		border-radius: 8px;
+		overflow: hidden;
+		background: var(--surface-2);
+	}
+	.doc {
+		display: block;
+		padding: 0.4rem;
+		overflow: hidden;
+		overflow-wrap: anywhere;
+		height: 100%;
 	}
 	.kept button {
 		position: absolute;

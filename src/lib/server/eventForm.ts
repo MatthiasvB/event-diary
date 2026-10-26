@@ -5,7 +5,7 @@ import type { Field } from '../types.ts';
 import type { Db } from './db.ts';
 import { createEvents, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
-import { deletePhotos, PHOTO_ID, savePhoto } from './photos.ts';
+import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 
 export type EventPayload = {
 	plantIds: string[];
@@ -15,14 +15,14 @@ export type EventPayload = {
 	date: string;
 	note: string;
 	fields: Field[];
-	/** Existing photos to keep (edit only). */
-	keptPhotos: string[];
+	/** Attached files in order: kept ones (edit) and new ones, uploaded beforehand. */
+	files: string[];
 	applyToBatch: boolean;
 };
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-export function parseEventForm(form: FormData): { payload: EventPayload; files: File[] } {
+export function parseEventForm(form: FormData): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
 	const payload: EventPayload = {
@@ -45,13 +45,10 @@ export function parseEventForm(form: FormData): { payload: EventPayload; files: 
 							: str(f.previous) || undefined
 			}))
 			.filter((f) => f.key && f.value),
-		keptPhotos: list(raw.keptPhotos)
-			.map(str)
-			.filter((id) => PHOTO_ID.test(id)),
+		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),
 		applyToBatch: raw.applyToBatch === true
 	};
-	const files = form.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
-	return { payload, files };
+	return payload;
 }
 
 export function validate(db: Db, p: EventPayload): string | null {
@@ -60,6 +57,7 @@ export function validate(db: Db, p: EventPayload): string | null {
 	if (p.plantIds.some((id) => !exists.get(id))) return t.events.noPlants;
 	if (!p.typeName) return t.events.noType;
 	if (!isValidDate(p.date)) return t.events.badDate;
+	if (!filesExist(db, p.files)) return t.files.missing;
 	return null;
 }
 
@@ -72,22 +70,18 @@ function resolveType(db: Db, p: EventPayload) {
 	});
 }
 
-export async function saveNewEvents(db: Db, p: EventPayload, files: File[]): Promise<number[]> {
+export function saveNewEvents(db: Db, p: EventPayload): number[] {
 	const type = resolveType(db, p);
-	const photoIds = [];
-	for (const f of files) photoIds.push(await savePhoto(db, f));
-	return createEvents(db, p.plantIds, { ...p, typeId: type.id, photoIds });
+	return createEvents(db, p.plantIds, { ...p, typeId: type.id, fileIds: p.files });
 }
 
-export async function saveEditedEvent(db: Db, id: number, p: EventPayload, files: File[]) {
+export function saveEditedEvent(db: Db, id: number, p: EventPayload) {
 	const type = resolveType(db, p);
-	const photoIds = [...p.keptPhotos];
-	for (const f of files) photoIds.push(await savePhoto(db, f));
 	const orphans = updateEvent(
 		db,
 		id,
-		{ ...p, plantId: p.plantIds[0], typeId: type.id, photoIds },
+		{ ...p, plantId: p.plantIds[0], typeId: type.id, fileIds: p.files },
 		p.applyToBatch
 	);
-	deletePhotos(db, orphans);
+	deleteFiles(db, orphans);
 }

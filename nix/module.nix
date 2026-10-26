@@ -120,7 +120,7 @@ in
       readOnly = true;
       default = "${cfg.dataDir}/photos";
       defaultText = lib.literalExpression ''"''${dataDir}/photos"'';
-      description = "Photo originals. Files are written once and never changed.";
+      description = "Attachments (photos, videos, documents). Files are written once and never changed.";
     };
 
     appName = mkOption {
@@ -134,8 +134,9 @@ in
       type = types.str;
       default = "100M";
       description = ''
-        Largest accepted request (all photos of one event together). The reverse proxy
-        needs at least the same limit, e.g. nginx `client_max_body_size 100M;`.
+        Largest file that can be uploaded (photos, videos and documents are uploaded one
+        by one). Raise it for long videos. The reverse proxy needs at least the same limit,
+        e.g. nginx `client_max_body_size 100M;`.
       '';
     };
 

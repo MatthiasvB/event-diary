@@ -37,9 +37,11 @@ const attrFromRow = (r: AttrRow): PlantAttr => ({
 });
 
 // The plant's first photo (by event date).
+// Videos and other files never become the cover.
 const FIRST_PHOTO = `(
 	SELECT ep.photo_id FROM events e JOIN event_photos ep ON ep.event_id = e.id
-	WHERE e.plant_id = p.id ORDER BY e.date, e.id, ep.position LIMIT 1
+	JOIN photos f ON f.id = ep.photo_id
+	WHERE e.plant_id = p.id AND f.mime LIKE 'image/%' ORDER BY e.date, e.id, ep.position LIMIT 1
 )`;
 
 // The cover is pinned (see pinCover); the fallback only covers a deleted cover photo.

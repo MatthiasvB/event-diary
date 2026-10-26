@@ -52,7 +52,7 @@ describe('rename and merge', () => {
 			date: '2026-09-01',
 			note: '',
 			fields: [{ key: 'Gattung', value: 'Catleya', target: 'event' }],
-			photoIds: []
+			fileIds: []
 		});
 
 		expect(rename(db, { kind: 'value', key: 'Gattung' }, 'Catleya', 'Cattleya')).toBe(2);
@@ -73,7 +73,7 @@ describe('rename and merge', () => {
 				{ key: 'Produkt', value: 'Obi', target: 'event' },
 				{ key: 'Mittel', value: 'Flüssig', target: 'event' }
 			],
-			photoIds: []
+			fileIds: []
 		});
 
 		rename(db, { kind: 'key' }, 'Mittel', 'Produkt');
@@ -93,7 +93,7 @@ describe('rename and merge', () => {
 			date: '2026-09-01',
 			note: '',
 			fields: [],
-			photoIds: []
+			fileIds: []
 		});
 		setOverviewColumns(db, [{ label: 'Gedüngt', typeIds: [typo.id, right.id] }]);
 
@@ -142,8 +142,8 @@ describe('cover photo', () => {
 			db
 				.prepare("INSERT INTO photos (id, file, mime) VALUES (?, ?, 'image/jpeg')")
 				.run(id, `${id}.jpg`);
-		const event = (date: string, photoIds: string[]) =>
-			createEvents(db, ['P-001'], { typeId: type.id, date, note: '', fields: [], photoIds });
+		const event = (date: string, fileIds: string[]) =>
+			createEvents(db, ['P-001'], { typeId: type.id, date, note: '', fields: [], fileIds });
 
 		expect(getPlant(db, 'P-001')?.coverPhotoId).toBeNull();
 		photo('a');
@@ -170,7 +170,7 @@ describe('plant attributes from events', () => {
 			date: '2026-09-20',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Südfenster', target: 'plant' }],
-			photoIds: []
+			fileIds: []
 		});
 
 		expect(currentAttrs(db).get('P-001')).toEqual({ Standort: 'Südfenster' });
@@ -195,7 +195,7 @@ describe('plant attributes from events', () => {
 				date,
 				note: '',
 				fields: [{ key: 'Standort', value, target: 'plant', previous }],
-				photoIds: []
+				fileIds: []
 			});
 
 		move('2026-09-24', 'Südfenster', null);
@@ -210,14 +210,14 @@ describe('plant attributes from events', () => {
 			date: '2026-03-01',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Dachboden', target: 'plant' }],
-			photoIds: []
+			fileIds: []
 		});
 		createEvents(db, ['P-002'], {
 			typeId: type.id,
 			date: '2026-09-24',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Südfenster', target: 'plant', previous: null }],
-			photoIds: []
+			fileIds: []
 		});
 		expect(attrHistory(db, 'P-002').Standort).toHaveLength(3);
 
@@ -236,7 +236,7 @@ describe('plant attributes from events', () => {
 			date: '2026-09-24',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Südfenster', target: 'plant', previous: 'Ostfenster' }],
-			photoIds: []
+			fileIds: []
 		});
 		const history = () => attrHistory(db, 'P-001').Standort.map((h) => [h.value, h.since]);
 		expect(history()).toEqual([
@@ -264,11 +264,11 @@ describe('deleting a plant', () => {
 			db.prepare("INSERT INTO photos (id, file, mime) VALUES (?, ?, 'image/jpeg')").run(id, id);
 		}
 		const input = { typeId: type.id, note: '', fields: [] };
-		createEvents(db, ['P-001'], { ...input, date: '2026-09-01', photoIds: ['own'] });
+		createEvents(db, ['P-001'], { ...input, date: '2026-09-01', fileIds: ['own'] });
 		const [, kept] = createEvents(db, ['P-001', 'P-002'], {
 			...input,
 			date: '2026-09-02',
-			photoIds: ['shared']
+			fileIds: ['shared']
 		});
 
 		expect(plantImpact(db, 'P-001')).toEqual({ events: 2, photos: 1 });
@@ -281,7 +281,8 @@ describe('deleting a plant', () => {
 		expect(
 			db.prepare("SELECT count(*) AS n FROM plant_attrs WHERE plant_id = 'P-001'").get()
 		).toEqual({ n: 0 });
-		expect(getEvent(db, kept)).toMatchObject({ plantId: 'P-002', photos: ['shared'] });
+		expect(getEvent(db, kept)?.plantId).toBe('P-002');
+		expect(getEvent(db, kept)?.files.map((f) => f.id)).toEqual(['shared']);
 		const photos = db
 			.prepare('SELECT id FROM photos')
 			.all()
@@ -297,13 +298,13 @@ describe('deleting event types and categories', () => {
 		const move = ensureType(db, 'Umzug', { category: 'Pflege' });
 		const water = ensureType(db, 'Gießen', { category: 'Pflege' });
 		const bloom = ensureType(db, 'Blüte', { category: 'Beobachtung' });
-		const input = { note: '', fields: [], photoIds: [] };
+		const input = { note: '', fields: [], fileIds: [] };
 		createEvents(db, ['P-001'], {
 			...input,
 			typeId: move.id,
 			date: '2026-09-01',
 			fields: [{ key: 'Standort', value: 'Bad', target: 'plant' }],
-			photoIds: ['p']
+			fileIds: ['p']
 		});
 		createEvents(db, ['P-001'], { ...input, typeId: water.id, date: '2026-09-02' });
 		const [kept] = createEvents(db, ['P-001'], { ...input, typeId: bloom.id, date: '2026-09-03' });
@@ -342,7 +343,7 @@ describe('types of the same name in several categories', () => {
 		const care = ensureType(db, 'Umtopfen', { category: 'Pflege' });
 		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
 		const water = ensureType(db, 'Gießen', { category: 'Haus' });
-		const input = { note: '', fields: [], photoIds: [], date: '2026-09-01' };
+		const input = { note: '', fields: [], fileIds: [], date: '2026-09-01' };
 		const [moved] = createEvents(db, ['P-001'], { ...input, typeId: house.id });
 
 		rename(db, { kind: 'category' }, 'Haus', 'Pflege');

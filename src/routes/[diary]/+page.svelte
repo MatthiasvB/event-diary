@@ -2,7 +2,8 @@
 	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
 	import { resolve } from '$app/paths';
 	import { formatDate, relativeDays } from '#lib/format.ts';
-	import { dropImages } from '#lib/dropImages.ts';
+	import { dropFiles } from '#lib/dropFiles.ts';
+	import { isMedia } from '#lib/files.ts';
 	import TextInput from '#lib/components/TextInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { openPhotoEvent } from '#lib/pending.svelte.ts';
@@ -119,7 +120,7 @@
 			<a
 				class="card plant"
 				href={resolve('/[diary]/plants/[id]', { diary: diaryId(), id: p.id })}
-				{@attach canEdit() && dropImages((files) => openPhotoEvent(files, p.id))}
+				{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, p.id), isMedia)}
 			>
 				{#if p.coverPhotoId}
 					<img src={photoUrl(p.coverPhotoId, 's')} alt="" loading="lazy" />

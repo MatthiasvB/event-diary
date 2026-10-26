@@ -1,15 +1,16 @@
 <!--
-	Full-screen photo viewer (buttons, arrow keys, swipe). Opening it adds a history entry,
-	so the back button or gesture closes the viewer instead of leaving the page.
+	Full-screen viewer for photos and videos (buttons, arrow keys, swipe). Opening it adds a
+	history entry, so the back button or gesture closes the viewer instead of leaving the page.
 -->
 <script lang="ts">
-	import { photoUrl } from '#lib/paths.ts';
+	import { fileUrl, photoUrl } from '#lib/paths.ts';
+	import { fileKind, type EventFile } from '#lib/files.ts';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { t } from '#lib/i18n.ts';
 
-	export type ViewerPhoto = { id: string; date: string; label: string };
+	export type ViewerPhoto = EventFile & { date: string; label: string };
 	type Props = {
 		photos: ViewerPhoto[];
 		coverPhotoId?: string | null;
@@ -25,6 +26,9 @@
 
 	const isOpen = $derived(page.state.viewer === uid);
 	const photo = $derived(photos[Math.min(current, photos.length - 1)]);
+	const video = $derived(!!photo && fileKind(photo.mime, photo.name) === 'video');
+	// Swipes and arrow keys on a video belong to its player (seeking).
+	let onVideo = false;
 
 	export function open(index: number) {
 		current = index;
@@ -47,11 +51,13 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
+		if (e.target instanceof HTMLVideoElement) return;
 		if (e.key === 'ArrowLeft') step(-1);
 		else if (e.key === 'ArrowRight') step(1);
 	}
 
 	function ontouchend(e: TouchEvent) {
+		if (onVideo) return;
 		const dx = e.changedTouches[0].clientX - touchStartX;
 		if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
 	}
@@ -62,11 +68,23 @@
 	aria-label={t.plants.photos}
 	onclose={close}
 	{onkeydown}
-	ontouchstart={(e) => (touchStartX = e.touches[0].clientX)}
+	ontouchstart={(e) => {
+		touchStartX = e.touches[0].clientX;
+		onVideo = e.target instanceof HTMLVideoElement;
+	}}
 	{ontouchend}
 >
 	{#if isOpen && photo}
-		<img src={photoUrl(photo.id, 'l')} alt="{photo.label}, {photo.date}" />
+		{#if video}
+			{#key photo.id}
+				<!-- Own recordings come without captions. -->
+				<!-- svelte-ignore a11y_media_has_caption -->
+				<video src={fileUrl(photo.id)} controls autoplay playsinline aria-label={photo.label}
+				></video>
+			{/key}
+		{:else}
+			<img src={photoUrl(photo.id, 'l')} alt="{photo.label}, {photo.date}" />
+		{/if}
 		<div class="bar">
 			{#if photos.length > 1}
 				<button type="button" aria-label={t.gallery.previous} onclick={() => step(-1)}>‹</button>
@@ -80,7 +98,7 @@
 			{/if}
 		</div>
 		<div class="top">
-			{#if canSetCover}
+			{#if canSetCover && !video}
 				{#if photo.id === coverPhotoId}
 					<span class="badge">★ {t.plants.isCover}</span>
 				{:else}
@@ -91,7 +109,7 @@
 				{/if}
 			{/if}
 			<!-- Served as a download, so it doesn't leave the app. -->
-			<a class="button small" href={photoUrl(photo.id, 'original')}>⬇ {t.gallery.original}</a>
+			<a class="button small" href={fileUrl(photo.id, true)}>⬇ {t.gallery.original}</a>
 			<button type="button" class="small" onclick={close}>{t.gallery.close}</button>
 		</div>
 	{/if}
@@ -117,10 +135,15 @@
 		align-items: center;
 		justify-content: center;
 	}
-	dialog > img {
+	dialog > img,
+	dialog > video {
 		max-width: 100%;
 		max-height: 100%;
 		object-fit: contain;
+	}
+	/* Room for the bars, so the player's own controls stay reachable. */
+	dialog > video {
+		max-height: calc(100% - 7rem);
 	}
 	.bar,
 	.top {

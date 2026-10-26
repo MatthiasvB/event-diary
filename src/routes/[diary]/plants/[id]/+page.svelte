@@ -7,7 +7,8 @@
 	import Gallery from '#lib/components/Gallery.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
-	import { dropImages } from '#lib/dropImages.ts';
+	import { dropFiles } from '#lib/dropFiles.ts';
+	import { isMedia } from '#lib/files.ts';
 	import { openPhotoEvent, startPhotoEvent } from '#lib/pending.svelte.ts';
 	import type { PageProps } from './$types';
 
@@ -22,10 +23,14 @@
 			matchMedia('(display-mode: standalone)').matches ||
 			(navigator as { standalone?: boolean }).standalone === true;
 	});
-	// All photos of the plant, newest first (events are sorted newest first).
+	// All photos and videos of the object, newest first (events are sorted newest first).
 	const photos = $derived(
 		data.events
-			.flatMap((e) => e.photos.map((id) => ({ id, date: e.date, label: e.typeName })))
+			.flatMap((e) =>
+				e.files
+					.filter((f) => isMedia({ type: f.mime, name: f.name }))
+					.map((f) => ({ ...f, date: e.date, label: e.typeName }))
+			)
 			.filter((p, i, all) => all.findIndex((q) => q.id === p.id) === i)
 	);
 	const attrKeys = $derived(Object.keys(data.history).sort((a, b) => a.localeCompare(b, 'de')));
@@ -35,7 +40,7 @@
 
 <div
 	class="drop-zone page"
-	{@attach canEdit() && dropImages((files) => openPhotoEvent(files, plant.id))}
+	{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, plant.id), isMedia)}
 >
 	<header class="head">
 		{#if plant.coverPhotoId}
@@ -86,7 +91,7 @@
 						<label class="button primary">
 							<input
 								type="file"
-								accept="image/*"
+								accept="image/*,video/*"
 								multiple
 								class="visually-hidden"
 								onchange={(e) => startPhotoEvent(e, plant.id)}

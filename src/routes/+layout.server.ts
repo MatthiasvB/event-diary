@@ -5,5 +5,6 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = ({ locals }) => ({
 	appName: config.appName,
 	user: locals.user,
-	requiresLogin: auth().requiresLogin
+	requiresLogin: auth().requiresLogin,
+	maxUploadBytes: config.maxUploadBytes
 });

@@ -19,7 +19,7 @@ let
           target = "plant";
         }
       ];
-      keptPhotos = [ ];
+      files = [ ]; # filled in with the uploaded photo
       applyToBatch = false;
     }
   );
@@ -33,6 +33,7 @@ in
       enable = true;
       dataDir = "/mnt/data/event-diary";
       idleTimeout = 5;
+      maxUploadSize = "2M";
     };
     users.users.alice = {
       isNormalUser = true;
@@ -50,6 +51,7 @@ in
   };
 
   testScript = ''
+    import json
     import re
 
     base = "http://127.0.0.1:8240"
@@ -93,9 +95,19 @@ in
             f"{auth} -F name=Testpflanze -F active=on "
             f"-F attrKey=Standort -F attrValue=Ostfenster '{base}{diary}/plants/new?/save'"
         ) == "303"
+        # Files are uploaded one by one first, then the event is saved with their IDs.
+        def upload(path, name, type):
+            out = machine.succeed(
+                f"curl -sf {auth} -H 'Content-Type: {type}' -H 'x-file-name: {name}' "
+                f"--data-binary @{path} '{base}{diary}/files'"
+            )
+            return json.loads(out)["id"]
+
+        photo_id = upload("${testImage}", "test.jpg", "image/jpeg")
+        event = json.load(open("${payload}")) | {"files": [photo_id]}
+        machine.succeed(f"cat > /tmp/payload.json <<'EOF'\n{json.dumps(event)}\nEOF")
         assert status(
-            f"{auth} -F 'payload=<${payload}' -F 'photos=@${testImage};type=image/jpeg' "
-            f"'{base}{diary}/events/new?/save'"
+            f"{auth} -F 'payload=</tmp/payload.json' '{base}{diary}/events/new?/save'"
         ) == "303"
         page = get(f"{diary}/plants/P-001", cookie)
         assert "Restore me" in page and "Südfenster" in page
@@ -105,6 +117,44 @@ in
         machine.succeed(f"curl -sf -H 'Cookie: session={cookie}' -o /tmp/thumb.jpg '{base}{diary}/photos/{photo}?size=s'")
         machine.succeed("head -c 3 /tmp/thumb.jpg | od -An -tx1 | grep -q 'ff d8 ff'")
         assert location(f"-H 'Cookie: session={cookie}' {base}/").endswith(diary), "a single diary opens directly"
+
+    with subtest("videos and other files"):
+        machine.succeed(
+            "head -c 300000 /dev/urandom > /tmp/clip.mp4",
+            "printf '%%PDF-1.4 test' > /tmp/doc.pdf",
+            "printf '<script>alert(1)</script>' > /tmp/page.html",
+            "head -c 3000000 /dev/urandom > /tmp/big.bin",
+        )
+        clip = upload("/tmp/clip.mp4", "Clip.mp4", "video/mp4")
+        doc = upload("/tmp/doc.pdf", "Plan%20EG.pdf", "application/pdf")
+        page = upload("/tmp/page.html", "page.html", "text/html")
+        files = [clip, doc, page]
+        event = json.load(open("${payload}")) | {"files": files, "note": "Mit Anhängen", "fields": []}
+        machine.succeed(f"cat > /tmp/payload.json <<'EOF'\n{json.dumps(event)}\nEOF")
+        assert status(f"{auth} -F 'payload=</tmp/payload.json' '{base}{diary}/events/new?/save'") == "303"
+        assert "Plan EG.pdf" in get(f"{diary}/plants/P-001", cookie), "documents are listed by name"
+
+        def headers_of(id, extra=""):
+            return machine.succeed(
+                f"curl -sf -D - -o /dev/null -H 'Cookie: session={cookie}' {extra} "
+                f"'{base}{diary}/photos/{id}?size=original'"
+            ).lower()
+
+        h = headers_of(clip, "-H 'Range: bytes=1000-1999'")
+        assert "206" in h.splitlines()[0] and "content-range: bytes 1000-1999/300000" in h, "videos can seek"
+        h = headers_of(doc)
+        assert "content-type: application/pdf" in h and "content-disposition" not in h, "PDFs open in the browser"
+        h = headers_of(page)
+        assert "application/octet-stream" in h and "attachment" in h, "HTML is only ever a download"
+        h = machine.succeed(
+            f"curl -sf -D - -o /dev/null -H 'Cookie: session={cookie}' "
+            f"'{base}{diary}/photos/{doc}?size=original&download=1'"
+        ).lower()
+        assert "filename*=utf-8'''plan%20eg.pdf" in h, "downloads keep their name"
+        big = status(
+            f"{auth} -H 'Content-Type: application/octet-stream' --data-binary @/tmp/big.bin '{base}{diary}/files'"
+        )
+        assert big == "413", f"the size limit applies per file: {big}"
 
     with subtest("other users see nothing of it"):
         bob = login("bob", "bobsecret")

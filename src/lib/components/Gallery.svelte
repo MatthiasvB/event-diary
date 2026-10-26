@@ -1,9 +1,10 @@
-<!-- Thumbnail grid; a tap opens the photo viewer. -->
+<!-- Grid of photos and videos; a tap opens the viewer. -->
 <script lang="ts">
-	import { photoUrl } from '#lib/paths.ts';
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
+	import MediaThumb from './MediaThumb.svelte';
 	import PhotoViewer, { type ViewerPhoto } from './PhotoViewer.svelte';
+	import { fileKind } from '#lib/files.ts';
 	import { t } from '#lib/i18n.ts';
 
 	type Props = {
@@ -21,7 +22,7 @@
 
 	const visible = $derived(showAll ? photos : photos.slice(0, PREVIEW));
 
-	// Long press on a photo makes it the cover image.
+	// Long press on a photo (not a video) makes it the cover image.
 	const LONG_PRESS_MS = 500;
 	let coverForm = $state<HTMLFormElement>();
 	let pressedId = $state('');
@@ -29,9 +30,10 @@
 	let start = { x: 0, y: 0 };
 	let longPressed = false;
 
-	function pressStart(e: PointerEvent, id: string) {
+	function pressStart(e: PointerEvent, p: ViewerPhoto) {
 		longPressed = false;
-		if (!canSetCover || e.button !== 0) return;
+		if (!canSetCover || e.button !== 0 || fileKind(p.mime, p.name) !== 'image') return;
+		const id = p.id;
 		start = { x: e.clientX, y: e.clientY };
 		timer = setTimeout(async () => {
 			timer = undefined;
@@ -71,14 +73,14 @@
 				type="button"
 				aria-label="{p.label}, {p.date}"
 				onclick={() => tap(i)}
-				onpointerdown={(e) => pressStart(e, p.id)}
+				onpointerdown={(e) => pressStart(e, p)}
 				onpointermove={pressMove}
 				onpointerup={pressEnd}
 				onpointercancel={pressEnd}
 				onpointerleave={pressEnd}
 				oncontextmenu={(e) => (timer || longPressed) && e.preventDefault()}
 			>
-				<img src={photoUrl(p.id, 's')} alt="" loading="lazy" />
+				<MediaThumb file={p} />
 				{#if p.id === coverPhotoId}<span class="cover" title={t.plants.isCover}>★</span>{/if}
 			</button>
 		</li>
@@ -119,14 +121,6 @@
 		border-radius: 8px;
 		overflow: hidden;
 		background: var(--surface-2);
-	}
-	.grid img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		/* no image menu on long press (iOS) */
-		-webkit-touch-callout: none;
-		user-select: none;
 	}
 	.hint {
 		margin: 0.4rem 0 0;

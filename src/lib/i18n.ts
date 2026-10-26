@@ -10,7 +10,7 @@ const confirmWithEvents = (what: string, impact: { events: number; photos: numbe
 	`${what} endgültig löschen?` +
 	(impact.events
 		? ` Dabei ${impact.events === 1 && !impact.photos ? 'wird' : 'werden'} ${n(impact.events, 'Ereignis', 'Ereignisse')}` +
-			(impact.photos ? ` und ${n(impact.photos, 'Foto', 'Fotos')}` : '') +
+			(impact.photos ? ` und ${n(impact.photos, 'Datei', 'Dateien')}` : '') +
 			' gelöscht.'
 		: '') +
 	' Das kann nicht rückgängig gemacht werden.';
@@ -106,7 +106,7 @@ export const t = {
 		photoHint: 'Das Foto wird als Ereignis gespeichert und als Titelbild verwendet.',
 		isCover: 'Titelbild',
 		deleteHint:
-			'Löschen entfernt das Objekt mit seiner ganzen Chronik und seinen Fotos. Ist es nur nicht mehr da (z. B. abgegeben), setze es besser auf inaktiv: Dann bleibt seine Geschichte erhalten.',
+			'Löschen entfernt das Objekt mit seiner ganzen Chronik und seinen Fotos und Dateien. Ist es nur nicht mehr da (z. B. abgegeben), setze es besser auf inaktiv: Dann bleibt seine Geschichte erhalten.',
 		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
 			confirmWithEvents(`„${name}“`, impact) +
 			'\n\nWenn das Objekt nur nicht mehr da ist: lieber abbrechen und auf inaktiv setzen.',
@@ -114,7 +114,7 @@ export const t = {
 		addEvent: 'Ereignis erfassen',
 		takePhoto: 'Foto aufnehmen',
 		fromGallery: 'Aus Galerie',
-		photos: 'Fotos',
+		photos: 'Fotos & Videos',
 		key: 'Eigenschaft',
 		value: 'Wert'
 	},
@@ -147,7 +147,7 @@ export const t = {
 		previousHint:
 			'Setzt den Anfangswert des Objekts, falls es vor diesem Datum keine erfasste Änderung gibt.',
 		currently: (v: string) => `aktuell: ${v}`,
-		photos: 'Fotos',
+		photos: 'Fotos & Dateien',
 		camera: 'Kamera',
 		gallery: 'Galerie',
 		exifDate: (d: string) => `Aufnahmedatum übernehmen: ${d}`,
@@ -158,7 +158,7 @@ export const t = {
 		applyToBatch: (n: number) =>
 			`Änderungen auf alle ${n} Ereignisse dieser Sammelbuchung anwenden`,
 		batch: (n: number) => `Sammelbuchung (${n})`,
-		removePhoto: 'Foto entfernen',
+		removePhoto: 'Entfernen',
 		noPlants: 'Bitte mindestens ein Objekt wählen.',
 		noType: 'Bitte ein Ereignis angeben.',
 		badDate: 'Bitte ein gültiges Datum angeben.',
@@ -187,7 +187,7 @@ export const t = {
 		unused: 'unbenutzt',
 		renameHint: 'Umbenennen und Zusammenführen unter „Daten pflegen“.',
 		deleteHint:
-			'Löschen entfernt den Ereignistyp mit allen seinen Ereignissen und deren Fotos. Eigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück. Um ihn mit einem anderen Typ zusammenzulegen, stattdessen „Daten pflegen“ nutzen.',
+			'Löschen entfernt den Ereignistyp mit allen seinen Ereignissen und deren Fotos und Dateien. Eigenschaften, die diese Ereignisse gesetzt haben, fallen auf den vorherigen Wert zurück. Um ihn mit einem anderen Typ zusammenzulegen, stattdessen „Daten pflegen“ nutzen.',
 		confirmDelete: (name: string, impact: { events: number; photos: number }) =>
 			confirmWithEvents(`Ereignistyp „${name}“`, impact),
 		categoryTaken: (name: string, category: string) =>
@@ -228,8 +228,19 @@ export const t = {
 	photos: {
 		dropHint: 'oder Fotos hierher ziehen'
 	},
+	files: {
+		add: 'Datei',
+		dropHint: 'oder Dateien hierher ziehen',
+		view: 'Ansehen',
+		uploading: (done: number, total: number) => `Lade hoch … ${done}/${total}`,
+		tooLarge: (name: string, max?: number) =>
+			`„${name}“ ist zu groß für den Server` +
+			(max ? ` (höchstens ${Math.floor(max / 1024 ** 2)} MB pro Datei).` : '.'),
+		uploadFailed: (name: string) => `„${name}“ konnte nicht hochgeladen werden.`,
+		missing: 'Eine hochgeladene Datei fehlt. Bitte die Dateien erneut hinzufügen.'
+	},
 	gallery: {
-		showAll: (n: number) => `Alle ${n} Fotos anzeigen`,
+		showAll: (n: number) => `Alle ${n} anzeigen`,
 		longPressHint: 'Lange drücken, um ein Foto als Titelbild zu wählen.',
 		previous: 'Vorheriges Foto',
 		next: 'Nächstes Foto',
@@ -281,9 +292,9 @@ export const t = {
 			`„${name}“ verlassen? Um wieder Zugriff zu bekommen, brauchst du eine neue Einladung.`,
 		delete: 'Tagebuch löschen',
 		deleteHint:
-			'Löscht das Tagebuch mit allen Objekten, Ereignissen und Fotos, auch für alle, mit denen es geteilt ist.',
+			'Löscht das Tagebuch mit allen Objekten, Ereignissen, Fotos und Dateien, auch für alle, mit denen es geteilt ist.',
 		confirmDelete: (name: string, c: { plants: number; events: number; photos: number }) =>
-			`Tagebuch „${name}“ mit ${n(c.plants, 'Objekt', 'Objekten')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Foto', 'Fotos')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
+			`Tagebuch „${name}“ mit ${n(c.plants, 'Objekt', 'Objekten')}, ${n(c.events, 'Ereignis', 'Ereignissen')} und ${n(c.photos, 'Datei', 'Dateien')} endgültig löschen? Das kann nicht rückgängig gemacht werden.`
 	},
 	invite: {
 		title: 'Einladung',

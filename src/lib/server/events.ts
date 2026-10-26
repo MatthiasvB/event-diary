@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import type { EventFile } from '../files.ts';
 import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
-import { deletePhotos } from './photos.ts';
+import { deleteFiles } from './files.ts';
 import { forgetInitialValue, pinCover, setInitialValue } from './plants.ts';
 
 type Row = {
@@ -77,7 +78,7 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	const ids = rows.map((r) => r.id);
 	const placeholders = ids.map(() => '?').join(',');
 	const fields = new Map<number, Field[]>();
-	const photos = new Map<number, string[]>();
+	const files = new Map<number, EventFile[]>();
 
 	const eventAttrs = db
 		.prepare(
@@ -97,10 +98,12 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 
 	const links = db
 		.prepare(
-			`SELECT event_id, photo_id FROM event_photos WHERE event_id IN (${placeholders}) ORDER BY position`
+			`SELECT ep.event_id, f.id, f.mime, f.original_name AS name
+			FROM event_photos ep JOIN photos f ON f.id = ep.photo_id
+			WHERE ep.event_id IN (${placeholders}) ORDER BY ep.position`
 		)
-		.all(...ids) as { event_id: number; photo_id: string }[];
-	for (const l of links) push(photos, l.event_id, l.photo_id);
+		.all(...ids) as ({ event_id: number } & EventFile)[];
+	for (const { event_id, id, mime, name } of links) push(files, event_id, { id, mime, name });
 
 	return rows.map((r) => ({
 		id: r.id,
@@ -115,7 +118,7 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 		batchId: r.batch_id,
 		batchSize: r.batch_size,
 		fields: fields.get(r.id) ?? [],
-		photos: photos.get(r.id) ?? []
+		files: files.get(r.id) ?? []
 	}));
 }
 
@@ -130,7 +133,7 @@ export type EventInput = {
 	date: string;
 	note: string;
 	fields: Field[];
-	photoIds: string[];
+	fileIds: string[];
 };
 
 function writeDetails(db: Db, eventId: number, plantId: string, input: EventInput) {
@@ -156,8 +159,8 @@ function writeDetails(db: Db, eventId: number, plantId: string, input: EventInpu
 	const photo = db.prepare(
 		'INSERT OR IGNORE INTO event_photos (event_id, photo_id, position) VALUES (?, ?, ?)'
 	);
-	input.photoIds.forEach((id, i) => photo.run(eventId, id, i));
-	if (input.photoIds.length) pinCover(db, plantId);
+	input.fileIds.forEach((id, i) => photo.run(eventId, id, i));
+	if (input.fileIds.length) pinCover(db, plantId);
 }
 
 /** The type learns which fields it is used with, so the next entry offers them. */
@@ -214,7 +217,7 @@ export function updateEvent(
 						plant_id: string;
 					}[])
 				: [{ id, plant_id: input.plantId }];
-		const before = photosOf(
+		const before = filesOf(
 			db,
 			targets.map((t) => t.id)
 		);
@@ -276,7 +279,7 @@ function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
 		then();
 		return orphaned(db, before);
 	});
-	deletePhotos(db, orphans);
+	deleteFiles(db, orphans);
 }
 
 export function deleteEvent(db: Db, id: number) {
@@ -306,7 +309,7 @@ export function deleteCategory(db: Db, category: string) {
 	);
 }
 
-function photosOf(db: Db, eventIds: number[]): string[] {
+function filesOf(db: Db, eventIds: number[]): string[] {
 	const rows = db
 		.prepare(
 			`SELECT DISTINCT photo_id FROM event_photos WHERE event_id IN (${eventIds.map(() => '?').join(',')})`
@@ -315,9 +318,9 @@ function photosOf(db: Db, eventIds: number[]): string[] {
 	return rows.map((r) => r.photo_id);
 }
 
-function orphaned(db: Db, photoIds: string[]): string[] {
+function orphaned(db: Db, fileIds: string[]): string[] {
 	const used = db.prepare('SELECT 1 FROM event_photos WHERE photo_id = ? LIMIT 1');
-	return photoIds.filter((p) => !used.get(p));
+	return fileIds.filter((p) => !used.get(p));
 }
 
 export function batchPlantIds(db: Db, batchId: string): string[] {

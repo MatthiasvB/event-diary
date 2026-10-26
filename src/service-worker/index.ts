@@ -1,4 +1,4 @@
-// Only receives images shared from other apps (Android share sheet, see the manifest's
+// Only receives photos and videos shared from other apps (Android share sheet, see the manifest's
 // share_target). It does not cache the app; everything else goes to the network as usual.
 import { self } from '$app/service-worker';
 import { SHARE_PATH, storeSharedPhotos } from '../lib/share.ts';

@@ -6,7 +6,7 @@ import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
 import { config } from './config.ts';
 import { openDb, type Db } from './db.ts';
-import { deletePhotos } from './photos.ts';
+import { deleteFiles } from './files.ts';
 import { deleteDiary, diaryFile, memberDiary, registry, type DiaryInfo } from './registry.ts';
 
 /** The current diary; "not found" unless the user is a member. */
@@ -55,7 +55,7 @@ export function deleteCurrentDiary() {
 	const photos = (diary.prepare('SELECT id FROM photos').all() as { id: string }[]).map(
 		(r) => r.id
 	);
-	deletePhotos(diary, photos);
+	deleteFiles(diary, photos);
 	diary.close();
 	open.delete(id);
 	deleteDiary(registry(), config.dbDir, id);

@@ -28,7 +28,7 @@ export const load: PageServerLoad = ({ params }) => {
 			date: event.date,
 			note: event.note,
 			fields: event.fields,
-			keptPhotos: event.photos
+			files: event.files
 		}
 	};
 };
@@ -37,11 +37,11 @@ export const actions: Actions = {
 	save: async ({ request, params }) => {
 		const d = db();
 		const event = eventOr404(params.id);
-		const { payload, files } = parseEventForm(await request.formData());
+		const payload = parseEventForm(await request.formData());
 		const message = validate(d, payload);
 		if (message) return fail(400, { error: message });
 
-		await saveEditedEvent(d, event.id, payload, files);
+		saveEditedEvent(d, event.id, payload);
 		redirect(303, `/${params.diary}/plants/${encodeURIComponent(payload.plantIds[0])}`);
 	},
 	delete: ({ params }) => {
