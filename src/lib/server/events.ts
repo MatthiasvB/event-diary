@@ -5,7 +5,7 @@ import { transaction, type Db } from './db.ts';
 import { getType } from './eventTypes.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
-import { forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
+import { forgetInitialValue, pinCover, promoteToProperties, setInitialValue } from './objects.ts';
 
 type Row = {
 	id: number;
@@ -96,13 +96,34 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	for (const a of eventAttrs)
 		push(fields, a.event_id, { key: a.key, value: a.value, target: 'event' as const });
 
+	// With the value each change replaced: the one before it in the property's history.
 	const objectAttrs = db
 		.prepare(
-			`SELECT event_id, key, value FROM object_attrs WHERE event_id IN (${placeholders}) ORDER BY id`
+			`SELECT * FROM (
+				SELECT id, event_id, key, value,
+					lag(id) OVER w AS before_id, lag(value) OVER w AS before,
+					lag(since) OVER w AS before_since
+				FROM object_attrs
+				WHERE object_id IN (SELECT object_id FROM events WHERE id IN (${placeholders}))
+				WINDOW w AS (PARTITION BY object_id, key ORDER BY coalesce(since, ''), id)
+			) WHERE event_id IN (${placeholders}) ORDER BY id`
 		)
-		.all(...ids) as { event_id: number; key: string; value: string }[];
+		.all(...ids, ...ids) as {
+		event_id: number;
+		key: string;
+		value: string;
+		before_id: number | null;
+		before: string | null;
+		before_since: string | null;
+	}[];
 	for (const a of objectAttrs)
-		push(fields, a.event_id, { key: a.key, value: a.value, target: 'object' as const });
+		push(fields, a.event_id, {
+			key: a.key,
+			value: a.value,
+			target: 'object' as const,
+			before: a.before,
+			firstChange: a.before_id === null || a.before_since === null
+		});
 
 	const links = db
 		.prepare(
@@ -158,8 +179,9 @@ function writeDetails(db: Db, eventId: number, objectId: number, input: EventInp
 		if (!f.key || !f.value) continue;
 		if (f.target === 'object') {
 			objectAttr.run(objectId, f.key, f.value, input.date, eventId);
-			if (f.previous === null) forgetInitialValue(db, objectId, f.key, input.date);
-			else if (f.previous) setInitialValue(db, objectId, f.key, f.previous, input.date);
+			const change = { date: input.date, eventId };
+			if (f.previous === null) forgetInitialValue(db, objectId, f.key, change);
+			else if (f.previous) setInitialValue(db, objectId, f.key, f.previous, change);
 		} else {
 			eventAttr.run(eventId, f.key, f.value);
 		}
@@ -201,6 +223,7 @@ export function createEvents(db: Db, objectIds: number[], input: EventInput): nu
 			return id;
 		});
 		learnFields(db, input.typeId, input.fields);
+		promoteToProperties(db);
 		return ids;
 	});
 }
@@ -238,6 +261,7 @@ export function updateEvent(
 			db.prepare('UPDATE events SET object_id = ? WHERE id = ?').run(input.objectId, id);
 		}
 		learnFields(db, input.typeId, input.fields);
+		promoteToProperties(db);
 		return orphaned(db, before);
 	});
 }

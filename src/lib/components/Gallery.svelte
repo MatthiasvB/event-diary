@@ -93,7 +93,6 @@
 {/if}
 
 {#if canSetCover}
-	<p class="muted small hint">{t.gallery.longPressHint}</p>
 	<form bind:this={coverForm} method="POST" action="?/cover" use:enhance hidden>
 		<input type="hidden" name="photo" value={pressedId} />
 	</form>
@@ -121,9 +120,6 @@
 		border-radius: 8px;
 		overflow: hidden;
 		background: var(--surface-2);
-	}
-	.hint {
-		margin: 0.4rem 0 0;
 	}
 	.cover {
 		position: absolute;

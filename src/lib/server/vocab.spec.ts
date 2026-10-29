@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { Field } from '../types.ts';
 import { openDb, type Db } from './db.ts';
 import {
 	categoryImpact,
@@ -10,6 +11,7 @@ import {
 	objectImpact,
 	typeImpact
 } from './events.ts';
+import { parseEventForm } from './eventForm.ts';
 import { ensureType, getType, photoType, updateType } from './eventTypes.ts';
 import {
 	attrHistory,
@@ -18,7 +20,8 @@ import {
 	forgetInitialValue,
 	getObject,
 	setCover,
-	setInitialValue
+	setInitialValue,
+	updateObject
 } from './objects.ts';
 import { getFieldKinds, learnKinds, setFieldKind } from './fieldKinds.ts';
 import {
@@ -256,6 +259,117 @@ describe('object attributes from events', () => {
 			['Südfenster', '2026-09-24']
 		]);
 		expect(currentAttrs(db).get(1)).toEqual({ Standort: 'Südfenster' });
+	});
+});
+
+describe('changes of properties', () => {
+	const type = () => ensureType(db, 'Umtopfen');
+	const repot = (objectId: number, date: string, field: Partial<Field>) =>
+		createEvents(db, [objectId], {
+			typeId: type().id,
+			date,
+			note: '',
+			fields: [{ key: 'Substrat', value: '', target: 'object', ...field }],
+			fileIds: []
+		})[0];
+
+	it('show the value they replaced', () => {
+		object(1, { Substrat: 'Moos' });
+		const first = repot(1, '2026-03-01', { value: 'Rinde' });
+		const second = repot(1, '2026-09-01', { value: 'Lava' });
+		const change = (id: number) => getEvent(db, id)?.fields[0];
+		expect(change(first)).toMatchObject({ value: 'Rinde', before: 'Moos', firstChange: true });
+		expect(change(second)).toMatchObject({ value: 'Lava', before: 'Rinde', firstChange: false });
+
+		// Without a recorded initial value, the first change replaced an unknown one.
+		forgetInitialValue(db, 1, 'Substrat');
+		expect(change(first)).toMatchObject({ before: null, firstChange: true });
+	});
+
+	it('set the value before only for the first change', () => {
+		object(1, { Substrat: 'Moos' });
+		repot(1, '2026-03-01', { value: 'Rinde' });
+		// A later change: the value before it is the earlier change's, so nothing is set.
+		repot(1, '2026-09-01', { value: 'Lava', previous: 'Erde' });
+		repot(1, '2026-10-01', { value: 'Lava', previous: null });
+		expect(attrHistory(db, 1).Substrat.map((h) => h.value)).toEqual([
+			'Moos',
+			'Rinde',
+			'Lava',
+			'Lava'
+		]);
+		// A change on the same day as an earlier one isn't the first either.
+		repot(1, '2026-03-01', { value: 'Bims', previous: 'Erde' });
+		expect(attrHistory(db, 1).Substrat[0].value).toBe('Moos');
+	});
+
+	it('take along event details of a name that becomes a property', () => {
+		object(1);
+		object(2, { Standort: 'Küche' });
+		const ty = type();
+		const detail = (objectId: number, date: string, value: string) =>
+			createEvents(db, [objectId], {
+				typeId: ty.id,
+				date,
+				note: '',
+				fields: [{ key: 'Substrat', value, target: 'event' }],
+				fileIds: []
+			})[0];
+		detail(1, '2026-01-10', 'Moos');
+		const later = detail(1, '2026-05-01', 'Rinde');
+		detail(2, '2026-02-01', 'Erde');
+		expect(getType(db, ty.id)?.fields).toEqual([{ key: 'Substrat', target: 'event' }]);
+
+		// Object 2 gets "Substrat" as a property: all events' values become its changes.
+		updateObject(
+			db,
+			{
+				id: 2,
+				name: 'Objekt 2',
+				active: true,
+				notes: '',
+				attrs: [
+					{ key: 'Standort', value: 'Küche' },
+					{ key: 'Substrat', value: 'Erde' }
+				]
+			},
+			'2026-10-29'
+		);
+		expect(attrHistory(db, 1).Substrat.map((h) => [h.value, h.since])).toEqual([
+			['Moos', '2026-01-10'],
+			['Rinde', '2026-05-01']
+		]);
+		// Entered with the value it already has: no extra change.
+		expect(attrHistory(db, 2).Substrat.map((h) => [h.value, h.since])).toEqual([
+			['Erde', '2026-02-01']
+		]);
+		expect(getEvent(db, later)?.fields).toEqual([
+			{
+				key: 'Substrat',
+				value: 'Rinde',
+				target: 'object',
+				before: 'Moos',
+				firstChange: false
+			}
+		]);
+		expect(db.prepare('SELECT count(*) AS n FROM event_attrs').get()).toEqual({ n: 0 });
+		expect(getType(db, ty.id)?.fields).toEqual([{ key: 'Substrat', target: 'object' }]);
+
+		expect(vocabulary(db).keys.event).toEqual([]);
+
+		// From now on the name changes the object even when sent as an event detail.
+		const form = new FormData();
+		form.set(
+			'payload',
+			JSON.stringify({
+				objectIds: [1],
+				fields: [
+					{ key: 'Substrat', value: 'Lava', target: 'event' },
+					{ key: 'Menge', value: '2 l', target: 'event' }
+				]
+			})
+		);
+		expect(parseEventForm(form, db).fields.map((f) => f.target)).toEqual(['object', 'event']);
 	});
 });
 

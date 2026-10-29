@@ -8,6 +8,7 @@ import type { Db } from './db.ts';
 import { createEvents, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
+import { propertyKeys } from './objects.ts';
 
 export type EventPayload = {
 	objectIds: number[];
@@ -39,6 +40,12 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
 	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
+	// Property names always change the object; other names only when asked to.
+	const properties = propertyKeys(db);
+	const targetOf = (f: { key?: unknown; target?: unknown }) =>
+		properties.has(str(f?.key)) || f?.target === 'object'
+			? ('object' as const)
+			: ('event' as const);
 	const payload: EventPayload = {
 		objectIds: [...new Set(list(raw.objectIds).map(Number))].filter(
 			(id) => Number.isInteger(id) && id > 0
@@ -52,9 +59,9 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			.map((f) => ({
 				key: str(f?.key),
 				value: storedValue(str(f?.value), kindOf(kinds, str(f?.key))),
-				target: f?.target === 'object' ? ('object' as const) : ('event' as const),
+				target: targetOf(f),
 				previous:
-					f?.target !== 'object'
+					targetOf(f) !== 'object' || f.previous === undefined
 						? undefined
 						: f.previous === null
 							? null

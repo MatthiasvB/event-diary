@@ -9,6 +9,8 @@ export type Candidate = {
 	last?: string | null;
 	/** How often it is used in the current context, e.g. with the chosen event type. */
 	context?: number;
+	/** Shown next to the value, e.g. what kind of name it is; `accent` stands out. */
+	tag?: { text: string; accent?: boolean };
 };
 
 export type MatchKind = 'exact' | 'prefix' | 'word' | 'substring' | 'fuzzy' | 'none';

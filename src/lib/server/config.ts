@@ -26,6 +26,10 @@ export const config = {
 	cacheDir: path.resolve(env.CACHE_DIR ?? path.join(dataDir, 'cache')),
 
 	vipsthumbnail: env.VIPSTHUMBNAIL || 'vipsthumbnail',
+	/** Next to vipsthumbnail, from the same package. */
+	vipsheader: env.VIPSTHUMBNAIL
+		? path.join(path.dirname(env.VIPSTHUMBNAIL), 'vipsheader')
+		: 'vipsheader',
 	/** Largest request adapter-node accepts, so the largest file that can be uploaded. */
 	maxUploadBytes: bytes(env.BODY_SIZE_LIMIT || '512K'),
 

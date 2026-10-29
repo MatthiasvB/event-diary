@@ -4,6 +4,7 @@ import { parseEventForm, saveNewEvents, validate } from '#lib/server/eventForm.t
 import { batchObjectIds, getEvent, lastFieldsByType } from '#lib/server/events.ts';
 import { photoType } from '#lib/server/eventTypes.ts';
 import { objectOptions } from '#lib/server/objectOptions.ts';
+import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import type { EventFile } from '#lib/files.ts';
@@ -47,6 +48,7 @@ export const load: PageServerLoad = ({ url }) => {
 		objects,
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
+		histories: allHistories(d),
 		initial,
 		photoMode,
 		// Images shared from another app wait in the service worker's cache.

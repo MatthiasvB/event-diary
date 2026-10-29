@@ -76,11 +76,43 @@ export async function saveFile(
 		throw e;
 	}
 
-	const taken = fileKind(mime, originalName) === 'image' ? await captureTime(target) : null;
+	const image = fileKind(mime, originalName) === 'image';
+	const taken = image ? await captureTime(target) : null;
+	const size = image ? await imageSize(target) : null;
 	db.prepare(
-		'INSERT INTO files (id, file, mime, original_name, taken_at) VALUES (?, ?, ?, ?, ?)'
-	).run(id, name, mime, originalName, taken);
+		'INSERT INTO files (id, file, mime, original_name, taken_at, width, height) VALUES (?, ?, ?, ?, ?, ?, ?)'
+	).run(id, name, mime, originalName, taken, size?.width ?? null, size?.height ?? null);
 	return id;
+}
+
+/**
+ * Width and height of an image as it is shown, i.e. with its EXIF rotation applied (as the
+ * thumbnails are). 0 × 0 if it can't be read.
+ */
+export async function imageSize(file: string): Promise<{ width: number; height: number }> {
+	try {
+		const header = async (field: string) =>
+			Number((await run(config.vipsheader, ['-f', field, file])).stdout.trim());
+		const [width, height] = [await header('width'), await header('height')];
+		const orientation = await exifr.orientation(file).catch(() => undefined);
+		// Orientations 5 to 8 turn the image by 90°.
+		const turned = typeof orientation === 'number' && orientation >= 5;
+		if (!(width > 0 && height > 0)) return { width: 0, height: 0 };
+		return turned ? { width: height, height: width } : { width, height };
+	} catch {
+		return { width: 0, height: 0 };
+	}
+}
+
+/** Measures images stored before sizes were recorded, one after the other. */
+export async function measureOldImages(db: Db) {
+	const rows = db
+		.prepare("SELECT id, file FROM files WHERE width IS NULL AND mime LIKE 'image/%'")
+		.all() as { id: string; file: string }[];
+	for (const r of rows) {
+		const { width, height } = await imageSize(path.join(config.photosDir, r.file));
+		db.prepare('UPDATE files SET width = ?, height = ? WHERE id = ?').run(width, height, r.id);
+	}
 }
 
 /** Whether all these files exist (uploads that weren't attached are removed after a day). */

@@ -50,6 +50,22 @@
 		current = (current + delta + photos.length) % photos.length;
 	}
 
+	const at = (delta: number) => photos[(current + delta + photos.length) % photos.length];
+	const isImage = (p: ViewerPhoto | undefined) => !!p && fileKind(p.mime, p.name) === 'image';
+	const preload = (url: string) => (new Image().src = url);
+
+	// The small previews around the current photo, so browsing through shows something at
+	// once (the full image follows when it has loaded).
+	$effect(() => {
+		if (!isOpen) return;
+		for (const d of [-2, -1, 1, 2]) if (isImage(at(d))) preload(photoUrl(at(d).id, 's'));
+	});
+
+	// Once the shown photo is complete, its neighbours' full images.
+	function loaded() {
+		for (const d of [1, -1]) if (isImage(at(d))) preload(photoUrl(at(d).id, 'l'));
+	}
+
 	function onkeydown(e: KeyboardEvent) {
 		if (e.target instanceof HTMLVideoElement) return;
 		if (e.key === 'ArrowLeft') step(-1);
@@ -83,7 +99,17 @@
 				></video>
 			{/key}
 		{:else}
-			<img src={photoUrl(photo.id, 'l')} alt="{photo.label}, {photo.date}" />
+			{#key photo.id}
+				<!-- A new element per photo: the small preview shows scaled up (behind it)
+				     until the full image is there, instead of the previous photo. -->
+				<img
+					class="full"
+					src={photoUrl(photo.id, 'l')}
+					alt="{photo.label}, {photo.date}"
+					style:background-image="url({photoUrl(photo.id, 's')})"
+					onload={loaded}
+				/>
+			{/key}
 		{/if}
 		<div class="bar">
 			{#if photos.length > 1}
@@ -140,6 +166,14 @@
 		max-width: 100%;
 		max-height: 100%;
 		object-fit: contain;
+	}
+	/* Fills the screen, so the preview behind it lines up with the full image. */
+	dialog > img.full {
+		width: 100%;
+		height: 100%;
+		background-size: contain;
+		background-position: center;
+		background-repeat: no-repeat;
 	}
 	/* Room for the bars, so the player's own controls stay reachable. */
 	dialog > video {

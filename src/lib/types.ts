@@ -17,6 +17,10 @@ export type Field = {
 	previous?: string | null;
 	/** A name used for the first time: the kind of its values, chosen while entering it. */
 	kind?: FieldKind;
+	/** Object fields of a saved event: the value the change replaced (null: not recorded). */
+	before?: string | null;
+	/** Object fields of a saved event: it is the first dated change of the property. */
+	firstChange?: boolean;
 };
 
 /** A field an event type usually needs, optionally with a default value. */
@@ -39,6 +43,8 @@ export type DiaryObject = {
 	active: boolean;
 	notes: string;
 	coverPhotoId: string | null;
+	/** Width / height of the cover image, if known: its space is reserved while it loads. */
+	coverRatio: number | null;
 };
 
 export type ObjectAttr = {

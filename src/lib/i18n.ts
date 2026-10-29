@@ -78,6 +78,8 @@ export const t = {
 		activeFilter: { active: 'Aktive', inactive: 'Inaktive', all: 'Alle' },
 		notes: 'Notizen',
 		attributes: 'Eigenschaften',
+		fromEvents: (key: string, count: number) =>
+			`„${key}“ wurde bisher bei ${n(count, 'Ereignis', 'Ereignissen')} angegeben. Diese Werte werden zu Änderungen der Eigenschaft ihres Objekts.`,
 		attributesHint:
 			'Änderungen hier korrigieren den aktuellen Wert. Für Änderungen mit Datum (z. B. Umzug) ein Ereignis erfassen.',
 		addAttribute: 'Eigenschaft hinzufügen',
@@ -137,15 +139,21 @@ export const t = {
 		addField: 'Angabe hinzufügen',
 		fieldKey: 'Angabe',
 		fieldValue: 'Wert',
-		targetObject: 'ändert Objekt',
-		targetObjectHint: 'Wird als Eigenschaft des Objekts ab diesem Datum gespeichert.',
+		targetObject: 'als Eigenschaft des Objekts',
+		targetObjectHint:
+			'Wird zur Eigenschaft des Objekts, die dieses Ereignis ab seinem Datum ändert.',
+		changesProperty: 'ändert Eigenschaft',
+		tagProperty: 'Eigenschaft',
+		tagDetail: 'Angabe',
+		becomesProperty: (key: string, count: number) =>
+			`Auch ${count === 1 ? 'die bisherige Angabe' : `die bisherigen ${count} Angaben`} „${key}“ ${count === 1 ? 'wird' : 'werden'} dann zur Änderung der Eigenschaft ihres Objekts.`,
+		before: (v: string) => `vorher: ${v}`,
 		previous: 'Wert davor:',
-		previousKeep: 'unverändert',
 		previousValue: 'eintragen …',
+		previousOther: 'anderer Wert …',
 		previousPlaceholder: 'Wert vor dieser Änderung',
 		previousHint:
-			'Setzt den Anfangswert des Objekts, falls es vor diesem Datum keine erfasste Änderung gibt.',
-		currently: (v: string) => `aktuell: ${v}`,
+			'Die erste erfasste Änderung kann den Wert davor festhalten (oder als nicht erfasst markieren).',
 		photos: 'Fotos & Dateien',
 		camera: 'Kamera',
 		gallery: 'Galerie',
@@ -251,6 +259,7 @@ export const t = {
 	gallery: {
 		showAll: (n: number) => `Alle ${n} anzeigen`,
 		longPressHint: 'Lange drücken, um ein Foto als Titelbild zu wählen.',
+		coverHelp: 'Wie wähle ich das Titelbild?',
 		previous: 'Vorheriges Foto',
 		next: 'Nächstes Foto',
 		original: 'Original',

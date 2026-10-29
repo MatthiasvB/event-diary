@@ -3,6 +3,7 @@ import { db } from '#lib/server/diary.ts';
 import { parseEventForm, saveEditedEvent, validate } from '#lib/server/eventForm.ts';
 import { deleteEvent, getEvent, lastFieldsByType } from '#lib/server/events.ts';
 import { objectOptions } from '#lib/server/objectOptions.ts';
+import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,6 +22,7 @@ export const load: PageServerLoad = ({ params }) => {
 		objects: objectOptions(d),
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
+		histories: allHistories(d),
 		initial: {
 			objectIds: [event.objectId],
 			typeName: event.typeName,

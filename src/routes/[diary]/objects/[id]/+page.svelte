@@ -16,6 +16,7 @@
 	let { data }: PageProps = $props();
 	const object = $derived(data.object);
 	let gallery = $state<Gallery>();
+	let coverHint = $state(false);
 
 	// Running as installed app (home screen) rather than in a browser tab.
 	let standalone = $state(false);
@@ -49,7 +50,15 @@
 				class="cover-button"
 				onclick={() => gallery?.show(object.coverPhotoId!)}
 			>
-				<img class="cover" src={photoUrl(object.coverPhotoId, 'l')} alt={object.name} />
+				<!-- Its space is kept while it loads; until then the small preview (usually
+				     cached from the overview) shows scaled up. -->
+				<img
+					class="cover"
+					src={photoUrl(object.coverPhotoId, 'l')}
+					alt={object.name}
+					style:aspect-ratio={object.coverRatio ?? 4 / 3}
+					style:background-image="url({photoUrl(object.coverPhotoId, 's')})"
+				/>
 			</button>
 		{/if}
 		<div class="spread">
@@ -152,7 +161,19 @@
 
 	{#if photos.length}
 		<section>
-			<h2>{t.objects.photos} <span class="muted small">{photos.length}</span></h2>
+			<h2>
+				{t.objects.photos} <span class="muted small">{photos.length}</span>
+				{#if canEdit()}
+					<button
+						type="button"
+						class="info"
+						aria-label={t.gallery.coverHelp}
+						aria-expanded={coverHint}
+						onclick={() => (coverHint = !coverHint)}>ⓘ</button
+					>
+				{/if}
+			</h2>
+			{#if coverHint}<p class="muted small cover-hint">{t.gallery.longPressHint}</p>{/if}
 			<Gallery
 				bind:this={gallery}
 				{photos}
@@ -206,10 +227,14 @@
 		background: none;
 	}
 	.cover {
+		display: block;
 		width: 100%;
 		max-height: 50vh;
 		object-fit: cover;
 		border-radius: var(--radius);
+		background-color: var(--surface-2);
+		background-size: cover;
+		background-position: center;
 	}
 	h1 {
 		margin: 0;
@@ -224,6 +249,18 @@
 	}
 	.last {
 		margin-top: 1rem;
+	}
+	.info {
+		min-height: 0;
+		padding: 0 0.3rem;
+		border: none;
+		background: none;
+		color: var(--muted);
+		font-size: 1rem;
+		vertical-align: middle;
+	}
+	.cover-hint {
+		margin: -0.25rem 0 0.5rem;
 	}
 	.timeline {
 		gap: 0.6rem;

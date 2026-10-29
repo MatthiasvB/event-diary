@@ -12,7 +12,7 @@ export type Db = DatabaseSync;
 export type Schema = { version: number; create: string; migrations: Record<number, string> };
 
 export const DIARY_SCHEMA: Schema = {
-	version: 6,
+	version: 7,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,            -- also the file name stem in photos/
@@ -20,7 +20,9 @@ export const DIARY_SCHEMA: Schema = {
 		mime TEXT NOT NULL,
 		original_name TEXT NOT NULL DEFAULT '',
 		taken_at TEXT,                  -- EXIF capture time, ISO
-		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		created_at TEXT NOT NULL DEFAULT (datetime('now')),
+		width INTEGER,                  -- images: as shown (EXIF rotation applied); 0: unknown
+		height INTEGER
 	);
 
 	CREATE TABLE objects (
@@ -170,6 +172,11 @@ export const DIARY_SCHEMA: Schema = {
 
 		-- Fields that set a property of the object.
 		UPDATE event_types SET fields = replace(fields, '"target":"plant"', '"target":"object"');
+		`,
+		7: `
+		-- Image sizes, so pages can reserve their space before they load.
+		ALTER TABLE files ADD COLUMN width INTEGER;
+		ALTER TABLE files ADD COLUMN height INTEGER;
 		`
 	}
 };

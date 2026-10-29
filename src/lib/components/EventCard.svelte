@@ -38,7 +38,8 @@
 
 	// Many photos: three rows until expanded. The number per row follows the width.
 	const PHOTO_ROWS = 3;
-	let perRow = $state(4);
+	// Until measured: what a phone shows, so the first render rarely changes.
+	let perRow = $state(3);
 	let allPhotos = $state(false);
 	function measureGrid(node: HTMLElement) {
 		const update = () => {
@@ -94,7 +95,14 @@
 		<ul class="fields">
 			{#each event.fields as f (f.target + f.key)}
 				<li>
-					<span class="muted">{f.key}{f.target === 'object' ? ' →' : ':'}</span>
+					<span class="muted">{f.key}:</span>
+					{#if f.target === 'object'}
+						<!-- A change of the property: what it was before, and what it became. -->
+						<span class="before" title={f.before == null ? t.objects.notRecorded : undefined}
+							>{f.before == null ? '–' : showValue(f.key, f.before)}</span
+						>
+						→
+					{/if}
 					{showValue(f.key, f.value)}
 				</li>
 			{/each}
@@ -227,6 +235,9 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.2rem 1rem;
+	}
+	.before {
+		color: var(--muted);
 	}
 	.photos {
 		display: grid;

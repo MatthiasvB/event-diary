@@ -5,6 +5,7 @@ import { getType, listTypes, updateType } from '#lib/server/eventTypes.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { chosenKinds } from '#lib/server/eventForm.ts';
 import { learnKinds } from '#lib/server/fieldKinds.ts';
+import { propertyKeys } from '#lib/server/objects.ts';
 import { kindOf, parseKind, storedValue } from '#lib/fieldKinds.ts';
 import { t } from '#lib/i18n.ts';
 import type { FieldTemplate } from '#lib/types.ts';
@@ -34,10 +35,13 @@ export const actions: Actions = {
 		const chosen = form.getAll('fieldKind').map((v) => parseKind(String(v)));
 		// Kinds chosen for new names are stored first, so defaults are stored in their form.
 		const kinds = learnKinds(d, chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i] }))));
+		// Property names always change the object; other names only when chosen.
+		const properties = propertyKeys(d);
 		const fields: FieldTemplate[] = keys
 			.map((key, i) => ({
 				key,
-				target: targets[i] === 'object' ? ('object' as const) : ('event' as const),
+				target:
+					properties.has(key) || targets[i] === 'object' ? ('object' as const) : ('event' as const),
 				...(values[i] ? { default: storedValue(values[i], kindOf(kinds, key)) } : {})
 			}))
 			.filter((f) => f.key);

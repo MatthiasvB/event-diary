@@ -51,6 +51,8 @@ buildNpmPackage {
   nativeBuildInputs = [ makeWrapper ];
 
   doCheck = true;
+  # The tests measure images with vipsheader.
+  nativeCheckInputs = [ vips ];
   checkPhase = ''
     runHook preCheck
     npm run check

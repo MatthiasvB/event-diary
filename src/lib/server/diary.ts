@@ -5,8 +5,9 @@ import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
 import { config } from './config.ts';
-import { openDb, type Db } from './db.ts';
-import { deleteFiles } from './files.ts';
+import { openDb, transaction, type Db } from './db.ts';
+import { promoteToProperties } from './objects.ts';
+import { deleteFiles, measureOldImages } from './files.ts';
 import { deleteDiary, diaryFile, memberDiary, registry, type DiaryInfo } from './registry.ts';
 
 /** The current diary; "not found" unless the user is a member. */
@@ -33,6 +34,11 @@ export function db(): Db {
 	let diary = open.get(id);
 	if (!diary) {
 		diary = openDb(diaryFile(config.dbDir, id));
+		// Names that are both (from before this rule) become properties.
+		const d = diary;
+		transaction(d, () => promoteToProperties(d));
+		// In the background: sizes of images uploaded before they were recorded.
+		measureOldImages(d).catch((e) => console.error('Measuring images failed:', e));
 		open.set(id, diary);
 	}
 	return diary;

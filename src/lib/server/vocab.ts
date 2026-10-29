@@ -4,6 +4,7 @@ import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, FieldTemplate, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { listTypes, PHOTO_TYPE_SETTING } from './eventTypes.ts';
+import { promoteToProperties } from './objects.ts';
 import {
 	getPropertyOrder,
 	getSetting,
@@ -67,7 +68,7 @@ export function vocabulary(db: Db): Vocabulary {
 			FROM event_types t LEFT JOIN events e ON e.type_id = t.id
 			WHERE t.category != '' GROUP BY t.category`
 		)
-		.all() as Candidate[];
+		.all() as Pick<Candidate, 'value' | 'count' | 'last'>[];
 
 	return {
 		types: listTypes(db),
@@ -91,8 +92,12 @@ export function rename(db: Db, what: ValueKind, from: string, to: string): numbe
 				return renameCategory(db, from, to);
 			case 'type':
 				return renameType(db, from, to);
-			case 'key':
-				return renameKey(db, from, to);
+			case 'key': {
+				const n = renameKey(db, from, to);
+				// Merged into a property name, event details become changes of it.
+				promoteToProperties(db);
+				return n;
+			}
 			case 'value':
 				return renameValue(db, what.key, from, to);
 		}

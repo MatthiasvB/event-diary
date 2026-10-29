@@ -31,6 +31,7 @@
 			objects={data.objects}
 			vocab={data.vocab}
 			lastFields={data.lastFields}
+			histories={data.histories}
 			initial={data.initial}
 			photoMode={data.photoMode}
 			bind:files

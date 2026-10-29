@@ -48,8 +48,8 @@
 			: []
 	);
 	const options = $derived([
-		...suggestions.map((s) => ({ value: s.value, isNew: false })),
-		...(isNew ? [{ value: trimmed, isNew: true }] : [])
+		...suggestions.map((s) => ({ value: s.value, tag: s.tag, isNew: false })),
+		...(isNew ? [{ value: trimmed, tag: undefined, isNew: true }] : [])
 	]);
 
 	function show() {
@@ -144,6 +144,8 @@
 					onclick={() => choose(option.value)}
 				>
 					{option.isNew ? t.combobox.create(option.value) : option.value}
+					{#if option.tag}<span class="tag" class:accent={option.tag.accent}>{option.tag.text}</span
+						>{/if}
 				</li>
 			{/each}
 		</ul>
@@ -193,6 +195,24 @@
 	li[aria-selected='true'],
 	li:hover {
 		background: var(--accent-soft);
+	}
+	li {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+	}
+	.tag {
+		margin-left: auto;
+		padding: 0 0.45rem;
+		border-radius: 999px;
+		background: var(--surface-2);
+		color: var(--muted);
+		font-size: 0.75rem;
+		white-space: nowrap;
+	}
+	.tag.accent {
+		background: var(--accent-soft);
+		color: var(--accent);
 	}
 	li.new {
 		color: var(--accent);

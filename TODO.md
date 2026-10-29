@@ -23,8 +23,9 @@ These need changes on the server, so they wait:
 
 ## Cleanup
 
-- **Database migrations:** once the server has run them, the steps to diary version 6 and
-  registry version 3 in `src/lib/server/db.ts` and `registry.ts` can go (keep `create`).
+- **Database migrations:** once the server has run them, the steps to diary versions 6 and
+  7 and registry version 3 in `src/lib/server/db.ts` and `registry.ts` can go (keep
+  `create`).
 
 ## Workarounds
 

@@ -8,21 +8,30 @@
 	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { Candidate } from '#lib/suggest.ts';
-	import type { Field, FieldTarget, Vocabulary } from '#lib/types.ts';
+	import type { Field, FieldTarget, ObjectAttr, Vocabulary } from '#lib/types.ts';
 
 	type Props = {
 		fields: Field[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		/** Event type for context-aware value suggestions. */
 		typeId?: number;
-		/** Allow choosing whether a field is stored on the object (event form only). */
+		/**
+		 * Event form and event types: fields can change the object. Property names always do;
+		 * other names only when chosen (they become properties).
+		 */
 		showTarget?: boolean;
 		defaultTarget?: FieldTarget;
-		/** Current object attribute values, shown next to fields that change the object. */
-		current?: Record<string, string>;
 		addLabel?: string;
-		/** Offer setting the value before the change for object fields (event form only). */
-		showPrevious?: boolean;
+		/**
+		 * Event form with one object: its properties over time, to show what a change
+		 * replaces and, for the first change of a property, to set the value before it.
+		 */
+		history?: Record<string, ObjectAttr[]>;
+		/** Event form: the event's date, and its ID when editing. */
+		date?: string;
+		eventId?: number;
+		/** Event form: choosing an event detail's name as property converts its past values. */
+		convertsDetails?: boolean;
 	};
 
 	let {
@@ -31,16 +40,47 @@
 		typeId,
 		showTarget = false,
 		defaultTarget = 'event',
-		current = {},
 		addLabel = t.events.addField,
-		showPrevious = false
+		history,
+		date = '',
+		eventId,
+		convertsDetails = false
 	}: Props = $props();
 
-	function keyCandidates(target: FieldTarget): Candidate[] {
+	// A name is either a property of objects or a detail of events.
+	const properties = $derived(new Set(vocab.keys.object.map((k) => k.value)));
+	const details = $derived(new Map(vocab.keys.event.map((k) => [k.value, k.count])));
+	const isProperty = (key: string) => properties.has(key.trim());
+	const changesObject = (f: Field) => isProperty(f.key) || f.target === 'object';
+
+	// Both kinds of names are offered, marked; in the object form, details become properties.
+	function keyCandidates(): Candidate[] {
 		const used = new Set(fields.map((f) => f.key));
-		return vocab.keys[target]
-			.filter((k) => !used.has(k.value))
-			.map((k) => ({ ...k, context: typeId ? k.byType[typeId] : 0 }));
+		const context = (k: (typeof vocab.keys.event)[number]) => (typeId ? k.byType[typeId] : 0);
+		return [
+			...vocab.keys.object.map((k) => ({
+				...k,
+				context: context(k),
+				tag: showTarget ? { text: t.events.tagProperty, accent: true } : undefined
+			})),
+			...vocab.keys.event.map((k) => ({
+				...k,
+				context: context(k),
+				tag: { text: t.events.tagDetail }
+			}))
+		].filter((k) => !used.has(k.value));
+	}
+
+	/**
+	 * What a change of the property replaces: the last earlier change (then the value before
+	 * is known), or else the initial value, which the first change may set.
+	 */
+	function before(f: Field) {
+		// Editing: the event's own change doesn't count.
+		const rows = (history?.[f.key.trim()] ?? []).filter((r) => !eventId || r.eventId !== eventId);
+		const earlier = rows.filter((r) => r.since !== null && date && r.since <= date).at(-1);
+		const initial = rows.find((r) => r.since === null && r.eventId === null);
+		return { earlier, initial };
 	}
 
 	function valueCandidates(key: string): Candidate[] {
@@ -55,6 +95,14 @@
 		if (mode === 'keep') delete f.previous;
 		else f.previous = mode === 'unknown' ? null : '';
 	}
+	// No previous value set by a later change, which then wouldn't be the first one.
+	$effect(() => {
+		for (const f of fields) {
+			if (f.previous !== undefined && (!changesObject(f) || !history || before(f).earlier)) {
+				delete f.previous;
+			}
+		}
+	});
 
 	// A name used for the first time can get a kind (date, number) right here.
 	const knownNames = $derived(
@@ -84,7 +132,7 @@
 			<div class="inputs">
 				<Combobox
 					bind:value={field.key}
-					candidates={keyCandidates(field.target)}
+					candidates={keyCandidates()}
 					placeholder={t.events.fieldKey}
 					label={t.events.fieldKey}
 				/>
@@ -93,9 +141,7 @@
 					kind={chosenKind(field)}
 					bind:value={field.value}
 					candidates={valueCandidates(field.key)}
-					placeholder={field.target === 'object' && current[field.key]
-						? t.events.currently(showValue(field.key, current[field.key]))
-						: t.events.fieldValue}
+					placeholder={t.events.fieldValue}
 					label={field.key || t.events.fieldValue}
 				/>
 			</div>
@@ -124,47 +170,66 @@
 				</div>
 			{/if}
 			<div class="spread">
-				{#if showTarget}
+				{#if showTarget && field.key.trim()}
+					{@const name = field.key.trim()}
 					<div class="grow">
-						<label class="check small" title={t.events.targetObjectHint}>
-							<input
-								type="checkbox"
-								checked={field.target === 'object'}
-								onchange={(e) => (field.target = e.currentTarget.checked ? 'object' : 'event')}
-							/>
-							<span>
-								{t.events.targetObject}
-								{#if field.target === 'object' && current[field.key]}
-									<span class="muted"
-										>({t.events.currently(showValue(field.key, current[field.key]))})</span
-									>
-								{/if}
-							</span>
-						</label>
-						{#if field.target === 'object' && showPrevious}
-							<label class="previous small" title={t.events.previousHint}>
-								{t.events.previous}
-								<select
-									value={previousMode(field)}
-									onchange={(e) => setPreviousMode(field, e.currentTarget.value)}
-								>
-									<option value="keep">{t.events.previousKeep}</option>
-									<option value="unknown">{t.objects.notRecorded}</option>
-									<option value="value">{t.events.previousValue}</option>
-								</select>
-							</label>
-							{#if typeof field.previous === 'string'}
-								<FieldValueInput
-									key={field.key}
-									kind={chosenKind(field)}
-									bind:value={() => field.previous ?? '', (v) => (field.previous = v)}
-									candidates={valueCandidates(field.key)}
-									placeholder={t.events.previousPlaceholder}
-									label={t.events.previousPlaceholder}
+						{#if isProperty(name)}
+							<p class="change small">
+								<span class="badge property">↻ {t.events.changesProperty}</span>
+							</p>
+						{:else}
+							<label class="check small" title={t.events.targetObjectHint}>
+								<input
+									type="checkbox"
+									checked={field.target === 'object'}
+									onchange={(e) => (field.target = e.currentTarget.checked ? 'object' : 'event')}
 								/>
+								<span>{t.events.targetObject}</span>
+							</label>
+							{#if field.target === 'object' && convertsDetails && details.has(name)}
+								<p class="hint small">{t.events.becomesProperty(name, details.get(name) ?? 0)}</p>
+							{/if}
+						{/if}
+						{#if changesObject(field) && history}
+							{@const { earlier, initial } = before(field)}
+							{#if earlier}
+								<p class="small muted">{t.events.before(showValue(name, earlier.value))}</p>
+							{:else}
+								<label class="previous small" title={t.events.previousHint}>
+									{t.events.previous}
+									<select
+										value={initial || typeof field.previous === 'string'
+											? previousMode(field)
+											: 'keep'}
+										onchange={(e) => setPreviousMode(field, e.currentTarget.value)}
+									>
+										{#if initial}
+											<option value="keep">{showValue(name, initial.value)}</option>
+											<option value="unknown">{t.objects.notRecorded}</option>
+											<option value="value">{t.events.previousOther}</option>
+										{:else}
+											<option value="keep">{t.objects.notRecorded}</option>
+											<option value="value">{t.events.previousValue}</option>
+										{/if}
+									</select>
+								</label>
+								{#if typeof field.previous === 'string'}
+									<FieldValueInput
+										key={field.key}
+										kind={chosenKind(field)}
+										bind:value={() => field.previous ?? '', (v) => (field.previous = v)}
+										candidates={valueCandidates(field.key)}
+										placeholder={t.events.previousPlaceholder}
+										label={t.events.previousPlaceholder}
+									/>
+								{/if}
 							{/if}
 						{/if}
 					</div>
+				{:else if !showTarget && details.has(field.key.trim())}
+					<p class="hint small grow">
+						{t.objects.fromEvents(field.key.trim(), details.get(field.key.trim()) ?? 0)}
+					</p>
 				{:else}
 					<span></span>
 				{/if}
@@ -217,6 +282,16 @@
 		gap: 0.4rem;
 		margin: 0.2rem 0 0.3rem;
 		color: var(--text);
+	}
+	.change {
+		margin: 0.3rem 0 0;
+	}
+	.badge.property {
+		background: var(--accent-soft);
+		color: var(--accent);
+	}
+	.hint {
+		margin: 0.2rem 0;
 	}
 	.previous select {
 		width: auto;

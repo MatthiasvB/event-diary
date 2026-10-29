@@ -26,6 +26,9 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   are kept exactly as uploaded. When saving, they are uploaded one by one, so the size
   limit (`maxUploadSize`) applies per file. Videos play if the browser supports their
   format (e.g. iPhone HEVC `.mov` not everywhere); they can always be downloaded.
+  Image sizes are recorded on upload, so pages keep the space of an image while it loads.
+  The viewer shows the small preview scaled up at once and the full image when it has
+  arrived, so you can flip through quickly even on a slow connection.
 - **Foto** (camera in the navigation): photo first, then the object, then save. The photo's
   capture date is offered as the event date.
 - **Sharing photos into the app** (Android): installed via Chrome (or another
@@ -60,10 +63,18 @@ values are offered to avoid near-duplicates.
 
 Events and objects have a small fixed core. Everything else is a key/value field:
 
-- **Event fields** (e.g. _Produkt_, _Wert_, _Einheit_) belong to the event.
-- **Object fields** ("ändert Objekt", e.g. _Standort_, _Substrat_, _Topfgröße_) set a
-  property of the object from the event's date on. The object page shows the current value
-  and its history. Deleting the event restores the previous value.
+- **Event details** (e.g. _Produkt_, _Menge_) belong to the event.
+- **Property changes** (e.g. _Standort_, _Substrat_, _Topfgröße_) set a property of the
+  object from the event's date on. The object page shows the current value and its
+  history, and the event shows what it changed ("Substrat: Moos → Rinde"). Deleting the
+  event restores the previous value.
+
+A name is either a property or an event detail. Entering a property's name in an event
+always records a change (marked "ändert Eigenschaft"); suggestions mark both kinds. A new
+name, or an event detail's name, becomes a property when chosen so in the event form or
+added on an object; the earlier event details of that name then become changes of their
+objects' property. Only the first recorded change of a property can set the value before
+it (or mark it as not recorded); for later ones, the value before is the previous change's.
 
 Event types learn which fields they are used with. On the event type page you can edit
 them and set default values; without a default, the value from the last use is suggested.

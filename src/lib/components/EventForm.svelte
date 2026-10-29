@@ -17,7 +17,7 @@
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { isMedia, type EventFile } from '#lib/files.ts';
 	import { uploadFiles } from '#lib/upload.ts';
-	import type { EventType, Field, Vocabulary } from '#lib/types.ts';
+	import type { EventType, Field, ObjectAttr, Vocabulary } from '#lib/types.ts';
 
 	type ObjectOption = { id: number; name: string; active: boolean; attrs: Record<string, string> };
 	export type EventFormInitial = {
@@ -35,7 +35,11 @@
 		objects: ObjectOption[];
 		vocab: Vocabulary;
 		lastFields: Record<number, Field[]>;
+		/** Properties of all objects over time: object id → key → values. */
+		histories: Record<number, Record<string, ObjectAttr[]>>;
 		initial: EventFormInitial;
+		/** Editing: the event. */
+		eventId?: number;
 		files?: File[];
 		edit?: boolean;
 		batchSize?: number;
@@ -47,7 +51,9 @@
 		objects,
 		vocab,
 		lastFields,
+		histories,
 		initial,
+		eventId,
 		files = $bindable([]),
 		edit = false,
 		batchSize = 1,
@@ -123,9 +129,8 @@
 		category = value;
 		categoryChosen = value.trim() !== '' || named.length < 2;
 	}
-	const current = $derived(
-		objectIds.length === 1 ? (objects.find((p) => p.id === objectIds[0])?.attrs ?? {}) : {}
-	);
+	// With one object, changes of its properties show what they replace.
+	const history = $derived(objectIds.length === 1 ? (histories[objectIds[0]] ?? {}) : undefined);
 
 	// Choosing another type fills in its usual fields; values typed by the user win.
 	let appliedTypeId = start.typeId;
@@ -278,7 +283,16 @@
 
 	<fieldset>
 		<legend>{t.events.fields}</legend>
-		<FieldsEditor bind:fields {vocab} typeId={type?.id} showTarget showPrevious {current} />
+		<FieldsEditor
+			bind:fields
+			{vocab}
+			typeId={type?.id}
+			showTarget
+			convertsDetails
+			{history}
+			{date}
+			{eventId}
+		/>
 	</fieldset>
 
 	<label>

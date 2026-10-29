@@ -27,7 +27,9 @@
 		objects={data.objects}
 		vocab={data.vocab}
 		lastFields={data.lastFields}
+		histories={data.histories}
 		initial={data.initial}
+		eventId={data.event.id}
 		edit
 		batchSize={data.event.batchSize}
 		error={form?.error}
