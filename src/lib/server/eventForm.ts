@@ -11,7 +11,7 @@ import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 export type EventPayload = {
 	objectIds: number[];
 	typeName: string;
-	category: string;
+	category: string | null;
 	milestone: boolean;
 	date: string;
 	note: string;
@@ -50,7 +50,7 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			(id) => Number.isInteger(id) && id > 0
 		),
 		typeName: str(raw.typeName),
-		category: str(raw.category),
+		category: str(raw.category) || null,
 		milestone: raw.milestone === true,
 		date: str(raw.date),
 		note: str(raw.note),

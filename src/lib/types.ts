@@ -29,7 +29,7 @@ export type FieldTemplate = { key: string; target: FieldTarget; default?: string
 export type EventType = {
 	id: number;
 	name: string;
-	category: string;
+	category: string | null;
 	milestone: boolean;
 	hint: string;
 	fields: FieldTemplate[];
@@ -57,7 +57,7 @@ export type DiaryEvent = {
 	objectName: string;
 	typeId: number;
 	typeName: string;
-	category: string;
+	category: string | null;
 	milestone: boolean;
 	date: string;
 	note: string;

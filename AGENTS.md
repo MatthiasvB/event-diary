@@ -38,8 +38,8 @@
     `-1`) instead of `null` or a union; a parser or action whose first job is rejecting input
     the type let in.
   - This holds for the database too. A table is a type: encode its rules with `NOT NULL`,
-    `CHECK`, `UNIQUE` (partial indexes where needed) and foreign keys. IDs inside JSON or the
-    `settings` table are references without a foreign key — use a table.
+    `CHECK`, `UNIQUE` (partial indexes where needed) and foreign keys. IDs inside JSON are
+    references without a foreign key — use a table.
   - A departure needs a very good reason, and the reason is recorded where the type lives: an
     ADR for a schema decision, a doc comment for an internal type. An unrecorded departure is a
     bug.

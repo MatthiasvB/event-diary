@@ -4,11 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { t } from '../i18n.ts';
 import { migrateDb, transaction, type DataDirs, type Db } from './db.ts';
 import { DIARY_SCHEMA, openDiary } from './diarySchema.ts';
-import { findType, getType } from './eventTypes.ts';
+import { findPhotoType, findType, getType } from './eventTypes.ts';
 import { getFieldKinds, getPropertyOrder } from './fields.ts';
 import { migrateAll } from './migrate.ts';
+import { getOverviewColumns } from './overview.ts';
 import { attrHistory } from './objects.ts';
 import { diaryFile, openRegistry, REGISTRY_SCHEMA, registryFile } from './registry.ts';
 
@@ -265,6 +267,31 @@ it('dates changes by their event at version 10, and keeps them with its object',
 	expect(all(db, `SELECT object_id FROM property_values WHERE id = ${change.id}`)).toEqual([
 		{ object_id: other }
 	]);
+	db.close();
+});
+
+it('moves categories, the photo type and the overview columns into tables at version 11', async () => {
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diary.sqlite'),
+		fixture(10) +
+			`UPDATE settings SET value = json_insert(value, '$[#]', json('{"label":"","typeIds":[1]}'),
+				'$[#]', json('{"label":"Weg","typeIds":[999]}')) WHERE key = 'overviewColumns';`
+	);
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	expect(all(db, 'SELECT name FROM categories ORDER BY name').map((r) => r.name)).toEqual(
+		['Haus', 'Pflege', t.events.photoTypeCategory].sort()
+	);
+	expect(findPhotoType(db)?.name).toBe(t.events.photoType);
+	expect(getOverviewColumns(db).map((c) => [c.label, c.typeIds.length])).toEqual([
+		['Gedüngt', 1],
+		['Umgetopft', 1],
+		['Weg', 0]
+	]);
+	const triggers = (sql: Db) =>
+		all(sql, "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name");
+	expect(triggers(db)).toEqual(triggers(openDiary(':memory:')));
+	expect(all(db, "SELECT name FROM sqlite_master WHERE name = 'settings'")).toEqual([]);
 	db.close();
 });
 

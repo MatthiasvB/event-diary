@@ -26,7 +26,10 @@ export const actions: Actions = {
 		if (!type) error(404, t.errors.notFound);
 		const input = parseTypeForm(await request.formData(), d);
 		const saved = updateType(d, { id: type.id, ...input });
-		if (!saved) return fail(400, { error: t.types.categoryTaken(type.name, input.category) });
+		if (!saved)
+			return fail(400, {
+				error: t.types.categoryTaken(type.name, input.category ?? t.types.noCategory)
+			});
 		redirect(303, `/${params.diary}/types`);
 	},
 	delete: ({ params }) => {

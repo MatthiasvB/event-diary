@@ -13,7 +13,7 @@
 
 	// Field templates reuse the field editor: the value is the default.
 	const start = untrack(() => $state.snapshot(data.type));
-	let category = $state(start.category);
+	let category = $state(start.category ?? '');
 	let fields = $state<FieldEntry[]>(
 		start.fields.map((f) => entry(f.target, f.key, f.default ?? ''))
 	);

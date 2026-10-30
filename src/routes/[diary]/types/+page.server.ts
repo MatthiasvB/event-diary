@@ -8,7 +8,9 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = () => {
 	const d = db();
 	const types = listTypes(d);
-	const categories = [...new Set(types.map((ty) => ty.category).filter(Boolean))];
+	const categories = [
+		...new Set(types.flatMap((ty) => (ty.category === null ? [] : [ty.category])))
+	];
 	return {
 		types,
 		impacts: Object.fromEntries(categories.map((c) => [c, categoryImpact(d, c)]))

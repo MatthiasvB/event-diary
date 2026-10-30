@@ -1,9 +1,8 @@
 import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
-import { listTypes, PHOTO_TYPE_SETTING } from './eventTypes.ts';
+import { listTypes } from './eventTypes.ts';
 import { propertyKeys, useField, type Role } from './fields.ts';
-import { getSetting, setOverviewColumns, setSetting, type OverviewColumn } from './settings.ts';
 
 type UsageRow = {
 	key: string;
@@ -61,9 +60,10 @@ export function vocabulary(db: Db): Vocabulary {
 
 	const categories = db
 		.prepare(
-			`SELECT t.category AS value, count(e.id) AS count, max(e.date) AS last
-			FROM event_types t LEFT JOIN events e ON e.type_id = t.id
-			WHERE t.category != '' GROUP BY t.category`
+			`SELECT c.name AS value, count(e.id) AS count, max(e.date) AS last
+			FROM categories c JOIN event_types t ON t.category_id = c.id
+			LEFT JOIN events e ON e.type_id = t.id
+			GROUP BY c.id`
 		)
 		.all() as Pick<Candidate, 'value' | 'count' | 'last'>[];
 
@@ -175,45 +175,51 @@ function renameKey(db: Db, from: string, to: string): number {
 	return uses.n;
 }
 
-type TypeRow = { id: number; name: string; category: string };
+type TypeRow = { id: number; name: string; category_id: number | null };
 
 function renameType(db: Db, from: string, to: string): number {
 	const sources = db.prepare('SELECT * FROM event_types WHERE name = ?').all(from) as TypeRow[];
-	return sources.reduce((n, s) => n + moveType(db, s, to, s.category), 0);
+	return sources.reduce((n, s) => n + moveType(db, s, to, s.category_id), 0);
 }
 
 function renameCategory(db: Db, from: string, to: string): number {
-	const sources = db.prepare('SELECT * FROM event_types WHERE category = ?').all(from) as TypeRow[];
-	return sources.reduce((n, s) => n + moveType(db, s, s.name, to), 0);
+	const find = db.prepare('SELECT id FROM categories WHERE name = ?');
+	const source = find.get(from) as { id: number } | undefined;
+	if (!source) return 0;
+	const types = db
+		.prepare('SELECT * FROM event_types WHERE category_id = ?')
+		.all(source.id) as TypeRow[];
+	const target = find.get(to) as { id: number } | undefined;
+	if (!target) {
+		db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(to, source.id);
+		return types.length;
+	}
+	return types.reduce((n, s) => n + moveType(db, s, s.name, target.id), 0);
 }
 
-function moveType(db: Db, source: TypeRow, name: string, category: string): number {
+function moveType(db: Db, source: TypeRow, name: string, categoryId: number | null): number {
 	const target = db
-		.prepare('SELECT id FROM event_types WHERE name = ? AND category = ? AND id != ?')
-		.get(name, category, source.id) as { id: number } | undefined;
+		.prepare('SELECT id FROM event_types WHERE name = ? AND category_id IS ? AND id != ?')
+		.get(name, categoryId, source.id) as { id: number } | undefined;
 	if (!target) {
 		return Number(
 			db
-				.prepare('UPDATE event_types SET name = ?, category = ? WHERE id = ?')
-				.run(name, category, source.id).changes
+				.prepare('UPDATE event_types SET name = ?, category_id = ? WHERE id = ?')
+				.run(name, categoryId, source.id).changes
 		);
 	}
 	const moved = db
 		.prepare('UPDATE events SET type_id = ? WHERE type_id = ?')
 		.run(target.id, source.id);
-	db.prepare('DELETE FROM event_types WHERE id = ?').run(source.id);
-	if (getSetting<number>(db, PHOTO_TYPE_SETTING) === source.id) {
-		setSetting(db, PHOTO_TYPE_SETTING, target.id);
-	}
-	const columns = getSetting<OverviewColumn[]>(db, 'overviewColumns');
-	if (columns) {
-		setOverviewColumns(
-			db,
-			columns.map((c) => ({
-				...c,
-				typeIds: [...new Set(c.typeIds.map((id) => (id === source.id ? target.id : id)))]
-			}))
-		);
+	db.prepare('UPDATE OR IGNORE overview_column_types SET type_id = ? WHERE type_id = ?').run(
+		target.id,
+		source.id
+	);
+	const { photo_default } = db
+		.prepare('DELETE FROM event_types WHERE id = ? RETURNING photo_default')
+		.get(source.id) as { photo_default: number };
+	if (photo_default) {
+		db.prepare('UPDATE event_types SET photo_default = 1 WHERE id = ?').run(target.id);
 	}
 	return Number(moved.changes) + 1;
 }

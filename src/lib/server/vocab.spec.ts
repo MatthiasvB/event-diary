@@ -32,7 +32,7 @@ import {
 	setPropertyOrder,
 	sortProperties
 } from './fields.ts';
-import { getOverviewColumns, setOverviewColumns } from './settings.ts';
+import { getOverviewColumns, setOverviewColumns } from './overview.ts';
 import { rename, vocabulary } from './vocab.ts';
 
 let db: Db;
@@ -470,7 +470,12 @@ describe('types of the same name in several categories', () => {
 		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
 		expect(house.id).not.toBe(care.id);
 		expect(ensureType(db, 'Umtopfen', { category: 'Haus' }).id).toBe(house.id);
-		expect(ensureType(db, 'Umtopfen').category).toBe('');
+		const plain = ensureType(db, 'Umtopfen');
+		expect(plain.category).toBeNull();
+		expect(ensureType(db, 'Umtopfen').id).toBe(plain.id);
+		expect(() =>
+			db.exec(`UPDATE event_types SET category_id = NULL WHERE id = ${care.id}`)
+		).toThrow(/UNIQUE/);
 	});
 
 	it('are merged when renaming brings them into one category', () => {
@@ -486,6 +491,7 @@ describe('types of the same name in several categories', () => {
 		expect(getType(db, house.id)).toBeUndefined();
 		expect(getEvent(db, moved)?.typeId).toBe(care.id);
 		expect(getType(db, water.id)?.category).toBe('Pflege');
+		expect(db.prepare('SELECT name FROM categories').all()).toEqual([{ name: 'Pflege' }]);
 	});
 
 	it("can't be moved into a category that already has the name", () => {

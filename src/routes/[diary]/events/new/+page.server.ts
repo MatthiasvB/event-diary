@@ -24,7 +24,7 @@ export const load: PageServerLoad = ({ url }) => {
 			.map(Number)
 			.filter((id) => known.has(id)),
 		typeName: preset?.name ?? '',
-		category: preset?.category ?? '',
+		category: preset?.category ?? (null as string | null),
 		date: today(),
 		note: '',
 		fields: [] as RecordedField[],

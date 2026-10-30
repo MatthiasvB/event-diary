@@ -12,7 +12,7 @@ import {
 	objectImpact,
 	typeImpact
 } from '../events.ts';
-import { listTypes, PHOTO_TYPE_SETTING, updateType } from '../eventTypes.ts';
+import { findPhotoType, listTypes, updateType } from '../eventTypes.ts';
 import {
 	getFieldKinds,
 	propertyKeys,
@@ -29,8 +29,7 @@ import {
 	setInitialValue,
 	updateObject
 } from '../objects.ts';
-import { objectStats } from '../overview.ts';
-import { getOverviewColumns, getSetting, setOverviewColumns } from '../settings.ts';
+import { getOverviewColumns, objectStats, setOverviewColumns } from '../overview.ts';
 import { parseTypeForm } from '../typeForm.ts';
 import { rename, vocabulary, type ValueKind } from '../vocab.ts';
 
@@ -65,7 +64,8 @@ export type TypeEntry = {
 	fields: { key: string; target?: 'event' | 'object'; default?: string; kind?: FieldKind }[];
 };
 
-const typeLabel = (category: string, name: string) => (category ? `${category}/${name}` : name);
+const typeLabel = (category: string | null, name: string) =>
+	category === null ? name : `${category}/${name}`;
 
 /** Writes go through the same parsing and saving as the forms. Everything is addressed by name. */
 export class Diary {
@@ -323,10 +323,12 @@ export function view(db: Db) {
 			.sort((a, b) => a.value.localeCompare(b.value));
 	const columns = getOverviewColumns(db);
 	const stats = objectStats(db, columns);
-	const photoType = getSetting<number>(db, PHOTO_TYPE_SETTING);
+	const photoType = findPhotoType(db);
 	const vocab = vocabulary(db);
 	const kinds = getFieldKinds(db);
-	const categories = [...new Set(types.map((ty) => ty.category).filter(Boolean))].sort();
+	const categories = [
+		...new Set(types.flatMap((ty) => (ty.category === null ? [] : [ty.category])))
+	].sort();
 
 	return {
 		objects: listObjects(db).map((o) => {
@@ -358,7 +360,7 @@ export function view(db: Db) {
 			impact: typeImpact(db, ty.id)
 		})),
 		categories: Object.fromEntries(categories.map((c) => [c, categoryImpact(db, c)])),
-		photoType: photoType === undefined ? null : typeOf(photoType),
+		photoType: photoType ? typeLabel(photoType.category, photoType.name) : null,
 		lastFields: Object.fromEntries(
 			Object.entries(lastFieldsByType(db))
 				.map(

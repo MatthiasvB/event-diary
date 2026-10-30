@@ -25,7 +25,7 @@
 	export type EventFormInitial = {
 		objectIds: number[];
 		typeName: string;
-		category: string;
+		category: string | null;
 		date: string;
 		note: string;
 		fields: RecordedField[];
@@ -77,7 +77,7 @@
 	let note = $state(start.note);
 	let fields = $state(start.fields);
 	let keptFiles = $state(start.files);
-	let category = $state(start.category);
+	let category = $state(start.category ?? '');
 	let categoryChosen = $state(!!start.typeName);
 	let milestone = $state(false);
 	let applyToBatch = $state(false);
@@ -88,7 +88,8 @@
 	let uploadError = $state('');
 
 	const named = $derived(vocab.types.filter((ty) => ty.name === typeName.trim()));
-	const type = $derived(named.find((ty) => ty.category === category.trim()));
+	const chosenCategory = $derived(category.trim() || null);
+	const type = $derived(named.find((ty) => ty.category === chosenCategory));
 	const isNewType = $derived(typeName.trim() !== '' && !type);
 	const mustChoose = $derived(named.length > 1 && !categoryChosen);
 	const typeCandidates = $derived(
@@ -108,7 +109,7 @@
 		if (name === lastName) return;
 		lastName = name;
 		const matches = vocab.types.filter((ty) => ty.name === name);
-		category = matches.length === 1 ? matches[0].category : '';
+		category = (matches.length === 1 && matches[0].category) || '';
 		categoryChosen = matches.length < 2;
 	});
 
@@ -224,8 +225,9 @@
 					<button
 						type="button"
 						class="small"
-						aria-pressed={categoryChosen && category === ty.category}
-						onclick={() => chooseCategory(ty.category)}>{ty.category || t.types.noCategory}</button
+						aria-pressed={categoryChosen && chosenCategory === ty.category}
+						onclick={() => chooseCategory(ty.category ?? '')}
+						>{ty.category ?? t.types.noCategory}</button
 					>
 				{/each}
 			</div>
@@ -243,7 +245,7 @@
 		{:else if isNewType && !mustChoose}
 			<div class="new-type stack tight">
 				<strong class="small"
-					>{t.events.newTypeIn(typeName.trim(), category.trim() || t.types.noCategory)}</strong
+					>{t.events.newTypeIn(typeName.trim(), chosenCategory ?? t.types.noCategory)}</strong
 				>
 				<label class="check"
 					><input type="checkbox" bind:checked={milestone} /> {t.events.milestone}</label

@@ -24,7 +24,7 @@ export function parseTypeForm(form: FormData, db: Db): Omit<EventType, 'id' | 'n
 		}))
 		.filter((f) => f.key);
 	return {
-		category: String(form.get('category') ?? '').trim(),
+		category: String(form.get('category') ?? '').trim() || null,
 		milestone: form.get('milestone') === 'on',
 		hint: String(form.get('hint') ?? '').trim(),
 		fields

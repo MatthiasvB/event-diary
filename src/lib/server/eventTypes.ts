@@ -2,17 +2,17 @@ import { t } from '../i18n.ts';
 import type { EventType, EventTypeStats, FieldTemplate } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { roleOf, targetOf, useField, type Role } from './fields.ts';
-import { getSetting, setSetting } from './settings.ts';
-
-export const PHOTO_TYPE_SETTING = 'photoTypeId';
 
 type Row = {
 	id: number;
 	name: string;
-	category: string;
+	category: string | null;
 	milestone: number;
 	hint: string;
 };
+
+const SELECT = `SELECT t.id, t.name, c.name AS category, t.milestone, t.hint
+	FROM event_types t LEFT JOIN categories c ON c.id = t.category_id`;
 
 function templates(db: Db): Map<number, FieldTemplate[]> {
 	const rows = db
@@ -60,9 +60,9 @@ function setTemplates(db: Db, typeId: number, fields: FieldTemplate[]) {
 export function listTypes(db: Db): EventTypeStats[] {
 	const rows = db
 		.prepare(
-			`SELECT t.*, count(e.id) AS count, max(e.date) AS last
-			FROM event_types t LEFT JOIN events e ON e.type_id = t.id
-			GROUP BY t.id ORDER BY t.category, t.name`
+			`SELECT x.*, count(e.id) AS count, max(e.date) AS last
+			FROM (${SELECT}) x LEFT JOIN events e ON e.type_id = x.id
+			GROUP BY x.id ORDER BY x.category, x.name`
 		)
 		.all() as (Row & { count: number; last: string | null })[];
 	const fields = templates(db);
@@ -70,30 +70,47 @@ export function listTypes(db: Db): EventTypeStats[] {
 }
 
 export function getType(db: Db, id: number): EventType | undefined {
-	const row = db.prepare('SELECT * FROM event_types WHERE id = ?').get(id) as Row | undefined;
+	const row = db.prepare(`${SELECT} WHERE t.id = ?`).get(id) as Row | undefined;
 	return row && fromRow(row, templates(db));
 }
 
-export function findType(db: Db, name: string, category: string): EventType | undefined {
-	const row = db
-		.prepare('SELECT * FROM event_types WHERE name = ? AND category = ?')
-		.get(name, category) as Row | undefined;
+export function findType(db: Db, name: string, category: string | null): EventType | undefined {
+	const row = db.prepare(`${SELECT} WHERE t.name = ? AND c.name IS ?`).get(name, category) as
+		Row | undefined;
 	return row && fromRow(row, templates(db));
+}
+
+function useCategory(db: Db, name: string | null): number | null {
+	if (name === null) return null;
+	const row = db
+		.prepare(
+			'INSERT INTO categories (name) VALUES (?) ON CONFLICT (name) DO UPDATE SET name = excluded.name RETURNING id'
+		)
+		.get(name) as { id: number };
+	return row.id;
 }
 
 export function ensureType(
 	db: Db,
 	name: string,
-	init: Partial<Omit<EventType, 'id'>> = {}
+	init: Partial<Omit<EventType, 'id' | 'name'>> = {}
 ): EventType {
 	return transaction(db, () => {
-		const existing = findType(db, name, init.category ?? '');
+		const category = init.category ?? null;
+		const existing = findType(db, name, category);
 		if (existing) return existing;
 		const row = db
 			.prepare(
-				'INSERT INTO event_types (name, category, milestone, hint) VALUES (?, ?, ?, ?) RETURNING *'
+				`INSERT INTO event_types (name, category_id, milestone, hint) VALUES (?, ?, ?, ?)
+				RETURNING id, name, ? AS category, milestone, hint`
 			)
-			.get(name, init.category ?? '', init.milestone ? 1 : 0, init.hint ?? '') as Row;
+			.get(
+				name,
+				useCategory(db, category),
+				init.milestone ? 1 : 0,
+				init.hint ?? '',
+				category
+			) as Row;
 		setTemplates(db, row.id, init.fields ?? []);
 		return fromRow(row, templates(db));
 	});
@@ -105,12 +122,13 @@ export function updateType(db: Db, t: Omit<EventType, 'name'>): boolean {
 		const clash = db
 			.prepare(
 				`SELECT 1 FROM event_types o JOIN event_types s ON s.id = ?
-				WHERE o.name = s.name AND o.category = ? AND o.id != s.id`
+				LEFT JOIN categories c ON c.id = o.category_id
+				WHERE o.name = s.name AND c.name IS ? AND o.id != s.id`
 			)
 			.get(t.id, t.category);
 		if (clash) return false;
-		db.prepare('UPDATE event_types SET category = ?, milestone = ?, hint = ? WHERE id = ?').run(
-			t.category,
+		db.prepare('UPDATE event_types SET category_id = ?, milestone = ?, hint = ? WHERE id = ?').run(
+			useCategory(db, t.category),
 			t.milestone ? 1 : 0,
 			t.hint,
 			t.id
@@ -120,12 +138,18 @@ export function updateType(db: Db, t: Omit<EventType, 'name'>): boolean {
 	});
 }
 
-/** Remembered by ID, so it can be renamed freely. */
+export function findPhotoType(db: Db): EventType | undefined {
+	const row = db.prepare(`${SELECT} WHERE t.photo_default`).get() as Row | undefined;
+	return row && fromRow(row, templates(db));
+}
+
+/** Marked in its row, so it can be renamed freely. */
 export function photoType(db: Db): EventType {
-	const id = getSetting<number>(db, PHOTO_TYPE_SETTING);
-	const stored = id === undefined ? undefined : getType(db, id);
-	if (stored) return stored;
-	const type = ensureType(db, t.events.photoType, { category: t.events.photoTypeCategory });
-	setSetting(db, PHOTO_TYPE_SETTING, type.id);
-	return type;
+	return transaction(db, () => {
+		const stored = findPhotoType(db);
+		if (stored) return stored;
+		const type = ensureType(db, t.events.photoType, { category: t.events.photoTypeCategory });
+		db.prepare('UPDATE event_types SET photo_default = 1 WHERE id = ?').run(type.id);
+		return type;
+	});
 }

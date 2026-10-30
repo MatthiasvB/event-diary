@@ -35,7 +35,9 @@ export const load: PageServerLoad = ({ url }) => {
 		hasMore: events.length > limit,
 		objects: listObjects(d).map((o) => ({ id: o.id, name: o.name })),
 		types: types.map((ty) => ({ id: ty.id, name: ty.name, category: ty.category })),
-		categories: [...new Set(types.map((ty) => ty.category).filter(Boolean))].sort(),
+		categories: [
+			...new Set(types.flatMap((ty) => (ty.category === null ? [] : [ty.category])))
+		].sort(),
 		saved: Number(q.get('saved')) || 0
 	};
 };

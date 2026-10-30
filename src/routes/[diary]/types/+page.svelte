@@ -9,8 +9,8 @@
 	let { data }: PageProps = $props();
 
 	const groups = $derived(
-		Object.entries(Object.groupBy(data.types, (ty) => ty.category)).sort(([a], [b]) =>
-			(a || t.types.noCategory).localeCompare(b || t.types.noCategory, 'de')
+		[...Map.groupBy(data.types, (ty) => ty.category)].sort(([a], [b]) =>
+			(a ?? t.types.noCategory).localeCompare(b ?? t.types.noCategory, 'de')
 		)
 	);
 </script>
@@ -22,7 +22,7 @@
 
 {#each groups as [category, types = []] (category)}
 	<div class="spread heading">
-		<h2>{category || t.types.noCategory}</h2>
+		<h2>{category ?? t.types.noCategory}</h2>
 		{#if category}
 			<form
 				method="POST"

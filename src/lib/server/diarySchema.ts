@@ -51,8 +51,51 @@ const PROPERTY_VALUES = `
 	CREATE INDEX property_values_object ON property_values(object_id, field_id);
 `;
 
+const EVENT_TYPES = `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL UNIQUE CHECK (name != '')
+	);
+
+	CREATE TABLE event_types (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		category_id INTEGER REFERENCES categories(id),
+		milestone INTEGER NOT NULL DEFAULT 0,
+		hint TEXT NOT NULL DEFAULT '',
+		photo_default INTEGER NOT NULL DEFAULT 0 CHECK (photo_default IN (0, 1))
+	);
+	CREATE UNIQUE INDEX event_types_name ON event_types(name, ifnull(category_id, 0));
+	CREATE UNIQUE INDEX event_types_photo ON event_types(photo_default) WHERE photo_default;
+
+	CREATE TRIGGER categories_unused_on_delete AFTER DELETE ON event_types
+	BEGIN
+		DELETE FROM categories WHERE id = old.category_id
+			AND NOT EXISTS (SELECT 1 FROM event_types WHERE category_id = old.category_id);
+	END;
+	CREATE TRIGGER categories_unused_on_update AFTER UPDATE OF category_id ON event_types
+	BEGIN
+		DELETE FROM categories WHERE id = old.category_id
+			AND NOT EXISTS (SELECT 1 FROM event_types WHERE category_id = old.category_id);
+	END;
+`;
+
+const OVERVIEW_COLUMNS = `
+	CREATE TABLE overview_columns (
+		id INTEGER PRIMARY KEY,
+		label TEXT NOT NULL CHECK (label != ''),
+		position INTEGER NOT NULL
+	);
+
+	CREATE TABLE overview_column_types (
+		column_id INTEGER NOT NULL REFERENCES overview_columns(id) ON DELETE CASCADE,
+		type_id INTEGER NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
+		PRIMARY KEY (column_id, type_id)
+	);
+`;
+
 export const DIARY_SCHEMA: Schema = {
-	version: 10,
+	version: 11,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -74,14 +117,7 @@ export const DIARY_SCHEMA: Schema = {
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 
-	CREATE TABLE event_types (
-		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		category TEXT NOT NULL DEFAULT '',
-		milestone INTEGER NOT NULL DEFAULT 0,
-		hint TEXT NOT NULL DEFAULT '',
-		UNIQUE (name, category)
-	);
+	${EVENT_TYPES}
 
 	CREATE TABLE events (
 		id INTEGER PRIMARY KEY,
@@ -106,10 +142,7 @@ export const DIARY_SCHEMA: Schema = {
 		PRIMARY KEY (event_id, file_id)
 	);
 
-	CREATE TABLE settings (
-		key TEXT PRIMARY KEY,
-		value TEXT NOT NULL             -- JSON
-	);
+	${OVERVIEW_COLUMNS}
 	`,
 	migrations: {
 		6: `
@@ -299,6 +332,65 @@ export const DIARY_SCHEMA: Schema = {
 		SELECT id, object_id, field_id, value, CASE WHEN event_id IS NULL THEN since END, event_id
 		FROM object_attrs;
 		DROP TABLE object_attrs;
+		`,
+		11: `
+		CREATE TABLE categories (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE CHECK (name != '')
+		);
+		INSERT INTO categories (name)
+		SELECT DISTINCT category FROM event_types WHERE category != '' ORDER BY category;
+
+		CREATE TABLE event_types_new (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			category_id INTEGER REFERENCES categories(id),
+			milestone INTEGER NOT NULL DEFAULT 0,
+			hint TEXT NOT NULL DEFAULT '',
+			photo_default INTEGER NOT NULL DEFAULT 0 CHECK (photo_default IN (0, 1))
+		);
+		INSERT INTO event_types_new (id, name, category_id, milestone, hint, photo_default)
+		SELECT t.id, t.name, c.id, t.milestone, t.hint, coalesce(t.id = (
+			SELECT json_extract(value, '$') FROM settings WHERE key = 'photoTypeId'), 0)
+		FROM event_types t LEFT JOIN categories c ON c.name = t.category;
+		-- Tables that refer to event_types refer to the new one after this.
+		DROP TABLE event_types;
+		ALTER TABLE event_types_new RENAME TO event_types;
+		CREATE UNIQUE INDEX event_types_name ON event_types(name, ifnull(category_id, 0));
+		CREATE UNIQUE INDEX event_types_photo ON event_types(photo_default) WHERE photo_default;
+
+		CREATE TRIGGER categories_unused_on_delete AFTER DELETE ON event_types
+		BEGIN
+			DELETE FROM categories WHERE id = old.category_id
+				AND NOT EXISTS (SELECT 1 FROM event_types WHERE category_id = old.category_id);
+		END;
+		CREATE TRIGGER categories_unused_on_update AFTER UPDATE OF category_id ON event_types
+		BEGIN
+			DELETE FROM categories WHERE id = old.category_id
+				AND NOT EXISTS (SELECT 1 FROM event_types WHERE category_id = old.category_id);
+		END;
+
+		CREATE TABLE overview_columns (
+			id INTEGER PRIMARY KEY,
+			label TEXT NOT NULL CHECK (label != ''),
+			position INTEGER NOT NULL
+		);
+		CREATE TABLE overview_column_types (
+			column_id INTEGER NOT NULL REFERENCES overview_columns(id) ON DELETE CASCADE,
+			type_id INTEGER NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
+			PRIMARY KEY (column_id, type_id)
+		);
+		INSERT INTO overview_columns (id, label, position)
+		SELECT c.key + 1, c.value ->> 'label', c.key
+		FROM settings s, json_each(s.value) c
+		WHERE s.key = 'overviewColumns' AND c.value ->> 'label' != '';
+		INSERT OR IGNORE INTO overview_column_types (column_id, type_id)
+		SELECT c.key + 1, ty.value
+		FROM settings s, json_each(s.value) c, json_each(c.value -> 'typeIds') ty
+		WHERE s.key = 'overviewColumns' AND c.key + 1 IN (SELECT id FROM overview_columns)
+			AND ty.value IN (SELECT id FROM event_types);
+
+		DROP TABLE settings;
 		`
 	}
 };

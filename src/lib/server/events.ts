@@ -14,7 +14,7 @@ type Row = {
 	object_name: string;
 	type_id: number;
 	type_name: string;
-	category: string;
+	category: string | null;
 	milestone: number;
 	date: string;
 	note: string;
@@ -23,13 +23,14 @@ type Row = {
 };
 
 const SELECT = `
-	SELECT e.id, e.object_id, p.name AS object_name, e.type_id, t.name AS type_name, t.category,
+	SELECT e.id, e.object_id, p.name AS object_name, e.type_id, t.name AS type_name, c.name AS category,
 		t.milestone, e.date, e.note, e.batch_id,
 		CASE WHEN e.batch_id IS NULL THEN 1
 			ELSE (SELECT count(*) FROM events b WHERE b.batch_id = e.batch_id) END AS batch_size
 	FROM events e
 	JOIN objects p ON p.id = e.object_id
-	JOIN event_types t ON t.id = e.type_id`;
+	JOIN event_types t ON t.id = e.type_id
+	LEFT JOIN categories c ON c.id = t.category_id`;
 
 export type EventFilter = {
 	objectId?: number;
@@ -52,7 +53,7 @@ export function listEvents(db: Db, f: EventFilter = {}): DiaryEvent[] {
 	};
 	add('e.object_id = ?', f.objectId);
 	add('e.type_id = ?', f.typeId);
-	add('t.category = ?', f.category);
+	add('c.name = ?', f.category);
 	add('e.date >= ?', f.from);
 	add('e.date <= ?', f.to);
 	for (const word of normalize(f.search ?? '')
@@ -250,7 +251,8 @@ const ofEvent = (id: number): Selection => ({ where: 'id = ?', param: id });
 const ofObject = (id: number): Selection => ({ where: 'object_id = ?', param: id });
 const ofType = (id: number): Selection => ({ where: 'type_id = ?', param: id });
 const ofCategory = (category: string): Selection => ({
-	where: 'type_id IN (SELECT id FROM event_types WHERE category = ?)',
+	where: `type_id IN (SELECT id FROM event_types
+		WHERE category_id = (SELECT id FROM categories WHERE name = ?))`,
 	param: category
 });
 
@@ -306,7 +308,11 @@ export const categoryImpact = (db: Db, category: string) => impact(db, ofCategor
 
 export function deleteCategory(db: Db, category: string) {
 	deleteEvents(db, ofCategory(category), () =>
-		db.prepare('DELETE FROM event_types WHERE category = ?').run(category)
+		db
+			.prepare(
+				'DELETE FROM event_types WHERE category_id = (SELECT id FROM categories WHERE name = ?)'
+			)
+			.run(category)
 	);
 }
 

@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { deleteEvent, listEvents } from '#lib/server/events.ts';
-import { objectStats } from '#lib/server/overview.ts';
+import { getOverviewColumns, objectStats } from '#lib/server/overview.ts';
 import { FILE_ID, getFile } from '#lib/server/files.ts';
 import { fileKind } from '#lib/files.ts';
 import {
@@ -14,7 +14,6 @@ import {
 import { vocabulary } from '#lib/server/vocab.ts';
 import { getFieldKinds, sortProperties } from '#lib/server/fields.ts';
 import { kindOf, storedValue } from '#lib/fieldKinds.ts';
-import { getOverviewColumns } from '#lib/server/settings.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 

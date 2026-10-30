@@ -1,7 +1,7 @@
 import { db } from '#lib/server/diary.ts';
 import { listTypes } from '#lib/server/eventTypes.ts';
 import { setPropertyOrder, sortProperties } from '#lib/server/fields.ts';
-import { getOverviewColumns, setOverviewColumns } from '#lib/server/settings.ts';
+import { getOverviewColumns, setOverviewColumns } from '#lib/server/overview.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
