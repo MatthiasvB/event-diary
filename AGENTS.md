@@ -116,10 +116,16 @@ Before calling work done:
 - One SQLite database per diary (`db/diaries/<id>.sqlite`) plus `db/registry.sqlite` for
   diaries, members, invites and sessions. Diary data is reached only through `db()` in
   `src/lib/server/diary.ts`, which checks membership.
-- Schemas live in `DIARY_SCHEMA` (`src/lib/server/db.ts`) and the registry's `SCHEMA`
+- Schemas live in `DIARY_SCHEMA` (`src/lib/server/diarySchema.ts`) and `REGISTRY_SCHEMA`
   (`src/lib/server/registry.ts`). A schema change updates `create` to the full current schema,
-  adds `migrations[version]` and bumps `version`. Add a test in `db.spec.ts` that migrates an
-  old database.
+  adds `migrations[version]` and bumps `version`. A migration is SQL, or a function for data
+  SQL alone can't fix. Add a test in `db.spec.ts` that migrates an old database, then freeze
+  the new version with `WRITE_FIXTURE=1 npm test`. `golden.spec.ts` migrates every frozen
+  version and compares it with a new diary.
+- Migrations run in `event-diary-migrate` (`src/lib/server/migrate.ts`, bundled by
+  `vite.migrate.config.ts`), which the NixOS module runs at boot and on every deploy. The
+  app's `init` hook runs the same `migrateAll` before its first request. `openDb` only
+  creates new databases and refuses any other version.
 - Every change to a diary is a POST under `/[diary]/`. `hooks.server.ts` rejects those for
   viewers. Never add a mutating GET or a mutating route outside `/[diary]/`.
 - Attachments are written once to `photos/` and never modified. Only types that `servesInline`

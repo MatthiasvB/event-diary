@@ -13,7 +13,7 @@ export type DiaryInfo = { id: string; name: string; type: DiaryType; role: Role 
 
 export const LOCAL_USER = 'local';
 
-const SCHEMA: Schema = {
+export const REGISTRY_SCHEMA: Schema = {
 	version: 3,
 	create: `
 	CREATE TABLE sessions (
@@ -53,18 +53,26 @@ const SCHEMA: Schema = {
 };
 
 export function openRegistry(file: string): Db {
-	return openDb(file, SCHEMA);
+	return openDb(file, REGISTRY_SCHEMA);
 }
 
 let instance: Db | undefined;
 
 export function registry(): Db {
-	instance ??= openRegistry(path.join(config.dbDir, 'registry.sqlite'));
+	instance ??= openRegistry(registryFile(config.dbDir));
 	return instance;
+}
+
+export function registryFile(dbDir: string): string {
+	return path.join(dbDir, 'registry.sqlite');
 }
 
 export function diaryFile(dbDir: string, id: string): string {
 	return path.join(dbDir, 'diaries', `${id}.sqlite`);
+}
+
+export function diaryIds(reg: Db): string[] {
+	return (reg.prepare('SELECT id FROM diaries').all() as { id: string }[]).map((r) => r.id);
 }
 
 export function userDiaries(reg: Db, user: string): DiaryInfo[] {

@@ -35,6 +35,7 @@ let
       (root + "/.npmrc")
       (root + "/tsconfig.json")
       (root + "/vite.config.ts")
+      (root + "/vite.migrate.config.ts")
       (root + "/src")
       (root + "/static")
     ];
@@ -60,7 +61,7 @@ buildNpmPackage {
     runHook postCheck
   '';
 
-  # The bundle in build/ needs no node_modules. The backup command runs its TypeScript source
+  # The bundles in build/ need no node_modules. The backup command runs its TypeScript source
   # directly with Node's type stripping.
   installPhase = ''
     runHook preInstall
@@ -77,6 +78,10 @@ buildNpmPackage {
 
     makeWrapper ${nodejs}/bin/node $out/bin/event-diary-backup \
       --add-flags $out/lib/event-diary/src/lib/server/backup.ts
+
+    makeWrapper ${nodejs}/bin/node $out/bin/event-diary-migrate \
+      --add-flags $out/lib/event-diary/build/migrate/migrate.js \
+      --set-default VIPSTHUMBNAIL ${vips}/bin/vipsthumbnail
     runHook postInstall
   '';
 

@@ -2,9 +2,9 @@ import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
 import { config } from './config.ts';
-import { openDb, transaction, type Db } from './db.ts';
-import { promoteToProperties } from './objects.ts';
-import { deleteFiles, measureOldImages } from './files.ts';
+import type { Db } from './db.ts';
+import { openDiary } from './diarySchema.ts';
+import { deleteFiles } from './files.ts';
 import { deleteDiary, diaryFile, memberDiary, registry, type DiaryInfo } from './registry.ts';
 
 export function currentDiary(): DiaryInfo {
@@ -27,10 +27,7 @@ export function db(): Db {
 	const { id } = currentDiary();
 	let diary = open.get(id);
 	if (!diary) {
-		diary = openDb(diaryFile(config.dbDir, id));
-		const d = diary;
-		transaction(d, () => promoteToProperties(d));
-		measureOldImages(d).catch((e) => console.error('Measuring images failed:', e));
+		diary = openDiary(diaryFile(config.dbDir, id));
 		open.set(id, diary);
 	}
 	return diary;

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { writeSnapshots } from './backup.ts';
-import { openDb } from './db.ts';
+import { openDiary } from './diarySchema.ts';
 
 const dirs: string[] = [];
 function tempDir() {
@@ -17,8 +17,8 @@ describe('writeSnapshots', () => {
 	it('captures every database while they stay open, at the same relative path', () => {
 		const dir = tempDir();
 		const dbDir = path.join(dir, 'db');
-		const a = openDb(path.join(dbDir, 'diaries', 'a.sqlite'));
-		const b = openDb(path.join(dbDir, 'diaries', 'b.sqlite'));
+		const a = openDiary(path.join(dbDir, 'diaries', 'a.sqlite'));
+		const b = openDiary(path.join(dbDir, 'diaries', 'b.sqlite'));
 		a.prepare("INSERT INTO objects (id, name) VALUES (1, 'Phalaenopsis')").run();
 
 		const files = writeSnapshots(dbDir, path.join(dir, 'snapshot'));
@@ -26,7 +26,7 @@ describe('writeSnapshots', () => {
 		// Writes after the snapshot must not show up in it.
 		a.prepare("INSERT INTO objects (id, name) VALUES (2, 'Later')").run();
 
-		const restored = openDb(path.join(dir, 'snapshot', 'diaries', 'a.sqlite'));
+		const restored = openDiary(path.join(dir, 'snapshot', 'diaries', 'a.sqlite'));
 		const rows = restored.prepare('SELECT id, name FROM objects').all();
 		expect(rows.map((r) => ({ ...r }))).toEqual([{ id: 1, name: 'Phalaenopsis' }]);
 		restored.close();
@@ -38,7 +38,7 @@ describe('writeSnapshots', () => {
 		const dir = tempDir();
 		const dbDir = path.join(dir, 'db');
 		const snapshotDir = path.join(dir, 'snapshot');
-		const live = openDb(path.join(dbDir, 'diary.sqlite'));
+		const live = openDiary(path.join(dbDir, 'diary.sqlite'));
 		writeSnapshots(dbDir, snapshotDir);
 		live.close();
 

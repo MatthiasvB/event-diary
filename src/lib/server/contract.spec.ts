@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { t } from '../i18n.ts';
-import { openDb } from './db.ts';
+import { openDiary } from './diarySchema.ts';
 import { Diary, view, type EventEntry } from './testing/harness.ts';
 
 let d: Diary;
 
 beforeEach(() => {
-	d = new Diary(openDb(':memory:'));
+	d = new Diary(openDiary(':memory:'));
 });
 
 const timeline = (name: string) => d.show(name).timeline;

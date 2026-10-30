@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Field } from '../types.ts';
-import { openDb, type Db } from './db.ts';
+import type { Db } from './db.ts';
+import { openDiary } from './diarySchema.ts';
 import {
 	categoryImpact,
 	createEvents,
@@ -47,7 +48,7 @@ function object(id: number, attrs: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openDiary(':memory:');
 });
 
 describe('rename and merge', () => {

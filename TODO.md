@@ -20,12 +20,14 @@ These need changes on the server, so they wait:
   - No second owner, no ownership transfer.
   - The owner can't leave.
 - **Overview columns:** without saved settings there are none (the plant-specific defaults were removed). A neutral default might help new diaries.
+- Not all properties benefit from suggestions. A field "price" for which I enter "8 €" doesn't benefit from a hint that "9 €" already exists. There should be an opt-out from suggestions on given properties.
 
 ## Cleanup
 
-- **Database migrations:** once the server has run them, the steps to diary versions 6 and
-  7 and registry version 3 in `src/lib/server/db.ts` and `registry.ts` can go (keep
-  `create`).
+- **Database migrations:** every database is migrated on deploy. Once the server has been
+  deployed with this version, the steps to diary versions 6 to 8 and registry version 3 in
+  `src/lib/server/diarySchema.ts` and `registry.ts` can go (keep `create`), together with
+  the fixtures of those versions in `src/lib/server/testing/`.
 
 ## Workarounds
 

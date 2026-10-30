@@ -47,7 +47,10 @@ in
       isNormalUser = true;
       password = "carolsecret";
     };
-    environment.systemPackages = [ pkgs.curl ];
+    environment.systemPackages = [
+      pkgs.curl
+      pkgs.sqlite
+    ];
   };
 
   testScript = ''
@@ -76,6 +79,7 @@ in
         return machine.succeed(f"curl -s -o /dev/null -w '%{{redirect_url}}' {cmd}").strip()
 
     machine.wait_for_unit("event-diary.socket")
+    machine.wait_for_unit("event-diary-migrate.service")
 
     with subtest("login with PAM"):
         assert status(f"{base}/") == "303", "anonymous access must redirect to login"
@@ -261,5 +265,18 @@ in
         assert location(f"{alice} -F go=1 '{base}{diary}/diary?/delete'").endswith("/?choose=1")
         machine.succeed(f"test ! -e {data_dir}/db/diaries/testtagebuch.sqlite")
         assert status(f"-H 'Cookie: session={cookie}' {base}{diary}") == "404"
+
+    with subtest("old databases are migrated before the app starts"):
+        machine.succeed("systemctl stop event-diary.socket event-diary.service")
+        machine.succeed(
+            f"sqlite3 {data_dir}/db/diaries/alt.sqlite < ${../src/lib/server/testing/diary-v7.sql}",
+            f"sqlite3 {data_dir}/db/registry.sqlite \"INSERT INTO diaries (id, name, type) "
+            "VALUES ('alt', 'Alt', 'objects'); INSERT INTO members VALUES ('alt', 'alice', 'owner')\"",
+            f"chown -R event-diary:event-diary {data_dir}/db",
+        )
+        machine.succeed("systemctl restart event-diary-migrate.service")
+        machine.succeed(f"test -s {data_dir}/pre-migration/diaries/alt.v7.sqlite")
+        machine.succeed("systemctl start event-diary.socket")
+        assert "Phalaenopsis weiß" in get("/alt", cookie), "the app opens only migrated diaries"
   '';
 }

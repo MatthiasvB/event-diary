@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { openDb } from './db.ts';
+import { openDiary } from './diarySchema.ts';
 import {
 	acceptInvite,
 	createDiary,
@@ -103,7 +103,7 @@ describe('sharing', () => {
 		try {
 			const reg = openRegistry(':memory:');
 			const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
-			openDb(diaryFile(dbDir, id)).close();
+			openDiary(diaryFile(dbDir, id)).close();
 			const token = createInvite(reg, id, 'editor', 'alice');
 
 			deleteDiary(reg, dbDir, id);

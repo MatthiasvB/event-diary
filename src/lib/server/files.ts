@@ -95,12 +95,12 @@ export async function imageSize(file: string): Promise<{ width: number; height: 
 	}
 }
 
-export async function measureOldImages(db: Db) {
+export async function measureOldImages(db: Db, photosDir: string) {
 	const rows = db
 		.prepare("SELECT id, file FROM files WHERE width IS NULL AND mime LIKE 'image/%'")
 		.all() as { id: string; file: string }[];
 	for (const r of rows) {
-		const { width, height } = await imageSize(path.join(config.photosDir, r.file));
+		const { width, height } = await imageSize(path.join(photosDir, r.file));
 		db.prepare('UPDATE files SET width = ?, height = ? WHERE id = ?').run(width, height, r.id);
 	}
 }

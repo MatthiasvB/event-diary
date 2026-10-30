@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
-import { openDb } from './db.ts';
+import { openDiary } from './diarySchema.ts';
 import { createEvents, listEvents } from './events.ts';
 import { ensureType } from './eventTypes.ts';
 import { createObject } from './objects.ts';
 
 it('searches event type names and notes, ignoring case and umlauts', () => {
-	const db = openDb(':memory:');
+	const db = openDiary(':memory:');
 	for (const name of ['A', 'B']) {
 		createObject(db, { name, active: true, notes: '', attrs: [] });
 	}

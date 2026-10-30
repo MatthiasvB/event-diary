@@ -18,6 +18,7 @@ export const config = {
 	dbDir: path.join(dataDir, 'db'),
 	photosDir: path.join(dataDir, 'photos'),
 	snapshotDir: path.join(dataDir, 'snapshot'),
+	preMigrationDir: path.join(dataDir, 'pre-migration'),
 	cacheDir: path.resolve(env.CACHE_DIR ?? path.join(dataDir, 'cache')),
 
 	vipsthumbnail: env.VIPSTHUMBNAIL || 'vipsthumbnail',

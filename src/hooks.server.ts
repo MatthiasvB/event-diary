@@ -1,5 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
+import { config } from '#lib/server/config.ts';
+import { migrateAll } from '#lib/server/migrate.ts';
 import { auth } from '#lib/server/auth/index.ts';
 import { SESSION_COOKIE, sessionUser } from '#lib/server/auth/sessions.ts';
 import { LOCAL_USER, memberDiary, registry } from '#lib/server/registry.ts';
@@ -7,6 +9,8 @@ import { t } from '#lib/i18n.ts';
 
 const PUBLIC_PATHS = new Set(['/login', '/manifest.webmanifest']);
 const READ_METHODS = new Set(['GET', 'HEAD']);
+
+export const init: ServerInit = () => migrateAll(config);
 
 export const handle: Handle = async ({ event, resolve }) => {
 	try {

@@ -211,10 +211,30 @@ in
       listenStreams = [ listen ];
     };
 
+    # Runs at boot and on every deploy that changes the package, so no database waits for a
+    # request to be migrated.
+    systemd.services.event-diary-migrate = {
+      description = "Event diary: migrate databases to the installed version";
+      wantedBy = [ "multi-user.target" ];
+      unitConfig.RequiresMountsFor = [ cfg.dataDir ];
+      environment = { inherit (environment) DATA_DIR; };
+      serviceConfig = hardening // {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${cfg.package}/bin/event-diary-migrate";
+      };
+    };
+
     systemd.services.event-diary = {
       description = "Event diary";
-      requires = [ "event-diary.socket" ];
-      after = [ "event-diary.socket" ];
+      requires = [
+        "event-diary.socket"
+        "event-diary-migrate.service"
+      ];
+      after = [
+        "event-diary.socket"
+        "event-diary-migrate.service"
+      ];
       unitConfig.RequiresMountsFor = [ cfg.dataDir ];
       inherit environment;
       serviceConfig = hardening // {

@@ -165,6 +165,9 @@ What the module sets up:
 - Its own system user, systemd hardening, the cache in `CacheDirectory`
   (`/var/cache/event-diary`), and `Restart=on-failure` (not `always`, which would undo
   the idle exit).
+- `event-diary-migrate.service` (`Type=oneshot`) migrates all databases at boot and on
+  every `nixos-rebuild switch` that updates the app. `event-diary.service` starts only
+  after it.
 - `event-diary-backup.service` (`Type=oneshot`) writes a consistent database snapshot.
 - Read-only options `snapshotDir` and `photosDir` for the backup paths.
 - With `auth.backend = "pam"` (default): a `security.pam.services.event-diary` entry, and
@@ -218,7 +221,8 @@ To add one (e.g. trusting a proxy header), implement `AuthBackend` and register 
 │   └── diaries/<id>.sqlite    one per diary
 ├── photos/<uuid>.<ext>        attachments of all diaries (photos, videos, documents),
 │                              written once                                   ← back up
-└── snapshot/                  consistent copies of db/ from the backup command  ← back up
+├── snapshot/                  consistent copies of db/ from the backup command  ← back up
+└── pre-migration/             copies of databases from before an update changed them
 /var/cache/event-diary/thumbs/ resized JPEGs, regenerated on demand
 ```
 
@@ -245,4 +249,16 @@ systemctl start event-diary.socket
 ```
 
 Thumbnails are regenerated on demand. Files uploaded after the last snapshot are just
-unreferenced files after a restore.
+unreferenced files after a restore. A snapshot from an older version is migrated when the
+app starts.
+
+## Updates
+
+`event-diary-migrate` brings every database to the installed version. On NixOS it runs at
+boot and with every deploy that updates the app, whether anyone uses the app or not. The
+app itself also migrates when it starts, which covers `npm run dev` and installs without
+the module. Each database that changes is first copied to
+`pre-migration/<path in db/>.v<old version>.sqlite`. A step that fails is rolled back.
+The unit then fails, so `nixos-rebuild switch` reports it, and the app doesn't start. The
+error is in the log (`journalctl -u event-diary-migrate`). The copies are not needed once
+the new version runs and can be deleted.
