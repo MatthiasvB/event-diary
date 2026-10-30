@@ -1,0 +1,871 @@
+{
+	"objects": [
+		{
+			"name": "Cattleya",
+			"active": true,
+			"notes": "",
+			"cover": null,
+			"coverRatio": null,
+			"stats": {
+				"count": 5,
+				"last": {
+					"date": "2026-05-03",
+					"type": "Kontrolle"
+				},
+				"columns": [
+					"2026-04-15",
+					"2026-02-01"
+				]
+			},
+			"impact": {
+				"events": 5,
+				"files": 0
+			},
+			"properties": {
+				"Standort": [
+					{
+						"value": "Südfenster",
+						"since": null,
+						"by": null
+					},
+					{
+						"value": "Fensterbank",
+						"since": "2026-04-01",
+						"by": "2026-04-01 Pflege/Standortwechsel"
+					},
+					{
+						"value": "Wohnzimmer",
+						"since": "2026-10-30",
+						"by": null
+					}
+				],
+				"Substrat": [
+					{
+						"value": "Sphagnum",
+						"since": null,
+						"by": null
+					},
+					{
+						"value": "Rinde",
+						"since": "2026-02-01",
+						"by": "2026-02-01 Pflege/Umtopfen"
+					}
+				]
+			},
+			"timeline": [
+				{
+					"event": "2026-05-03 Pflege/Kontrolle",
+					"objects": [
+						"Cattleya"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {
+						"Schädlinge": "keine"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2026-04-15 Pflege/Düngen",
+					"objects": [
+						"Cattleya"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {
+						"Produkt": "Orchideendünger"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2026-04-01 Pflege/Standortwechsel",
+					"objects": [
+						"Cattleya"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [
+						{
+							"key": "Standort",
+							"value": "Fensterbank",
+							"before": "Südfenster",
+							"first": true
+						}
+					],
+					"files": []
+				},
+				{
+					"event": "2026-03-01 Pflege/Düngen",
+					"objects": [
+						"Cattleya",
+						"Dendrobium",
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "volle Dosis",
+					"details": {
+						"Produkt": "Orchideendünger",
+						"Menge": "2.5"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2026-02-01 Pflege/Umtopfen",
+					"objects": [
+						"Cattleya"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [
+						{
+							"key": "Substrat",
+							"value": "Rinde",
+							"before": "Sphagnum",
+							"first": true
+						}
+					],
+					"files": []
+				}
+			]
+		},
+		{
+			"name": "Dendrobium",
+			"active": false,
+			"notes": "Geschenk",
+			"cover": null,
+			"coverRatio": null,
+			"stats": {
+				"count": 3,
+				"last": {
+					"date": "2026-03-01",
+					"type": "Düngen"
+				},
+				"columns": [
+					"2026-03-01",
+					null
+				]
+			},
+			"impact": {
+				"events": 3,
+				"files": 0
+			},
+			"properties": {
+				"Standort": [
+					{
+						"value": "Küche",
+						"since": null,
+						"by": null
+					}
+				],
+				"Wasser": [
+					{
+						"value": "Regenwasser",
+						"since": "2026-01-10",
+						"by": "2026-01-10 Pflege/Gießen"
+					},
+					{
+						"value": "Regenwasser",
+						"since": "2026-02-10",
+						"by": "2026-02-10 Pflege/Gießen"
+					},
+					{
+						"value": "Leitungswasser",
+						"since": "2026-10-30",
+						"by": null
+					}
+				]
+			},
+			"timeline": [
+				{
+					"event": "2026-03-01 Pflege/Düngen",
+					"objects": [
+						"Cattleya",
+						"Dendrobium",
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "volle Dosis",
+					"details": {
+						"Produkt": "Orchideendünger",
+						"Menge": "2.5"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2026-02-10 Pflege/Gießen",
+					"objects": [
+						"Dendrobium"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [
+						{
+							"key": "Wasser",
+							"value": "Regenwasser",
+							"before": "Regenwasser",
+							"first": false
+						}
+					],
+					"files": []
+				},
+				{
+					"event": "2026-01-10 Pflege/Gießen",
+					"objects": [
+						"Dendrobium"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [
+						{
+							"key": "Wasser",
+							"value": "Regenwasser",
+							"before": null,
+							"first": true
+						}
+					],
+					"files": []
+				}
+			]
+		},
+		{
+			"name": "Haus",
+			"active": true,
+			"notes": "",
+			"cover": null,
+			"coverRatio": null,
+			"stats": {
+				"count": 1,
+				"last": {
+					"date": "2026-05-02",
+					"type": "Kontrolle"
+				},
+				"columns": [
+					null,
+					null
+				]
+			},
+			"impact": {
+				"events": 1,
+				"files": 0
+			},
+			"properties": {},
+			"timeline": [
+				{
+					"event": "2026-05-02 Haus/Kontrolle",
+					"objects": [
+						"Haus"
+					],
+					"milestone": false,
+					"note": "Kellerdecke trocken",
+					"details": {},
+					"changes": [],
+					"files": []
+				}
+			]
+		},
+		{
+			"name": "Phalaenopsis weiß",
+			"active": true,
+			"notes": "",
+			"cover": "bluete.jpg",
+			"coverRatio": 1.3333333333333333,
+			"stats": {
+				"count": 5,
+				"last": {
+					"date": "2026-05-20",
+					"type": "Blüte"
+				},
+				"columns": [
+					"2026-04-01",
+					"2026-03-15"
+				]
+			},
+			"impact": {
+				"events": 5,
+				"files": 5
+			},
+			"properties": {
+				"Standort": [
+					{
+						"value": "Ostfenster",
+						"since": null,
+						"by": null
+					}
+				],
+				"Substrat": [
+					{
+						"value": "Rinde",
+						"since": null,
+						"by": null
+					},
+					{
+						"value": "Bims",
+						"since": "2026-03-15",
+						"by": "2026-03-15 Pflege/Umtopfen"
+					}
+				],
+				"Erworben am": [
+					{
+						"value": "2025-04-10",
+						"since": null,
+						"by": null
+					}
+				],
+				"Topfgröße": [
+					{
+						"value": "14",
+						"since": "2026-03-15",
+						"by": "2026-03-15 Pflege/Umtopfen"
+					}
+				]
+			},
+			"timeline": [
+				{
+					"event": "2026-05-20 Blüte",
+					"objects": [
+						"Phalaenopsis weiß"
+					],
+					"milestone": true,
+					"note": "Erste Rispe, 8 Knospen",
+					"details": {},
+					"changes": [],
+					"files": [
+						"bluete.jpg",
+						"bluete.mp4"
+					]
+				},
+				{
+					"event": "2026-04-01 Pflege/Düngen",
+					"objects": [
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {
+						"Produkt": "Orchideendünger",
+						"Menge": "2"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2026-03-15 Pflege/Umtopfen",
+					"objects": [
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [
+						{
+							"key": "Substrat",
+							"value": "Bims",
+							"before": "Rinde",
+							"first": true
+						},
+						{
+							"key": "Topfgröße",
+							"value": "14",
+							"before": null,
+							"first": true
+						}
+					],
+					"files": [
+						"umtopfen.jpg",
+						"rechnung.pdf"
+					]
+				},
+				{
+					"event": "2026-03-01 Pflege/Düngen",
+					"objects": [
+						"Cattleya",
+						"Dendrobium",
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "volle Dosis",
+					"details": {
+						"Produkt": "Orchideendünger",
+						"Menge": "2.5"
+					},
+					"changes": [],
+					"files": []
+				},
+				{
+					"event": "2025-04-12 Sonstiges/Foto dokumentiert",
+					"objects": [
+						"Phalaenopsis weiß"
+					],
+					"milestone": false,
+					"note": "",
+					"details": {},
+					"changes": [],
+					"files": [
+						"phal-1.jpg"
+					]
+				}
+			]
+		}
+	],
+	"types": [
+		{
+			"type": "Blüte",
+			"milestone": true,
+			"hint": "",
+			"fields": [],
+			"count": 1,
+			"last": "2026-05-20",
+			"impact": {
+				"events": 1,
+				"files": 2
+			}
+		},
+		{
+			"type": "Haus/Kontrolle",
+			"milestone": false,
+			"hint": "",
+			"fields": [],
+			"count": 1,
+			"last": "2026-05-02",
+			"impact": {
+				"events": 1,
+				"files": 0
+			}
+		},
+		{
+			"type": "Pflege/Düngen",
+			"milestone": false,
+			"hint": "",
+			"fields": [
+				{
+					"key": "Produkt",
+					"target": "event"
+				},
+				{
+					"key": "Menge",
+					"target": "event"
+				}
+			],
+			"count": 5,
+			"last": "2026-04-15",
+			"impact": {
+				"events": 5,
+				"files": 0
+			}
+		},
+		{
+			"type": "Pflege/Gießen",
+			"milestone": false,
+			"hint": "",
+			"fields": [
+				{
+					"key": "Wasser",
+					"target": "object"
+				}
+			],
+			"count": 2,
+			"last": "2026-02-10",
+			"impact": {
+				"events": 2,
+				"files": 0
+			}
+		},
+		{
+			"type": "Pflege/Kontrolle",
+			"milestone": false,
+			"hint": "",
+			"fields": [
+				{
+					"key": "Schädlinge",
+					"target": "event"
+				}
+			],
+			"count": 1,
+			"last": "2026-05-03",
+			"impact": {
+				"events": 1,
+				"files": 0
+			}
+		},
+		{
+			"type": "Pflege/Standortwechsel",
+			"milestone": false,
+			"hint": "",
+			"fields": [
+				{
+					"key": "Standort",
+					"target": "object"
+				}
+			],
+			"count": 1,
+			"last": "2026-04-01",
+			"impact": {
+				"events": 1,
+				"files": 0
+			}
+		},
+		{
+			"type": "Pflege/Umtopfen",
+			"milestone": false,
+			"hint": "Nach der Blüte",
+			"fields": [
+				{
+					"key": "Substrat",
+					"target": "object"
+				},
+				{
+					"key": "Topfgröße",
+					"target": "object",
+					"default": "14"
+				}
+			],
+			"count": 2,
+			"last": "2026-03-15",
+			"impact": {
+				"events": 2,
+				"files": 2
+			}
+		},
+		{
+			"type": "Sonstiges/Foto dokumentiert",
+			"milestone": false,
+			"hint": "",
+			"fields": [],
+			"count": 1,
+			"last": "2025-04-12",
+			"impact": {
+				"events": 1,
+				"files": 1
+			}
+		}
+	],
+	"categories": {
+		"Haus": {
+			"events": 1,
+			"files": 0
+		},
+		"Pflege": {
+			"events": 11,
+			"files": 2
+		},
+		"Sonstiges": {
+			"events": 1,
+			"files": 1
+		}
+	},
+	"photoType": "Sonstiges/Foto dokumentiert",
+	"lastFields": {
+		"Blüte": [],
+		"Haus/Kontrolle": [],
+		"Pflege/Düngen": [
+			{
+				"key": "Produkt",
+				"value": "Orchideendünger",
+				"target": "event"
+			}
+		],
+		"Pflege/Gießen": [
+			{
+				"key": "Wasser",
+				"value": "Regenwasser",
+				"target": "object"
+			}
+		],
+		"Pflege/Kontrolle": [
+			{
+				"key": "Schädlinge",
+				"value": "keine",
+				"target": "event"
+			}
+		],
+		"Pflege/Standortwechsel": [
+			{
+				"key": "Standort",
+				"value": "Fensterbank",
+				"target": "object"
+			}
+		],
+		"Pflege/Umtopfen": [
+			{
+				"key": "Substrat",
+				"value": "Bims",
+				"target": "object"
+			},
+			{
+				"key": "Topfgröße",
+				"value": "14",
+				"target": "object"
+			}
+		],
+		"Sonstiges/Foto dokumentiert": []
+	},
+	"columns": [
+		{
+			"label": "Gedüngt",
+			"types": [
+				"Pflege/Düngen"
+			]
+		},
+		{
+			"label": "Umgetopft",
+			"types": [
+				"Pflege/Umtopfen"
+			]
+		}
+	],
+	"propertyOrder": [
+		"Standort",
+		"Substrat",
+		"Erworben am",
+		"Topfgröße",
+		"Wasser"
+	],
+	"kinds": {
+		"Erworben am": {
+			"kind": "date",
+			"unit": ""
+		},
+		"Menge": {
+			"kind": "number",
+			"unit": "ml"
+		},
+		"Topfgröße": {
+			"kind": "number",
+			"unit": "cm"
+		}
+	},
+	"vocabulary": {
+		"categories": [
+			{
+				"value": "Haus",
+				"count": 1,
+				"last": "2026-05-02"
+			},
+			{
+				"value": "Pflege",
+				"count": 11,
+				"last": "2026-05-03"
+			},
+			{
+				"value": "Sonstiges",
+				"count": 1,
+				"last": "2025-04-12"
+			}
+		],
+		"keys": {
+			"event": [
+				{
+					"value": "Menge",
+					"count": 4,
+					"last": "2026-04-01",
+					"byType": {
+						"Pflege/Düngen": 4
+					}
+				},
+				{
+					"value": "Produkt",
+					"count": 5,
+					"last": "2026-04-15",
+					"byType": {
+						"Pflege/Düngen": 5
+					}
+				},
+				{
+					"value": "Schädlinge",
+					"count": 1,
+					"last": "2026-05-03",
+					"byType": {
+						"Pflege/Kontrolle": 1
+					}
+				}
+			],
+			"object": [
+				{
+					"value": "Erworben am",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				},
+				{
+					"value": "Standort",
+					"count": 5,
+					"last": "2026-10-30",
+					"byType": {
+						"Pflege/Standortwechsel": 1
+					}
+				},
+				{
+					"value": "Substrat",
+					"count": 4,
+					"last": "2026-03-15",
+					"byType": {
+						"Pflege/Umtopfen": 2
+					}
+				},
+				{
+					"value": "Topfgröße",
+					"count": 1,
+					"last": "2026-03-15",
+					"byType": {
+						"Pflege/Umtopfen": 1
+					}
+				},
+				{
+					"value": "Wasser",
+					"count": 3,
+					"last": "2026-10-30",
+					"byType": {
+						"Pflege/Gießen": 2
+					}
+				}
+			]
+		},
+		"values": {
+			"Erworben am": [
+				{
+					"value": "2025-04-10",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				}
+			],
+			"Menge": [
+				{
+					"value": "2",
+					"count": 1,
+					"last": "2026-04-01",
+					"byType": {
+						"Pflege/Düngen": 1
+					}
+				},
+				{
+					"value": "2.5",
+					"count": 3,
+					"last": "2026-03-01",
+					"byType": {
+						"Pflege/Düngen": 3
+					}
+				}
+			],
+			"Produkt": [
+				{
+					"value": "Orchideendünger",
+					"count": 5,
+					"last": "2026-04-15",
+					"byType": {
+						"Pflege/Düngen": 5
+					}
+				}
+			],
+			"Schädlinge": [
+				{
+					"value": "keine",
+					"count": 1,
+					"last": "2026-05-03",
+					"byType": {
+						"Pflege/Kontrolle": 1
+					}
+				}
+			],
+			"Standort": [
+				{
+					"value": "Fensterbank",
+					"count": 1,
+					"last": "2026-04-01",
+					"byType": {
+						"Pflege/Standortwechsel": 1
+					}
+				},
+				{
+					"value": "Küche",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				},
+				{
+					"value": "Ostfenster",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				},
+				{
+					"value": "Südfenster",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				},
+				{
+					"value": "Wohnzimmer",
+					"count": 1,
+					"last": "2026-10-30",
+					"byType": {}
+				}
+			],
+			"Substrat": [
+				{
+					"value": "Bims",
+					"count": 1,
+					"last": "2026-03-15",
+					"byType": {
+						"Pflege/Umtopfen": 1
+					}
+				},
+				{
+					"value": "Rinde",
+					"count": 2,
+					"last": "2026-02-01",
+					"byType": {
+						"Pflege/Umtopfen": 1
+					}
+				},
+				{
+					"value": "Sphagnum",
+					"count": 1,
+					"last": null,
+					"byType": {}
+				}
+			],
+			"Topfgröße": [
+				{
+					"value": "14",
+					"count": 1,
+					"last": "2026-03-15",
+					"byType": {
+						"Pflege/Umtopfen": 1
+					}
+				}
+			],
+			"Wasser": [
+				{
+					"value": "Leitungswasser",
+					"count": 1,
+					"last": "2026-10-30",
+					"byType": {}
+				},
+				{
+					"value": "Regenwasser",
+					"count": 2,
+					"last": "2026-02-10",
+					"byType": {
+						"Pflege/Gießen": 2
+					}
+				}
+			]
+		}
+	},
+	"storedFiles": [
+		"bluete.jpg",
+		"bluete.mp4",
+		"phal-1.jpg",
+		"rechnung.pdf",
+		"umtopfen.jpg"
+	]
+}

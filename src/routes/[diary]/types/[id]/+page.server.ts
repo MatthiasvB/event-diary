@@ -3,12 +3,8 @@ import { db } from '#lib/server/diary.ts';
 import { deleteType, typeImpact } from '#lib/server/events.ts';
 import { getType, listTypes, updateType } from '#lib/server/eventTypes.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
-import { chosenKinds } from '#lib/server/eventForm.ts';
-import { learnKinds } from '#lib/server/fieldKinds.ts';
-import { propertyKeys } from '#lib/server/objects.ts';
-import { kindOf, parseKind, storedValue } from '#lib/fieldKinds.ts';
+import { parseTypeForm } from '#lib/server/typeForm.ts';
 import { t } from '#lib/i18n.ts';
-import type { FieldTemplate } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params }) => {
@@ -28,31 +24,9 @@ export const actions: Actions = {
 		const d = db();
 		const type = getType(d, Number(params.id));
 		if (!type) error(404, t.errors.notFound);
-		const form = await request.formData();
-		const keys = form.getAll('fieldKey').map((v) => String(v).trim());
-		const values = form.getAll('fieldValue').map((v) => String(v).trim());
-		const targets = form.getAll('fieldTarget').map(String);
-		const chosen = form.getAll('fieldKind').map((v) => parseKind(String(v)));
-		// Kinds chosen for new names are stored first, so defaults are stored in their form.
-		const kinds = learnKinds(d, chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i] }))));
-		const properties = propertyKeys(d);
-		const fields: FieldTemplate[] = keys
-			.map((key, i) => ({
-				key,
-				target:
-					properties.has(key) || targets[i] === 'object' ? ('object' as const) : ('event' as const),
-				...(values[i] ? { default: storedValue(values[i], kindOf(kinds, key)) } : {})
-			}))
-			.filter((f) => f.key);
-		const category = String(form.get('category') ?? '').trim();
-		const saved = updateType(d, {
-			id: type.id,
-			category,
-			milestone: form.get('milestone') === 'on',
-			hint: String(form.get('hint') ?? '').trim(),
-			fields
-		});
-		if (!saved) return fail(400, { error: t.types.categoryTaken(type.name, category) });
+		const input = parseTypeForm(await request.formData(), d);
+		const saved = updateType(d, { id: type.id, ...input });
+		if (!saved) return fail(400, { error: t.types.categoryTaken(type.name, input.category) });
 		redirect(303, `/${params.diary}/types`);
 	},
 	delete: ({ params }) => {
