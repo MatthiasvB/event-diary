@@ -1,6 +1,3 @@
-// Desktop keyboard shortcuts: Ctrl (⌘ on macOS) + key. While the app has focus, they take
-// precedence over the browser's own shortcuts for the same keys. They act within the
-// current diary; outside a diary (login, diary list) they do nothing.
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
@@ -9,7 +6,6 @@ import { canEdit, diaryId } from './paths.ts';
 
 type Shortcut = { key: string; label: string; run: () => unknown; edits?: boolean };
 
-/** The object whose page (or edit page) is open, if any. */
 function currentObject(): string | undefined {
 	const route = page.route.id;
 	return route === '/[diary]/objects/[id]' || route === '/[diary]/objects/[id]/edit'
@@ -22,7 +18,6 @@ async function focusSearch() {
 	document.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
 }
 
-/** Saves the form that has focus, or else the page's main form. */
 function submitForm() {
 	const focused = document.activeElement?.closest('form');
 	(focused ?? document.querySelector<HTMLFormElement>('main form'))?.requestSubmit();
@@ -63,7 +58,6 @@ export function handleShortcut(e: KeyboardEvent) {
 	shortcut.run();
 }
 
-/** "Strg+H" for display. */
 export function shortcutLabel(key: string) {
 	return `${t.shortcuts.modifier}+${key.length === 1 ? key.toUpperCase() : key}`;
 }

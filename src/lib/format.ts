@@ -1,6 +1,5 @@
 import { t } from './i18n.ts';
 
-/** Today's date in local time, YYYY-MM-DD. */
 export function today(): string {
 	return isoDate(new Date());
 }
@@ -16,12 +15,10 @@ export function shiftDays(date: string, days: number): string {
 	return isoDate(d);
 }
 
-/** Dates are always shown as YYYY-MM-DD (timestamps are cut to the date). */
 export function formatDate(date: string | null | undefined): string {
 	return date ? date.slice(0, 10) : '';
 }
 
-/** "heute", "gestern", "vor 12 Tagen" */
 export function relativeDays(date: string, now = today()): string {
 	const days = Math.round((Date.parse(now) - Date.parse(date.slice(0, 10))) / 86_400_000);
 	if (days === 0) return t.date.today;
@@ -29,7 +26,6 @@ export function relativeDays(date: string, now = today()): string {
 	return days > 0 ? t.date.daysAgo(days) : t.date.inDays(-days);
 }
 
-/** A real calendar date in the form YYYY-MM-DD. */
 export function isValidDate(s: string): boolean {
 	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
 	if (!m) return false;

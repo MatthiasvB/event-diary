@@ -19,7 +19,6 @@ const IMMUTABLE = 'private, max-age=31536000, immutable';
 
 type SendOptions = { downloadName?: string; range?: string | null };
 
-/** Sends a file, or the requested byte range of it (video players seek with ranges). */
 function send(file: string, type: string, { downloadName, range }: SendOptions = {}) {
 	const size = fs.statSync(file).size;
 	const headers: Record<string, string> = {
@@ -54,7 +53,7 @@ function send(file: string, type: string, { downloadName, range }: SendOptions =
 
 /**
  * /files/:id?size=s|l: resized JPEG of a photo
- * /files/:id?size=original: the file as uploaded (any kind); &download=1 as a download
+ * /files/:id?size=original: the file as uploaded (any kind), with &download=1 as a download
  */
 export const GET: RequestHandler = async ({ params, url, request }) => {
 	if (!FILE_ID.test(params.id)) error(404);
@@ -76,7 +75,6 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 
 	const thumb = await thumbnail(d, file.id, size as Size);
 	if (thumb) return send(thumb, 'image/jpeg');
-	// Without a thumbnail, fall back to the original if browsers can show it.
 	if (isBrowserSafe(file.mime)) return send(file.path, file.mime);
 	error(500, 'Thumbnail generation failed');
 };

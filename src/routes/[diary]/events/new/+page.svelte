@@ -8,7 +8,6 @@
 
 	let { data, form }: PageProps = $props();
 
-	// Photos taken with a camera shortcut, or shared from another app.
 	let files = $state(pendingPhotos.files);
 	pendingPhotos.files = [];
 	const shared = untrack(() => data.shared);

@@ -3,8 +3,7 @@ import { acceptInvite, inviteInfo, memberDiary, registry } from '#lib/server/reg
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-// Opening the link only shows the invite; it is used up by the button (a POST), so
-// link previews in messengers can't spend it.
+// Only the button's POST uses up the invite, so link previews in messengers can't spend it.
 export const load: PageServerLoad = ({ params, locals }) => {
 	const invite = inviteInfo(registry(), params.token);
 	if (!invite) return { invite: null, member: false };

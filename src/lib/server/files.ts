@@ -1,5 +1,3 @@
-// Stored attachments (photos, videos, other files) and photo thumbnails. Files are kept
-// unchanged under a new ID in photos/ and never modified.
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -34,7 +32,7 @@ const MIME_BY_EXT: Record<string, string> = Object.fromEntries([
 	['pdf', 'application/pdf'],
 	['txt', 'text/plain']
 ]);
-/** Formats every browser can show; others (HEIC) are only shown as thumbnails. */
+/** Others, like HEIC, are only shown as thumbnails. */
 const BROWSER_SAFE = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 /**
  * Served for display in the browser. Anything else (HTML, SVG, …) is only ever offered as
@@ -50,10 +48,6 @@ export const FILE_ID = /^[0-9a-f-]{36}$/;
 
 type Row = { id: string; file: string; mime: string; original_name: string };
 
-/**
- * Stores an upload (photo, video or any file) unchanged under a new stable ID. The data is
- * streamed to disk, so even a large video is never held in memory.
- */
 export async function saveFile(
 	db: Db,
 	data: ReadableStream<Uint8Array>,
@@ -85,10 +79,7 @@ export async function saveFile(
 	return id;
 }
 
-/**
- * Width and height of an image as it is shown, i.e. with its EXIF rotation applied (as the
- * thumbnails are). 0 × 0 if it can't be read.
- */
+/** With EXIF rotation applied, as in the thumbnails. 0 × 0 if it can't be read. */
 export async function imageSize(file: string): Promise<{ width: number; height: number }> {
 	try {
 		const header = async (field: string) =>
@@ -104,7 +95,6 @@ export async function imageSize(file: string): Promise<{ width: number; height: 
 	}
 }
 
-/** Measures images stored before sizes were recorded, one after the other. */
 export async function measureOldImages(db: Db) {
 	const rows = db
 		.prepare("SELECT id, file FROM files WHERE width IS NULL AND mime LIKE 'image/%'")
@@ -115,16 +105,11 @@ export async function measureOldImages(db: Db) {
 	}
 }
 
-/** Whether all these files exist (uploads that weren't attached are removed after a day). */
 export function filesExist(db: Db, ids: string[]): boolean {
 	const exists = db.prepare('SELECT 1 FROM files WHERE id = ?');
 	return ids.every((id) => exists.get(id));
 }
 
-/**
- * Files are uploaded one by one before the form that uses them is saved. Those never
- * attached (form abandoned) are removed after a day.
- */
 export function deleteStaleUploads(db: Db) {
 	const stale = db
 		.prepare(
@@ -139,7 +124,7 @@ export function deleteStaleUploads(db: Db) {
 	);
 }
 
-/** EXIF capture time as local "YYYY-MM-DDTHH:MM:SS", if present. */
+/** Local time, without a zone. */
 export async function captureTime(data: string | Uint8Array): Promise<string | null> {
 	try {
 		const exif = await exifr.parse(data, ['DateTimeOriginal', 'CreateDate']);
@@ -160,10 +145,6 @@ export function getFile(db: Db, id: string): (Row & { path: string }) | undefine
 
 const pending = new Map<string, Promise<string | null>>();
 
-/**
- * A resized, auto-rotated JPEG of the photo, generated into the cache on first request.
- * Returns null if it can't be generated.
- */
 export function thumbnail(db: Db, id: string, size: Size): Promise<string | null> {
 	const photo = getFile(db, id);
 	if (!photo) return Promise.resolve(null);
@@ -200,7 +181,7 @@ export function servesInline(mime: string) {
 	return INLINE.test(mime);
 }
 
-/** Removes files (rows, originals, cached thumbnails) that no event references any more. */
+/** Callers pass only files that nothing references any more. */
 export function deleteFiles(db: Db, ids: string[]) {
 	for (const id of ids) {
 		const photo = getFile(db, id);

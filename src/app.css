@@ -14,7 +14,6 @@
 	--warn-soft: #fff4d6;
 	--radius: 12px;
 	--nav-height: 64px;
-	/* Height of anything fixed at the top (desktop navigation), for sticky elements */
 	--sticky-top: 0px;
 	color-scheme: light;
 	font-family:
@@ -85,7 +84,7 @@ img {
 	display: block;
 }
 
-/* Forms: large touch targets, 16px text to avoid iOS zoom */
+/* 16px text keeps iOS from zooming in. */
 input,
 select,
 textarea,
@@ -192,7 +191,6 @@ button:disabled {
 	cursor: default;
 }
 
-/* Layout helpers */
 .stack {
 	display: flex;
 	flex-direction: column;
@@ -289,7 +287,6 @@ dl.attrs dd {
 	margin: 0;
 }
 
-/* Drag and drop of photos (desktop) */
 .drop-zone.dropping,
 .card.dropping {
 	outline: 2px dashed var(--accent);
@@ -297,7 +294,6 @@ dl.attrs dd {
 	border-radius: var(--radius);
 	background: var(--accent-soft);
 }
-/* Only on devices with a mouse (desktop) */
 .drop-hint,
 .desktop-only {
 	display: none;
@@ -322,7 +318,6 @@ dl.attrs dd {
 	}
 }
 
-/* A × inside a text field that empties it (TextInput, Combobox, DateInput). */
 .has-clear {
 	position: relative;
 }

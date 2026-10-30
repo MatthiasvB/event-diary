@@ -1,7 +1,3 @@
-<!--
-	Camera, gallery and (with `documents`) file buttons; collects the chosen files and reports
-	the earliest EXIF capture date of the photos.
--->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { isoDate } from '#lib/format.ts';
@@ -12,9 +8,7 @@
 	type Props = {
 		files: File[];
 		onexifdate?: (date: string) => void;
-		/** Highlight the camera button. */
 		prominent?: boolean;
-		/** Also any other files (documents), not only photos and videos. */
 		documents?: boolean;
 	};
 	let { files = $bindable(), onexifdate, prominent = false, documents = false }: Props = $props();

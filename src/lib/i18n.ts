@@ -1,11 +1,8 @@
-// All UI strings. To translate, provide another object of the same shape.
-
 export const locale = 'de-DE';
 
 const n = (count: number, one: string, many: string) =>
 	count === 1 ? `1 ${one}` : `${count} ${many}`;
 
-/** Confirmation for deletions that take events (and maybe photos) along. */
 const confirmWithEvents = (what: string, impact: { events: number; files: number }) =>
 	`${what} endgültig löschen?` +
 	(impact.events
@@ -180,7 +177,6 @@ export const t = {
 		searchPlaceholder: 'Ereignis oder Notiz durchsuchen',
 		showMore: 'Ganzen Text anzeigen',
 		showLess: 'Weniger anzeigen',
-		/** Event type used when only a photo is recorded. */
 		photoType: 'Foto dokumentiert',
 		photoTypeCategory: 'Sonstiges'
 	},

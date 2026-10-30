@@ -1,4 +1,3 @@
-<!-- Square preview of a photo, or of a video (its first frame, marked with ▶). -->
 <script lang="ts">
 	import { fileUrl, photoUrl } from '#lib/paths.ts';
 	import { fileKind, type EventFile } from '#lib/files.ts';

@@ -2,10 +2,7 @@ import type { Attachment } from 'svelte/attachments';
 
 const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 
-/**
- * Accepts files dropped onto the element (desktop drag and drop), optionally only some
- * (`accept`). While files are dragged over it, the element has the class "dropping".
- */
+/** The element has the class "dropping" while files are dragged over it. */
 export function dropFiles(
 	ondrop: (files: File[]) => void,
 	accept: (file: File) => boolean = () => true

@@ -95,7 +95,6 @@ in
             f"{auth} -F name=Testpflanze -F active=on "
             f"-F attrKey=Standort -F attrValue=Ostfenster '{base}{diary}/objects/new?/save'"
         ) == "303"
-        # Files are uploaded one by one first, then the event is saved with their IDs.
         def upload(path, name, type):
             out = machine.succeed(
                 f"curl -sf {auth} -H 'Content-Type: {type}' -H 'x-file-name: {name}' "

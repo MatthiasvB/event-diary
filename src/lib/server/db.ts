@@ -5,9 +5,8 @@ import { normalize } from '../suggest.ts';
 export type Db = DatabaseSync;
 
 /**
- * A database's tables: `create` builds the current version for a new database; an existing
- * one is brought up to date by `migrations[v]` (from v - 1 to v), in order. The version is
- * stored in PRAGMA user_version. Migrations can go once every database has run them.
+ * `create` builds a new database at `version`. `migrations[v]` brings an existing one from
+ * v - 1 to v.
  */
 export type Schema = { version: number; create: string; migrations: Record<number, string> };
 
@@ -15,18 +14,18 @@ export const DIARY_SCHEMA: Schema = {
 	version: 7,
 	create: `
 	CREATE TABLE files (
-		id TEXT PRIMARY KEY,            -- also the file name stem in photos/
-		file TEXT NOT NULL,             -- file name in photos/, never changed
+		id TEXT PRIMARY KEY,
+		file TEXT NOT NULL,
 		mime TEXT NOT NULL,
 		original_name TEXT NOT NULL DEFAULT '',
-		taken_at TEXT,                  -- EXIF capture time, ISO
+		taken_at TEXT,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
-		width INTEGER,                  -- images: as shown (EXIF rotation applied); 0: unknown
+		width INTEGER,                  -- after EXIF rotation, 0 if unreadable
 		height INTEGER
 	);
 
 	CREATE TABLE objects (
-		id INTEGER PRIMARY KEY,         -- internal, never shown
+		id INTEGER PRIMARY KEY,
 		name TEXT NOT NULL,
 		active INTEGER NOT NULL DEFAULT 1,
 		notes TEXT NOT NULL DEFAULT '',
@@ -34,7 +33,6 @@ export const DIARY_SCHEMA: Schema = {
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 
-	-- Type names are unique per category only: several categories may have "Umtopfen".
 	CREATE TABLE event_types (
 		id INTEGER PRIMARY KEY,
 		name TEXT NOT NULL,
@@ -49,9 +47,9 @@ export const DIARY_SCHEMA: Schema = {
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL REFERENCES objects(id),
 		type_id INTEGER NOT NULL REFERENCES event_types(id),
-		date TEXT NOT NULL,             -- YYYY-MM-DD
+		date TEXT NOT NULL,
 		note TEXT NOT NULL DEFAULT '',
-		batch_id TEXT,                  -- shared by events created together for several objects
+		batch_id TEXT,
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
 	CREATE INDEX events_object ON events(object_id, date);
@@ -65,8 +63,8 @@ export const DIARY_SCHEMA: Schema = {
 		PRIMARY KEY (event_id, key)
 	);
 
-	-- Object properties with history. The current value of a key is the row with the
-	-- latest "since"; NULL means "from the beginning". Rows set by an event follow it.
+	-- A key's current value is the row with the latest "since". NULL means "from the
+	-- beginning". A row set by an event carries its date and goes with it.
 	CREATE TABLE object_attrs (
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
@@ -84,7 +82,7 @@ export const DIARY_SCHEMA: Schema = {
 		PRIMARY KEY (event_id, file_id)
 	);
 
-	-- Kinds of values per field name (date, number with unit); not listed means text.
+	-- A name not listed here is plain text.
 	CREATE TABLE field_kinds (
 		key TEXT PRIMARY KEY,
 		kind TEXT NOT NULL,
@@ -98,17 +96,15 @@ export const DIARY_SCHEMA: Schema = {
 	`,
 	migrations: {
 		6: `
-		-- Neutral names: plants become objects, photos become files (any attachment).
-		-- Object IDs become plain numbers, in the order the objects were created.
 		CREATE TEMP TABLE object_ids AS
 		SELECT id AS old, row_number() OVER (ORDER BY created_at, id) AS new FROM plants;
 
 		CREATE TABLE files (
-			id TEXT PRIMARY KEY,            -- also the file name stem in photos/
-			file TEXT NOT NULL,             -- file name in photos/, never changed
+			id TEXT PRIMARY KEY,
+			file TEXT NOT NULL,
 			mime TEXT NOT NULL,
 			original_name TEXT NOT NULL DEFAULT '',
-			taken_at TEXT,                  -- EXIF capture time, ISO
+			taken_at TEXT,
 			created_at TEXT NOT NULL DEFAULT (datetime('now'))
 		);
 		INSERT INTO files SELECT id, file, mime, original_name, taken_at, created_at FROM photos;
@@ -128,16 +124,16 @@ export const DIARY_SCHEMA: Schema = {
 			id INTEGER PRIMARY KEY,
 			object_id INTEGER NOT NULL REFERENCES objects(id),
 			type_id INTEGER NOT NULL REFERENCES event_types(id),
-			date TEXT NOT NULL,             -- YYYY-MM-DD
+			date TEXT NOT NULL,
 			note TEXT NOT NULL DEFAULT '',
-			batch_id TEXT,                  -- shared by events created together for several objects
+			batch_id TEXT,
 			created_at TEXT NOT NULL DEFAULT (datetime('now'))
 		);
 		INSERT INTO events_new SELECT e.id, m.new, e.type_id, e.date, e.note, e.batch_id, e.created_at
 		FROM events e JOIN object_ids m ON m.old = e.plant_id;
 
-		-- Object properties with history. The current value of a key is the row with the
-		-- latest "since"; NULL means "from the beginning". Rows set by an event follow it.
+		-- A key's current value is the row with the latest "since". NULL means "from the
+		-- beginning". A row set by an event carries its date and goes with it.
 		CREATE TABLE object_attrs (
 			id INTEGER PRIMARY KEY,
 			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
@@ -170,11 +166,9 @@ export const DIARY_SCHEMA: Schema = {
 		CREATE INDEX events_batch ON events(batch_id);
 		CREATE INDEX object_attrs_object ON object_attrs(object_id, key);
 
-		-- Fields that set a property of the object.
 		UPDATE event_types SET fields = replace(fields, '"target":"plant"', '"target":"object"');
 		`,
 		7: `
-		-- Image sizes, so pages can reserve their space before they load.
 		ALTER TABLE files ADD COLUMN width INTEGER;
 		ALTER TABLE files ADD COLUMN height INTEGER;
 		`
@@ -185,7 +179,6 @@ export function openDb(file: string, schema: Schema = DIARY_SCHEMA): Db {
 	if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
 	const db = new DatabaseSync(file, { timeout: 5000 });
 	db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
-	// For searching text like the suggestions do: case, umlauts and spacing don't matter.
 	db.function('normalized', { deterministic: true }, (s) => normalize(String(s ?? '')));
 	migrate(db, schema);
 	return db;
@@ -204,8 +197,8 @@ function migrate(db: Db, schema: Schema) {
 	if (user_version > schema.version) {
 		throw new Error(`Database version ${user_version} is newer than this app (${schema.version})`);
 	}
-	// Foreign keys are off while migrating so tables can be rebuilt (SQLite's documented
-	// way); each migration is checked before it is committed.
+	// Foreign keys are off so migrations can rebuild tables the way SQLite documents.
+	// The foreign_key_check below stands in for them.
 	db.exec('PRAGMA foreign_keys = OFF');
 	try {
 		for (let v = user_version + 1; v <= schema.version; v++) {

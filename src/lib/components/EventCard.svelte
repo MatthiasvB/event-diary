@@ -1,4 +1,3 @@
-<!-- An event as a tile: the whole tile opens the editor; photos open the viewer. -->
 <script lang="ts">
 	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
@@ -15,7 +14,6 @@
 	type Props = {
 		event: DiaryEvent;
 		showObject?: boolean;
-		/** Object page only: mark and choose the cover image. */
 		coverPhotoId?: string | null;
 		canSetCover?: boolean;
 	};
@@ -23,7 +21,6 @@
 
 	let viewer = $state<PhotoViewer>();
 
-	// Long notes are cut to a few lines until expanded.
 	let expanded = $state(false);
 	let long = $state(false);
 	function measureNote(node: HTMLElement) {
@@ -36,7 +33,6 @@
 		return () => observer.disconnect();
 	}
 
-	// Many photos: three rows until expanded. The number per row follows the width.
 	const PHOTO_ROWS = 3;
 	// Until measured: what a phone shows, so the first render rarely changes.
 	let perRow = $state(3);
@@ -63,7 +59,7 @@
 	<header class="spread">
 		<div>
 			<time datetime={event.date}>{formatDate(event.date)}</time>
-			<!-- Covers the whole tile (see .open::after); the other controls sit above it. -->
+			<!-- Covers the whole tile through .open::after. The other controls sit above it. -->
 			{#if canEdit()}
 				<a
 					class="open"
@@ -97,7 +93,6 @@
 				<li>
 					<span class="muted">{f.key}:</span>
 					{#if f.target === 'object'}
-						<!-- A change of the property: what it was before, and what it became. -->
 						<span class="before" title={f.before == null ? t.objects.notRecorded : undefined}
 							>{f.before == null ? '–' : showValue(f.key, f.before)}</span
 						>

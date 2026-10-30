@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openDb, type Db } from './db.ts';
 import { openRegistry } from './registry.ts';
 
-// A diary as it was at version 5, before objects and files got their names.
+// A diary at version 5.
 const DIARY_V5 = `
 	CREATE TABLE photos (
 		id TEXT PRIMARY KEY, file TEXT NOT NULL, mime TEXT NOT NULL,
@@ -62,7 +62,6 @@ afterEach(() => {
 	fs.rmSync(dir, { recursive: true, force: true });
 });
 
-/** A database file written directly, as an older app version left it. */
 function oldDatabase(name: string, sql: string): string {
 	const file = path.join(dir, name);
 	const db = new DatabaseSync(file);
@@ -77,7 +76,6 @@ const all = (db: Db, sql: string) =>
 		.all()
 		.map((r) => ({ ...r }));
 
-/** Tables with their columns, references and indexes, to compare two databases. */
 function structure(db: Db) {
 	const tables = all(db, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name") as {
 		name: string;
@@ -127,7 +125,6 @@ it('renames plants to objects and photos to files, numbering the objects', () =>
 	db.prepare('DELETE FROM events WHERE id = 5').run();
 	expect(all(db, 'SELECT * FROM object_attrs')).toEqual([]);
 
-	// The same tables as a new diary gets.
 	expect(structure(db)).toEqual(structure(openDb(':memory:')));
 	db.close();
 });

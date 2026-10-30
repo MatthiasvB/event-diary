@@ -9,12 +9,12 @@ These need changes on the server, so they wait:
 - **Data folder `photos/` → `files/`:** affects the module option `photosDir` and the
   backup paths on the server.
 - **Repository and folder names:** the GitHub repository is `plant-diary` and the local
-  folder `orchid_diary`; the flake input on the server points at the repository.
+  folder `orchid_diary`. The flake input on the server points at the repository.
 
 ## Features
 
 - **Video previews:** tiles load the video's first frame in the browser. Real poster thumbnails would need ffmpeg on the server.
-- **Upload progress:** shown per file; a percentage for large videos would need byte-level progress.
+- **Upload progress:** shown per file. A percentage for large videos would need byte-level progress.
 - **Sharing:**
   - A diary has exactly one owner.
   - No second owner, no ownership transfer.
@@ -29,4 +29,4 @@ These need changes on the server, so they wait:
 
 ## Workarounds
 
-- **Requests rejected before their body is read:** `src/hooks.server.ts` closes them one second after answering. Otherwise Node never finishes them and adapter-node never exits when idle (`IDLE_TIMEOUT`). This can go once SvelteKit/adapter-node handle it; consider reporting it upstream.
+- **Requests rejected before their body is read:** `src/hooks.server.ts` closes them one second after answering. Otherwise Node never finishes them and adapter-node never exits when idle (`IDLE_TIMEOUT`). This can go once SvelteKit/adapter-node handle it. Consider reporting it upstream.

@@ -1,4 +1,3 @@
-<!-- Generic key/value fields with suggestions for both keys and values. -->
 <script lang="ts">
 	import Combobox from './Combobox.svelte';
 	import { page } from '$app/state';
@@ -13,24 +12,13 @@
 	type Props = {
 		fields: Field[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
-		/** Event type for context-aware value suggestions. */
 		typeId?: number;
-		/**
-		 * Event form and event types: fields can change the object. Property names always do;
-		 * other names only when chosen (they become properties).
-		 */
 		showTarget?: boolean;
 		defaultTarget?: FieldTarget;
 		addLabel?: string;
-		/**
-		 * Event form with one object: its properties over time, to show what a change
-		 * replaces and, for the first change of a property, to set the value before it.
-		 */
 		history?: Record<string, ObjectAttr[]>;
-		/** Event form: the event's date, and its ID when editing. */
 		date?: string;
 		eventId?: number;
-		/** Event form: choosing an event detail's name as property converts its past values. */
 		convertsDetails?: boolean;
 	};
 
@@ -47,13 +35,11 @@
 		convertsDetails = false
 	}: Props = $props();
 
-	// A name is either a property of objects or a detail of events.
 	const properties = $derived(new Set(vocab.keys.object.map((k) => k.value)));
 	const details = $derived(new Map(vocab.keys.event.map((k) => [k.value, k.count])));
 	const isProperty = (key: string) => properties.has(key.trim());
 	const changesObject = (f: Field) => isProperty(f.key) || f.target === 'object';
 
-	// Both kinds of names are offered, marked; in the object form, details become properties.
 	function keyCandidates(): Candidate[] {
 		const used = new Set(fields.map((f) => f.key));
 		const context = (k: (typeof vocab.keys.event)[number]) => (typeId ? k.byType[typeId] : 0);
@@ -71,10 +57,6 @@
 		].filter((k) => !used.has(k.value));
 	}
 
-	/**
-	 * What a change of the property replaces: the last earlier change (then the value before
-	 * is known), or else the initial value, which the first change may set.
-	 */
 	function before(f: Field) {
 		// Editing: the event's own change doesn't count.
 		const rows = (history?.[f.key.trim()] ?? []).filter((r) => !eventId || r.eventId !== eventId);
@@ -95,7 +77,7 @@
 		if (mode === 'keep') delete f.previous;
 		else f.previous = mode === 'unknown' ? null : '';
 	}
-	// No previous value set by a later change, which then wouldn't be the first one.
+	// Only the first change of a property may set the value before it.
 	$effect(() => {
 		for (const f of fields) {
 			if (f.previous !== undefined && (!changesObject(f) || !history || before(f).earlier)) {
@@ -104,7 +86,6 @@
 		}
 	});
 
-	// A name used for the first time can get a kind (date, number) right here.
 	const knownNames = $derived(
 		new Set([...vocab.keys.event, ...vocab.keys.object].map((k) => k.value))
 	);
@@ -113,7 +94,6 @@
 		const kinds = page.data.fieldKinds as FieldKinds | undefined;
 		return !!name && !knownNames.has(name) && !kinds?.[name];
 	}
-	/** The kind chosen for a new name; otherwise the input uses the name's stored kind. */
 	function chosenKind(f: Field) {
 		return isNewName(f.key) ? (f.kind ?? TEXT) : undefined;
 	}

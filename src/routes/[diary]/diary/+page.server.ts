@@ -27,7 +27,6 @@ const sharedRole = (v: FormDataEntryValue | null) =>
 export const load: PageServerLoad = () => {
 	const diary = currentDiary();
 	const owner = diary.role === 'owner';
-	// Sharing needs separate accounts; without login there is only one user.
 	const sharing = auth().requiresLogin;
 	return {
 		members: sharing ? members(registry(), diary.id) : [],
@@ -50,7 +49,6 @@ export const actions: Actions = {
 		const role = sharedRole((await request.formData()).get('role'));
 		if (!role || !auth().requiresLogin) return fail(400);
 		const token = createInvite(registry(), id, role, locals.user!);
-		// Shown once: only its hash is stored.
 		return { invite: { path: `/invite/${token}`, role } };
 	},
 	revoke: async ({ request }) => {

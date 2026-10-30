@@ -5,7 +5,6 @@ export const SHARE_PATH = '/share';
 export const SHARE_CACHE = 'shared-photos';
 const NAME_HEADER = 'x-file-name';
 
-/** Service worker: store shared files in order. */
 export async function storeSharedPhotos(files: File[]) {
 	await caches.delete(SHARE_CACHE);
 	const cache = await caches.open(SHARE_CACHE);
@@ -15,7 +14,6 @@ export async function storeSharedPhotos(files: File[]) {
 	}
 }
 
-/** Event form: take the shared files (once). */
 export async function takeSharedPhotos(): Promise<File[]> {
 	if (!('caches' in globalThis)) return [];
 	const cache = await caches.open(SHARE_CACHE);

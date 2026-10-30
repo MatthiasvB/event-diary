@@ -1,4 +1,3 @@
-<!-- Grid of photos and videos; a tap opens the viewer. -->
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
@@ -10,7 +9,7 @@
 	type Props = {
 		photos: ViewerPhoto[];
 		coverPhotoId?: string | null;
-		/** Offer choosing the cover image (posts to the page's `?/cover` action). */
+		/** Posts to the page's `?/cover` action. */
 		canSetCover?: boolean;
 	};
 
@@ -22,7 +21,6 @@
 
 	const visible = $derived(showAll ? photos : photos.slice(0, PREVIEW));
 
-	// Long press on a photo (not a video) makes it the cover image.
 	const LONG_PRESS_MS = 500;
 	let coverForm = $state<HTMLFormElement>();
 	let pressedId = $state('');
@@ -59,7 +57,6 @@
 		else viewer.open(i);
 	}
 
-	/** Opens the viewer at a photo, e.g. from the cover image. */
 	export function show(id: string) {
 		const i = photos.findIndex((p) => p.id === id);
 		if (i >= 0) viewer.open(i);

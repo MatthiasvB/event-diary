@@ -1,5 +1,4 @@
-// Only receives photos and videos shared from other apps (Android share sheet, see the manifest's
-// share_target). It does not cache the app; everything else goes to the network as usual.
+// Only receives files shared from other apps. It does not cache the app.
 import { self } from '$app/service-worker';
 import { SHARE_PATH, storeSharedPhotos } from '../lib/share.ts';
 
@@ -16,7 +15,6 @@ async function receiveShare(request: Request): Promise<Response> {
 	const form = await request.formData();
 	const files = form.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
 	await storeSharedPhotos(files);
-	// Then continue like the camera shortcut: photo mode of the event form.
 	return Response.redirect(
 		new URL(
 			`/?then=${encodeURIComponent(`events/new?photo=1&shared=${files.length}`)}`,

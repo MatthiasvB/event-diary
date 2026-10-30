@@ -60,8 +60,8 @@ buildNpmPackage {
     runHook postCheck
   '';
 
-  # Everything is bundled into build/; no node_modules are needed at runtime.
-  # The backup command runs its TypeScript source directly (Node type stripping).
+  # The bundle in build/ needs no node_modules. The backup command runs its TypeScript source
+  # directly with Node's type stripping.
   installPhase = ''
     runHook preInstall
     mkdir -p $out/lib/event-diary $out/bin

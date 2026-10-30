@@ -1,4 +1,3 @@
-<!-- Attached documents and other files: download, and view where the browser can. -->
 <script lang="ts">
 	import { fileUrl } from '#lib/paths.ts';
 	import { canView, type EventFile } from '#lib/files.ts';

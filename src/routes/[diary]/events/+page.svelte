@@ -13,7 +13,6 @@
 
 	const active = $derived(Object.values(data.filter).some(Boolean));
 
-	// Searches while typing (shortly after the last key), keeping the other filters.
 	let form = $state<HTMLFormElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function searchSoon() {
@@ -23,7 +22,6 @@
 			const params = new URLSearchParams(
 				[...new FormData(form)].filter(([, v]) => v).map(([k, v]) => [k, String(v)])
 			);
-			// No reset: the cursor stays in the search field and the list where it is.
 			goto(resolve(`/[diary]/events?${params}`, { diary: diaryId() }), {
 				reset: false,
 				replace: true
@@ -48,7 +46,6 @@
 {#if data.saved}<p class="notice">{t.events.saved(data.saved)}</p>{/if}
 
 <form method="GET" class="stack" bind:this={form}>
-	<!-- Stays visible while scrolling, like the object search. -->
 	<div class="search">
 		<TextInput
 			type="search"

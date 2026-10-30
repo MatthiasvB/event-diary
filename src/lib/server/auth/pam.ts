@@ -1,5 +1,3 @@
-// Checks system account passwords through PAM, using a small helper binary
-// (pam-helper/, a small Rust program) so that no native Node module is needed.
 import { spawn } from 'node:child_process';
 import type { AuthBackend } from './index.ts';
 

@@ -35,7 +35,7 @@ import { rename, vocabulary } from './vocab.ts';
 
 let db: Db;
 
-/** Creates the object with this ID (objects are numbered in the order they are created). */
+/** Objects are numbered in the order they are created. */
 function object(id: number, attrs: Record<string, string> = {}) {
 	const created = createObject(db, {
 		name: `Objekt ${id}`,
@@ -188,7 +188,6 @@ describe('object attributes from events', () => {
 			['Ostfenster', null],
 			['Südfenster', '2026-09-20']
 		]);
-		// The type learned that it sets "Standort" on the object.
 		expect(getType(db, type.id)?.fields).toEqual([{ key: 'Standort', target: 'object' }]);
 
 		db.prepare('DELETE FROM events WHERE id = ?').run(id);

@@ -1,7 +1,3 @@
-<!--
-	A date typed as digits, year first, formatted to YYYY-MM-DD while typing.
-	The browser's calendar only opens from the separate calendar button.
--->
 <script lang="ts">
 	import { formatTypedDate, isValidDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
@@ -12,7 +8,6 @@
 		name?: string;
 		required?: boolean;
 		label?: string;
-		/** Show a button that empties the field. */
 		clearable?: boolean;
 		/** Called with each complete, valid date (typed or picked). */
 		onchange?: (date: string) => void;
@@ -34,7 +29,6 @@
 
 	const invalid = $derived(value !== '' && (value.length === 10 || blurred) && !isValidDate(value));
 
-	// Blocks form submission with a message while the text isn't a valid date.
 	$effect(() => {
 		field.setCustomValidity(value && !isValidDate(value) ? t.date.invalid : '');
 	});
@@ -146,7 +140,7 @@
 		stroke-width: 1.8;
 		stroke-linecap: round;
 	}
-	/* Present for showPicker(), but invisible; the calendar opens next to the button. */
+	/* Invisible, but present for showPicker(). */
 	.date-input > .picker {
 		position: absolute;
 		right: 0;

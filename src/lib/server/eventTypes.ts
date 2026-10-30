@@ -41,7 +41,6 @@ export function getType(db: Db, id: number): EventType | undefined {
 	return row && fromRow(row);
 }
 
-/** A type is identified by name and category: several categories may share a name. */
 export function findType(db: Db, name: string, category: string): EventType | undefined {
 	const row = db
 		.prepare('SELECT * FROM event_types WHERE name = ? AND category = ?')
@@ -49,10 +48,6 @@ export function findType(db: Db, name: string, category: string): EventType | un
 	return row && fromRow(row);
 }
 
-/**
- * Returns the type with this name in `init.category` (none if not given), creating it
- * (as typed in the event form) if needed.
- */
 export function ensureType(
 	db: Db,
 	name: string,
@@ -74,7 +69,7 @@ export function ensureType(
 	return getType(db, Number(lastInsertRowid))!;
 }
 
-/** Saves a type's settings. False if its new category already has a type of that name. */
+/** False if the new category already has a type of that name. */
 export function updateType(db: Db, t: Omit<EventType, 'name'>): boolean {
 	const clash = db
 		.prepare(
@@ -89,10 +84,7 @@ export function updateType(db: Db, t: Omit<EventType, 'name'>): boolean {
 	return true;
 }
 
-/**
- * The event type for photo-only events (camera shortcuts). Remembered by ID, so it can be
- * renamed freely; the default name is only used to create it on first use.
- */
+/** Remembered by ID, so it can be renamed freely. */
 export function photoType(db: Db): EventType {
 	const id = getSetting<number>(db, PHOTO_TYPE_SETTING);
 	const stored = id === undefined ? undefined : getType(db, id);

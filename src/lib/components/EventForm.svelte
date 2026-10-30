@@ -1,8 +1,3 @@
-<!--
-	The main entry flow: object(s) → event type (prefills fields and shows its hint) →
-	optional fields, note, photos and files → save. Used for new events, repeats and edits.
-	New files are uploaded one by one when saving, then the event is saved with their IDs.
--->
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
@@ -27,7 +22,6 @@
 		date: string;
 		note: string;
 		fields: Field[];
-		/** Already attached (edit). */
 		files: EventFile[];
 	};
 
@@ -35,10 +29,8 @@
 		objects: ObjectOption[];
 		vocab: Vocabulary;
 		lastFields: Record<number, Field[]>;
-		/** Properties of all objects over time: object id → key → values. */
 		histories: Record<number, Record<string, ObjectAttr[]>>;
 		initial: EventFormInitial;
-		/** Editing: the event. */
 		eventId?: number;
 		files?: File[];
 		edit?: boolean;
@@ -63,12 +55,11 @@
 
 	const leave = leaveFormOnRedirect();
 
-	// The form owns its state from here on; the props are only the starting point
-	// (pages re-create the form with {#key} when they change).
+	// The props are only the starting point. Pages re-create the form with {#key} when they
+	// change.
 	const start = untrack(() => {
 		const s = $state.snapshot(initial);
 		const ty = vocab.types.find((x) => x.name === s.typeName && x.category === s.category);
-		// A preset type (photo mode) fills in its usual fields right away.
 		const fields = !edit && !s.fields.length && ty ? proposeFields(ty, []) : s.fields;
 		return { ...s, fields, typeId: ty?.id };
 	});
@@ -79,7 +70,6 @@
 	let fields = $state(start.fields);
 	let keptFiles = $state(start.files);
 	let category = $state(start.category);
-	// A preset type (edit, repeat, photo) comes with its category.
 	let categoryChosen = $state(!!start.typeName);
 	let milestone = $state(false);
 	let applyToBatch = $state(false);
@@ -89,13 +79,10 @@
 	let uploaded = $state<number | null>(null);
 	let uploadError = $state('');
 
-	// Several categories may have a type of the same name; name and category pick one.
 	const named = $derived(vocab.types.filter((ty) => ty.name === typeName.trim()));
 	const type = $derived(named.find((ty) => ty.category === category.trim()));
 	const isNewType = $derived(typeName.trim() !== '' && !type);
-	// The name exists in several categories and the user hasn't said which one.
 	const mustChoose = $derived(named.length > 1 && !categoryChosen);
-	// One suggestion per name, counting all its categories.
 	const typeCandidates = $derived(
 		Object.entries(Object.groupBy(vocab.types, (ty) => ty.name)).map(([value, types = []]) => ({
 			value,
@@ -107,8 +94,6 @@
 		}))
 	);
 
-	// Changing the type resets the category: a name in one category takes that one, a name
-	// in several asks for one, a new or cleared name starts without.
 	let lastName = start.typeName.trim();
 	$effect(() => {
 		const name = typeName.trim();
@@ -124,15 +109,13 @@
 		categoryChosen = true;
 	}
 
-	// Typing counts as a choice; an emptied field doesn't (use the buttons for "none").
+	// An emptied field only counts as a choice when at most one category has the name.
 	function typeCategory(value: string) {
 		category = value;
 		categoryChosen = value.trim() !== '' || named.length < 2;
 	}
-	// With one object, changes of its properties show what they replace.
 	const history = $derived(objectIds.length === 1 ? (histories[objectIds[0]] ?? {}) : undefined);
 
-	// Choosing another type fills in its usual fields; values typed by the user win.
 	let appliedTypeId = start.typeId;
 	$effect(() => {
 		if (type && type.id !== appliedTypeId) {

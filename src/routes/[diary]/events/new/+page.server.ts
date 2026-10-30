@@ -30,7 +30,6 @@ export const load: PageServerLoad = ({ url }) => {
 		files: [] as EventFile[]
 	};
 
-	// Repeat: copy an event (for all objects of its batch) with today's date.
 	const from = getEvent(d, Number(url.searchParams.get('from')));
 	if (from) {
 		const objectIds = from.batchId ? batchObjectIds(d, from.batchId) : [from.objectId];

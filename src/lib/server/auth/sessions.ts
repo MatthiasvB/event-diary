@@ -1,4 +1,3 @@
-// Login sessions, stored in the registry (diaries are separate databases).
 import { createHash, randomBytes } from 'node:crypto';
 import { registry } from '../registry.ts';
 
@@ -6,7 +5,6 @@ export const SESSION_COOKIE = 'session';
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 
-/** Creates a session and returns the token for the cookie. Only its hash is stored. */
 export function createSession(username: string, days: number): { token: string; expires: Date } {
 	const token = randomBytes(32).toString('base64url');
 	const expires = new Date(Date.now() + days * 86_400_000);

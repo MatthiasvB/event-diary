@@ -1,7 +1,3 @@
-<!--
-	Input for a field value, by the kind of its name: a date, a number (with its unit) or
-	plain text with suggestions (the default).
--->
 <script lang="ts">
 	import Combobox from './Combobox.svelte';
 	import DateInput from './DateInput.svelte';

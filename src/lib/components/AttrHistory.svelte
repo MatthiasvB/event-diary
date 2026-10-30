@@ -1,7 +1,3 @@
-<!--
-	History of one object attribute. The initial value ("from the beginning") can be
-	changed or marked as not recorded, e.g. when older changes were entered later.
--->
 <script lang="ts">
 	import { canEdit, diaryId } from '#lib/paths.ts';
 	import { enhance } from '$app/forms';
@@ -30,7 +26,6 @@
 
 <details open={editing || undefined}>
 	<summary class="small">{t.objects.history} ({history.length})</summary>
-	<!-- Newest first, but numbered in chronological order. -->
 	<ol class="small" reversed>
 		{#each [...history].reverse() as h (h.id)}
 			<li>

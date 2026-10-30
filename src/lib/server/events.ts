@@ -70,7 +70,6 @@ export function getEvent(db: Db, id: number): DiaryEvent | undefined {
 	return row && withDetails(db, [row])[0];
 }
 
-/** Fields of the most recent event of each type, used to prefill the next entry. */
 export function lastFieldsByType(db: Db): Record<number, Field[]> {
 	const rows = db
 		.prepare(
@@ -96,7 +95,6 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	for (const a of eventAttrs)
 		push(fields, a.event_id, { key: a.key, value: a.value, target: 'event' as const });
 
-	// With the value each change replaced: the one before it in the property's history.
 	const objectAttrs = db
 		.prepare(
 			`SELECT * FROM (
@@ -193,7 +191,6 @@ function writeDetails(db: Db, eventId: number, objectId: number, input: EventInp
 	if (input.fileIds.length) pinCover(db, objectId);
 }
 
-/** The type learns which fields it is used with, so the next entry offers them. */
 function learnFields(db: Db, typeId: number, fields: Field[]) {
 	const type = getType(db, typeId);
 	if (!type) return;
@@ -208,7 +205,6 @@ function learnFields(db: Db, typeId: number, fields: Field[]) {
 	);
 }
 
-/** One event per object; several objects form a batch that can be corrected together. */
 export function createEvents(db: Db, objectIds: number[], input: EventInput): number[] {
 	return transaction(db, () => {
 		const batchId = objectIds.length > 1 ? randomUUID() : null;
@@ -228,10 +224,7 @@ export function createEvents(db: Db, objectIds: number[], input: EventInput): nu
 	});
 }
 
-/**
- * Updates an event, or all events of its batch. The object can only be changed for a
- * single event. Returns files that are no longer referenced.
- */
+/** Returns the files no event references any more. */
 export function updateEvent(
 	db: Db,
 	id: number,
@@ -266,8 +259,7 @@ export function updateEvent(
 	});
 }
 
-// Events to delete, as a condition on `events`. The SQL is fixed here; only the
-// parameter comes from outside.
+// `where` is interpolated into SQL, so it only ever comes from the constructors below.
 type Selection = { where: string; param: string | number };
 const ofEvent = (id: number): Selection => ({ where: 'id = ?', param: id });
 const ofObject = (id: number): Selection => ({ where: 'object_id = ?', param: id });
@@ -277,7 +269,6 @@ const ofCategory = (category: string): Selection => ({
 	param: category
 });
 
-/** What a deletion takes along: the events, and the files no other event uses. */
 export type Impact = { events: number; files: number };
 
 function impact(db: Db, { where, param }: Selection): Impact {
@@ -292,11 +283,7 @@ function impact(db: Db, { where, param }: Selection): Impact {
 		.get(param) as Impact;
 }
 
-/**
- * Deletes the selected events and runs `then` in the same transaction. Photos go along
- * unless another event still uses them; object attributes the events set fall back to
- * their previous value.
- */
+/** Object attributes the events set fall back to their previous value by ON DELETE CASCADE. */
 function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
 	const orphans = transaction(db, () => {
 		const before = (
@@ -320,21 +307,18 @@ export function deleteEvent(db: Db, id: number) {
 
 export const objectImpact = (db: Db, id: number) => impact(db, ofObject(id));
 
-/** Deletes an object with all its events. Events of other objects stay as they are. */
 export function deleteObject(db: Db, id: number) {
 	deleteEvents(db, ofObject(id), () => db.prepare('DELETE FROM objects WHERE id = ?').run(id));
 }
 
 export const typeImpact = (db: Db, id: number) => impact(db, ofType(id));
 
-/** Deletes an event type with all its events. */
 export function deleteType(db: Db, id: number) {
 	deleteEvents(db, ofType(id), () => db.prepare('DELETE FROM event_types WHERE id = ?').run(id));
 }
 
 export const categoryImpact = (db: Db, category: string) => impact(db, ofCategory(category));
 
-/** Deletes all event types of a category, with all their events. */
 export function deleteCategory(db: Db, category: string) {
 	deleteEvents(db, ofCategory(category), () =>
 		db.prepare('DELETE FROM event_types WHERE category = ?').run(category)

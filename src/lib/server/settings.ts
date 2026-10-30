@@ -16,7 +16,6 @@ export type OverviewColumn = { label: string; typeIds: number[] };
 
 const OVERVIEW = 'overviewColumns';
 
-/** Event types shown as "last …" columns in the overview, as chosen in the settings. */
 export function getOverviewColumns(db: Db): OverviewColumn[] {
 	return getSetting<OverviewColumn[]>(db, OVERVIEW) ?? [];
 }
@@ -27,7 +26,6 @@ export function setOverviewColumns(db: Db, columns: OverviewColumn[]) {
 
 const PROPERTY_ORDER = 'propertyOrder';
 
-/** Property names in the order objects show them, as arranged in the settings. */
 export function getPropertyOrder(db: Db): string[] {
 	return getSetting<string[]>(db, PROPERTY_ORDER) ?? [];
 }
@@ -36,7 +34,6 @@ export function setPropertyOrder(db: Db, keys: string[]) {
 	setSetting(db, PROPERTY_ORDER, [...new Set(keys.filter(Boolean))]);
 }
 
-/** Sorts property names: arranged ones in their order, the others after them, alphabetically. */
 export function sortProperties(db: Db, keys: string[]): string[] {
 	const order = getPropertyOrder(db);
 	const rank = (key: string) => {

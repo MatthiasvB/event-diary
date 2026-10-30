@@ -22,7 +22,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 const authorize: Handle = async ({ event, resolve }) => {
 	if (!auth().requiresLogin) {
-		// Without login there is one implicit user.
 		event.locals.user = LOCAL_USER;
 		return resolve(event);
 	}

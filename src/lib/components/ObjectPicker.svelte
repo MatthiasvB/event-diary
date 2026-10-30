@@ -1,4 +1,3 @@
-<!-- Choose one or many objects: search, pick individually, or select all matching a filter. -->
 <script lang="ts">
 	import TextInput from './TextInput.svelte';
 	import { t } from '#lib/i18n.ts';

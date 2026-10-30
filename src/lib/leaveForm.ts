@@ -1,5 +1,3 @@
-// A submitted form doesn't stay in the browser history: "back" from the page it leads to
-// must not land on the form again.
 import { afterNavigate, goto, invalidate } from '$app/navigation';
 import { FIELD_KINDS_DATA } from './fieldKinds.ts';
 import type { ActionResult } from '$app/forms';
@@ -10,10 +8,8 @@ type Submitted = {
 };
 
 /**
- * Call while a form component initializes. Returns a result handler for `use:enhance`:
- * after a redirect, it goes back if the target is the page the form was opened from, and
- * otherwise replaces the form's history entry with the target. Other results update the
- * form as usual.
+ * "Back" from the page a saved form leads to must not land on the form again. Call while the
+ * form component initializes.
  */
 export function leaveFormOnRedirect() {
 	let origin: string | null = null;
@@ -23,7 +19,7 @@ export function leaveFormOnRedirect() {
 
 	return async ({ result, update }: Submitted) => {
 		if (result.type !== 'redirect') return update({ reset: false });
-		// Saving may have given new field names a kind; the diary's data must know them.
+		// Saving may have given new field names a kind.
 		await invalidate(FIELD_KINDS_DATA);
 		const target = new URL(result.location, location.href);
 		const path = target.pathname + target.search;

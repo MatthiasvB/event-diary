@@ -5,10 +5,7 @@ import { chosenKinds } from './eventForm.ts';
 import { learnKinds } from './fieldKinds.ts';
 import type { ObjectInput } from './objects.ts';
 
-/**
- * The object's fields; its ID is internal (new objects get the next free one). Kinds chosen
- * for new property names are stored right away (learnKinds).
- */
+/** Stores kinds chosen for new property names right away. */
 export function parseObjectForm(
 	form: FormData,
 	db: Db

@@ -5,7 +5,6 @@
 	import type { PageProps } from './$types';
 
 	let { form, data }: PageProps = $props();
-	// The login page doesn't stay in the history either.
 	const leave = leaveFormOnRedirect();
 </script>
 

@@ -1,7 +1,4 @@
-// Consistent database snapshots for file-level backups (restic etc.): every database in
-// db/ (the registry and each diary) is copied to the same place in snapshot/.
-// Safe while the app is running: VACUUM INTO reads within one transaction.
-// Run directly as the backup command: `node src/lib/server/backup.ts`.
+// Safe while the app runs, because VACUUM INTO reads within one transaction.
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,7 +11,7 @@ function databases(dir: string): string[] {
 		.sort();
 }
 
-/** Writes snapshots of all databases; returns their paths relative to snapshotDir. */
+/** Returns the snapshots' paths relative to snapshotDir. */
 export function writeSnapshots(dbDir: string, snapshotDir: string): string[] {
 	const files = databases(dbDir);
 	for (const file of files) {

@@ -71,7 +71,6 @@
 	{/if}
 </div>
 
-<!-- Stays visible while scrolling, so you can search from anywhere in the list. -->
 <div class="search">
 	<TextInput
 		type="search"
@@ -222,7 +221,6 @@
 	}
 	dl {
 		display: grid;
-		/* Long labels wrap; the short dates ("vor 225 Tagen") stay on one line. */
 		grid-template-columns: minmax(0, max-content) 1fr;
 		gap: 0 0.6rem;
 		margin: 0;

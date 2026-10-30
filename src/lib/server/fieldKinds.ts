@@ -8,7 +8,6 @@ export function getFieldKinds(db: Db): FieldKinds {
 	return Object.fromEntries(rows.map(({ key, kind, unit }) => [key, { kind, unit }]));
 }
 
-/** Sets the kind of a field name; plain text without unit is the default and not stored. */
 export function setFieldKind(db: Db, key: string, kind: FieldKind) {
 	if (!FIELD_KINDS.includes(kind.kind)) throw new Error(`Unknown field kind: ${kind.kind}`);
 	const unit = kind.kind === 'number' ? kind.unit.trim() : '';
@@ -22,7 +21,6 @@ export function setFieldKind(db: Db, key: string, kind: FieldKind) {
 	).run(key, kind.kind, unit);
 }
 
-/** Whether a field name is used anywhere yet (values or event type templates). */
 function isUsed(db: Db, key: string): boolean {
 	return !!db
 		.prepare(
@@ -35,9 +33,8 @@ function isUsed(db: Db, key: string): boolean {
 }
 
 /**
- * Kinds chosen for names entered for the first time. Only applied to names that have no
- * kind and aren't used yet, so they can't change an existing name. Call before saving the
- * values. Returns the kinds that apply now.
+ * Applies only to names not used yet, so it can't change an existing name. Call before
+ * saving the values.
  */
 export function learnKinds(db: Db, chosen: FieldKinds): FieldKinds {
 	const kinds = getFieldKinds(db);

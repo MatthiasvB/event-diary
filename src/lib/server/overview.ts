@@ -4,11 +4,10 @@ import type { OverviewColumn } from './settings.ts';
 export type ObjectStats = {
 	count: number;
 	last: { date: string; type: string } | null;
-	/** Last date per overview column, same order as the columns. */
+	/** Same order as the columns. */
 	columns: (string | null)[];
 };
 
-/** Event counts and "last …" dates per object, derived from the events. */
 export function objectStats(db: Db, columns: OverviewColumn[]): Map<number, ObjectStats> {
 	const rows = db
 		.prepare(
@@ -31,7 +30,7 @@ export function objectStats(db: Db, columns: OverviewColumn[]): Map<number, Obje
 		});
 	}
 
-	// The last event in the same order as the timeline: by date, then the one entered last.
+	// Same order as the timeline.
 	const last = db
 		.prepare(
 			`SELECT e.object_id, e.date, t.name FROM events e JOIN event_types t ON t.id = e.type_id

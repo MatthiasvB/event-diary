@@ -37,15 +37,13 @@ const attrFromRow = (r: AttrRow): ObjectAttr => ({
 	eventId: r.event_id
 });
 
-// The object's first photo (by event date).
-// Videos and other files never become the cover.
 const FIRST_PHOTO = `(
 	SELECT ef.file_id FROM events e JOIN event_files ef ON ef.event_id = e.id
 	JOIN files f ON f.id = ef.file_id
 	WHERE e.object_id = o.id AND f.mime LIKE 'image/%' ORDER BY e.date, e.id, ef.position LIMIT 1
 )`;
 
-// The cover is pinned (see pinCover); the fallback only covers a deleted cover photo.
+// pinCover fixes the cover. The fallback only applies once the pinned photo is deleted.
 const SELECT_OBJECT = `
 	SELECT x.*, f.width AS cover_width, f.height AS cover_height FROM (
 		SELECT o.id, o.name, o.active, o.notes,
@@ -53,14 +51,12 @@ const SELECT_OBJECT = `
 		FROM objects o
 	) x LEFT JOIN files f ON f.id = x.cover_photo_id`;
 
-/** An object without a chosen cover gets its first photo as cover, which then stays. */
 export function pinCover(db: Db, objectId: number) {
 	db.prepare(
 		`UPDATE objects AS o SET cover_photo_id = ${FIRST_PHOTO} WHERE o.id = ? AND o.cover_photo_id IS NULL`
 	).run(objectId);
 }
 
-// History order: initial values (since NULL) first, then by date, then by insertion.
 const HISTORY_ORDER = "coalesce(since, '') , id";
 
 export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, string> })[] {
@@ -69,7 +65,6 @@ export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, stri
 	return objects.map((o) => ({ ...o, attrs: current.get(o.id) ?? {} }));
 }
 
-/** Current attribute values of all objects: object id → key → value. */
 export function currentAttrs(db: Db): Map<number, Record<string, string>> {
 	const rows = db
 		.prepare(`SELECT * FROM object_attrs ORDER BY ${HISTORY_ORDER}`)
@@ -77,7 +72,7 @@ export function currentAttrs(db: Db): Map<number, Record<string, string>> {
 	const result = new Map<number, Record<string, string>>();
 	for (const r of rows) {
 		const attrs = result.get(r.object_id) ?? {};
-		attrs[r.key] = r.value; // later rows win
+		attrs[r.key] = r.value;
 		result.set(r.object_id, attrs);
 	}
 	return result;
@@ -88,7 +83,6 @@ export function getObject(db: Db, id: number): DiaryObject | undefined {
 	return row && fromRow(row);
 }
 
-/** All attribute values of an object over time, grouped by key, oldest first. */
 export function attrHistory(db: Db, objectId: number): Record<string, ObjectAttr[]> {
 	const rows = db
 		.prepare(`SELECT * FROM object_attrs WHERE object_id = ? ORDER BY ${HISTORY_ORDER}`)
@@ -106,7 +100,6 @@ export type ObjectInput = {
 	attrs: { key: string; value: string }[];
 };
 
-/** Creates an object; returns its ID (internal, never shown). */
 export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 	return transaction(db, () => {
 		const id = Number(
@@ -122,9 +115,8 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 }
 
 /**
- * Saves the object form. Attribute edits here are corrections of the current value;
- * changes over time come from events (e.g. a move sets "Standort" from that date on).
- * A current value that was set by an event is kept, and a new value starts today.
+ * Attribute edits here correct the current value. Changes over time come from events. A
+ * current value set by an event is kept, and a new value starts today.
  */
 export function updateObject(db: Db, input: ObjectInput, today: string) {
 	transaction(db, () => {
@@ -160,17 +152,16 @@ export function updateObject(db: Db, input: ObjectInput, today: string) {
 	});
 }
 
-/** The event that changes a property, and its date. */
 export type Change = { date: string; eventId: number };
 
-// A dated value of the key other than the change's own one, on or before its date: then the
-// change isn't the first one, and the value before it is that value, not the initial one.
+// A dated value of the key, other than the change's own, on or before its date. If there is
+// one, the change is not the first one.
 const EARLIER_CHANGE = `SELECT 1 FROM object_attrs WHERE object_id = ? AND key = ?
 	AND since IS NOT NULL AND since <= ? AND event_id IS NOT ?`;
 
 /**
- * Marks the value before the first change as not recorded by removing the initial value
- * ("from the beginning"). With `change`, only if it is the first change of the key.
+ * Marks the value before the first change as not recorded. With `change`, only if that
+ * change is the key's first.
  */
 export function forgetInitialValue(db: Db, objectId: number, key: string, change?: Change) {
 	if (change && db.prepare(EARLIER_CHANGE).get(objectId, key, change.date, change.eventId)) return;
@@ -179,10 +170,7 @@ export function forgetInitialValue(db: Db, objectId: number, key: string, change
 	).run(objectId, key);
 }
 
-/**
- * Sets the initial value ("from the beginning"), e.g. the known value before the first
- * change. With `change`, only if it is the first change of the key.
- */
+/** With `change`, only if that change is the key's first. */
 export function setInitialValue(
 	db: Db,
 	objectId: number,
@@ -205,7 +193,6 @@ export function setInitialValue(
 	}
 }
 
-/** All values of all objects over time: object id → key → values, oldest first. */
 export function allHistories(db: Db): Record<number, Record<string, ObjectAttr[]>> {
 	const rows = db
 		.prepare(`SELECT * FROM object_attrs ORDER BY ${HISTORY_ORDER}`)
@@ -215,17 +202,14 @@ export function allHistories(db: Db): Record<number, Record<string, ObjectAttr[]
 	return result;
 }
 
-/** Property names: the keys objects have. A name is either a property or an event detail. */
 export function propertyKeys(db: Db): Set<string> {
 	const rows = db.prepare('SELECT DISTINCT key FROM object_attrs').all() as { key: string }[];
 	return new Set(rows.map((r) => r.key));
 }
 
 /**
- * Keeps names either properties or event details: event details whose name is (now) a
- * property, or one of `newNames`, become changes of that property of the event's object,
- * on the event's date, and event types propose them as such. Call after anything that
- * adds property names.
+ * Turns event details whose name is a property, or one of `newNames`, into changes of that
+ * property on the event's date. Call after anything that adds property names.
  */
 export function promoteToProperties(db: Db, newNames: string[] = []) {
 	const names = `(SELECT key FROM object_attrs UNION SELECT value FROM json_each(?))`;

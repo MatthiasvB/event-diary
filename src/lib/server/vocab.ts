@@ -1,5 +1,3 @@
-// Free-text values with suggestions: collecting them from the data, and renaming or
-// merging them everywhere they are used.
 import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, FieldTemplate, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
@@ -78,11 +76,10 @@ export function vocabulary(db: Db): Vocabulary {
 	};
 }
 
-/** Kinds of values that can be renamed or merged in data maintenance. */
 export type ValueKind =
 	{ kind: 'category' } | { kind: 'type' } | { kind: 'key' } | { kind: 'value'; key: string };
 
-/** Rename `from` to `to`; if `to` already exists, both are merged. Returns affected records. */
+/** Merges into `to` if it exists. Returns the number of affected records. */
 export function rename(db: Db, what: ValueKind, from: string, to: string): number {
 	to = to.trim();
 	if (!to || from === to) return 0;
@@ -94,7 +91,6 @@ export function rename(db: Db, what: ValueKind, from: string, to: string): numbe
 				return renameType(db, from, to);
 			case 'key': {
 				const n = renameKey(db, from, to);
-				// Merged into a property name, event details become changes of it.
 				promoteToProperties(db);
 				return n;
 			}
@@ -135,7 +131,6 @@ function renameKey(db: Db, from: string, to: string): number {
 	const a = db.prepare('UPDATE event_attrs SET key = ? WHERE key = ?').run(to, from);
 	const b = db.prepare('UPDATE object_attrs SET key = ? WHERE key = ?').run(to, from);
 	updateTemplates(db, (f) => (f.key === from ? { ...f, key: to } : f));
-	// The place in the property order goes along; merged into a placed name, that place wins.
 	const order = getPropertyOrder(db);
 	if (order.includes(from))
 		setPropertyOrder(
@@ -150,16 +145,11 @@ function renameKey(db: Db, from: string, to: string): number {
 
 type TypeRow = { id: number; name: string; category: string };
 
-/**
- * Renames the type in every category. Where a category already has a type named `to`,
- * the two are merged.
- */
 function renameType(db: Db, from: string, to: string): number {
 	const sources = db.prepare('SELECT * FROM event_types WHERE name = ?').all(from) as TypeRow[];
 	return sources.reduce((n, s) => n + moveType(db, s, to, s.category), 0);
 }
 
-/** Moves the category's types; a type whose name exists in `to` is merged into it. */
 function renameCategory(db: Db, from: string, to: string): number {
 	const sources = db.prepare('SELECT * FROM event_types WHERE category = ?').all(from) as TypeRow[];
 	return sources.reduce((n, s) => n + moveType(db, s, s.name, to), 0);

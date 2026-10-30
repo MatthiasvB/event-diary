@@ -1,7 +1,3 @@
-<!--
-	Text input with ranked suggestions from existing values. Anything typed is accepted;
-	a value that doesn't exist yet is marked as new, and close existing values are offered.
--->
 <script lang="ts">
 	import { t } from '#lib/i18n.ts';
 	import { findSimilar, rank, type Candidate } from '#lib/suggest.ts';

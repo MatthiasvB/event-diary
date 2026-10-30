@@ -1,4 +1,3 @@
-// Parsing and saving the event form (new, repeat, edit).
 import { kindOf, parseKind, storedValue, type FieldKinds } from '../fieldKinds.ts';
 import { learnKinds } from './fieldKinds.ts';
 import { isValidDate } from '../format.ts';
@@ -18,14 +17,12 @@ export type EventPayload = {
 	date: string;
 	note: string;
 	fields: Field[];
-	/** Attached files in order: kept ones (edit) and new ones, uploaded beforehand. */
 	files: string[];
 	applyToBatch: boolean;
 };
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-/** Kinds chosen in the form for (new) field names: { key, kind } entries. */
 export function chosenKinds(fields: { key?: unknown; kind?: unknown }[]): FieldKinds {
 	return Object.fromEntries(
 		fields.flatMap((f) => {
@@ -35,12 +32,11 @@ export function chosenKinds(fields: { key?: unknown; kind?: unknown }[]): FieldK
 	);
 }
 
-/** Parses the form. Kinds chosen for new field names are stored right away (learnKinds). */
+/** Stores kinds chosen for new field names right away. */
 export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
 	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
-	// Property names always change the object; other names only when asked to.
 	const properties = propertyKeys(db);
 	const targetOf = (f: { key?: unknown; target?: unknown }) =>
 		properties.has(str(f?.key)) || f?.target === 'object'
@@ -85,7 +81,6 @@ export function validate(db: Db, p: EventPayload): string | null {
 }
 
 function resolveType(db: Db, p: EventPayload) {
-	// A new type is created on the fly, learning its fields from this first use.
 	return ensureType(db, p.typeName, {
 		category: p.category,
 		milestone: p.milestone,

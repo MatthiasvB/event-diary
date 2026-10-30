@@ -35,7 +35,6 @@ export const actions: Actions = {
 		const chosen = form.getAll('fieldKind').map((v) => parseKind(String(v)));
 		// Kinds chosen for new names are stored first, so defaults are stored in their form.
 		const kinds = learnKinds(d, chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i] }))));
-		// Property names always change the object; other names only when chosen.
 		const properties = propertyKeys(d);
 		const fields: FieldTemplate[] = keys
 			.map((key, i) => ({

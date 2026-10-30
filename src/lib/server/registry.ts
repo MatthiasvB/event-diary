@@ -1,8 +1,3 @@
-// The registry: which diaries exist, who may use them, and login sessions.
-// Each diary has its own database (db/diaries/<id>.sqlite) and a type that decides its
-// views (for now only "objects": events of objects). Users reach a diary through a
-// membership. The owner shares it with one-time invite links, so nobody ever sees a list
-// of all users.
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,13 +6,11 @@ import { openDb, transaction, type Db, type Schema } from './db.ts';
 
 export const DIARY_TYPES = ['objects'] as const;
 export type DiaryType = (typeof DIARY_TYPES)[number];
-/** The creator owns a diary; others join through an invite as editor or viewer. */
 export type Role = 'owner' | 'editor' | 'viewer';
 export const SHARED_ROLES = ['editor', 'viewer'] as const;
 export type SharedRole = (typeof SHARED_ROLES)[number];
 export type DiaryInfo = { id: string; name: string; type: DiaryType; role: Role };
 
-/** The user when there is no login (AUTH_BACKEND=none). */
 export const LOCAL_USER = 'local';
 
 const SCHEMA: Schema = {
@@ -26,7 +19,7 @@ const SCHEMA: Schema = {
 	CREATE TABLE sessions (
 		token_hash TEXT PRIMARY KEY,
 		username TEXT NOT NULL,
-		expires_at INTEGER NOT NULL     -- unix ms
+		expires_at INTEGER NOT NULL
 	);
 
 	CREATE TABLE diaries (
@@ -44,18 +37,16 @@ const SCHEMA: Schema = {
 	);
 	CREATE INDEX members_user ON members(username);
 
-	-- One-time links to join a diary. Only the hash of the token is stored.
 	CREATE TABLE invites (
 		token_hash TEXT PRIMARY KEY,
 		diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
 		role TEXT NOT NULL,
 		created_by TEXT NOT NULL,
-		expires_at INTEGER NOT NULL     -- unix ms
+		expires_at INTEGER NOT NULL
 	);
 	`,
 	migrations: {
 		3: `
-		-- The diary type was named after its first use.
 		UPDATE diaries SET type = 'objects' WHERE type = 'plants';
 		`
 	}
@@ -67,7 +58,6 @@ export function openRegistry(file: string): Db {
 
 let instance: Db | undefined;
 
-/** The app's registry, opened on first use. */
 export function registry(): Db {
 	instance ??= openRegistry(path.join(config.dbDir, 'registry.sqlite'));
 	return instance;
@@ -86,7 +76,6 @@ export function userDiaries(reg: Db, user: string): DiaryInfo[] {
 		.all(user) as DiaryInfo[];
 }
 
-/** The diary, if the user is a member of it. */
 export function memberDiary(reg: Db, id: string, user: string): DiaryInfo | undefined {
 	return reg
 		.prepare(
@@ -99,7 +88,6 @@ export function memberDiary(reg: Db, id: string, user: string): DiaryInfo | unde
 // URL segments the app uses itself.
 const RESERVED = new Set(['login', 'logout', 'invite', 'share', 'manifest.webmanifest', '_app']);
 
-/** A readable, unique ID for the URL: "Ereignistagebuch" → "ereignistagebuch(-2)". */
 function newId(reg: Db, name: string): string {
 	const base =
 		name
@@ -139,7 +127,6 @@ export function renameDiary(reg: Db, id: string, name: string) {
 	reg.prepare('UPDATE diaries SET name = ? WHERE id = ?').run(name, id);
 }
 
-/** Removes a diary with its memberships, invites and database file. */
 export function deleteDiary(reg: Db, dbDir: string, id: string) {
 	reg.prepare('DELETE FROM diaries WHERE id = ?').run(id);
 	const file = diaryFile(dbDir, id);
@@ -148,7 +135,6 @@ export function deleteDiary(reg: Db, dbDir: string, id: string) {
 
 export type Member = { username: string; role: Role };
 
-/** The members of a diary, owner first. */
 export function members(reg: Db, id: string): Member[] {
 	return reg
 		.prepare(
@@ -158,14 +144,12 @@ export function members(reg: Db, id: string): Member[] {
 		.all(id) as Member[];
 }
 
-/** Changes the role of a member who isn't the owner. */
 export function setRole(reg: Db, id: string, username: string, role: SharedRole) {
 	reg
 		.prepare("UPDATE members SET role = ? WHERE diary_id = ? AND username = ? AND role != 'owner'")
 		.run(role, id, username);
 }
 
-/** Removes a member (also used for leaving). The owner can't be removed. */
 export function removeMember(reg: Db, id: string, username: string) {
 	reg
 		.prepare("DELETE FROM members WHERE diary_id = ? AND username = ? AND role != 'owner'")
@@ -175,7 +159,6 @@ export function removeMember(reg: Db, id: string, username: string) {
 const INVITE_DAYS = 7;
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 
-/** Creates a one-time invite link token. Only its hash is stored. */
 export function createInvite(reg: Db, id: string, role: SharedRole, createdBy: string): string {
 	const token = randomBytes(32).toString('base64url');
 	reg.prepare('DELETE FROM invites WHERE expires_at < ?').run(Date.now());
@@ -187,7 +170,7 @@ export function createInvite(reg: Db, id: string, role: SharedRole, createdBy: s
 	return token;
 }
 
-/** Open invites of a diary; `id` identifies one for revoking (the token can't be recovered). */
+/** `id` is the token's hash, since the token itself isn't stored. */
 export type OpenInvite = { id: string; role: SharedRole; createdBy: string; expiresAt: number };
 
 export function openInvites(reg: Db, diaryId: string): OpenInvite[] {
@@ -210,7 +193,6 @@ export type InviteInfo = {
 	createdBy: string;
 };
 
-/** The invite behind a token, if it is still valid. */
 export function inviteInfo(reg: Db, token: string): InviteInfo | undefined {
 	return reg
 		.prepare(
@@ -221,10 +203,7 @@ export function inviteInfo(reg: Db, token: string): InviteInfo | undefined {
 		.get(hash(token), Date.now()) as InviteInfo | undefined;
 }
 
-/**
- * Uses up the invite and makes the user a member. Existing members keep their role.
- * Returns the diary's ID, or undefined if the invite isn't valid (any more).
- */
+/** Existing members keep their role. */
 export function acceptInvite(reg: Db, token: string, username: string): string | undefined {
 	return transaction(reg, () => {
 		const invite = inviteInfo(reg, token);

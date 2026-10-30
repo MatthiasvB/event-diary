@@ -1,7 +1,4 @@
-<!--
-	Full-screen viewer for photos and videos (buttons, arrow keys, swipe). Opening it adds a
-	history entry, so the back button or gesture closes the viewer instead of leaving the page.
--->
+<!-- Opening the viewer adds a history entry, so "back" closes it instead of leaving the page. -->
 <script lang="ts">
 	import { fileUrl, photoUrl } from '#lib/paths.ts';
 	import { fileKind, type EventFile } from '#lib/files.ts';
@@ -14,7 +11,7 @@
 	type Props = {
 		photos: ViewerPhoto[];
 		coverPhotoId?: string | null;
-		/** Offer choosing the cover image (posts to the page's `?/cover` action). */
+		/** Posts to the page's `?/cover` action. */
 		canSetCover?: boolean;
 	};
 	let { photos, coverPhotoId = null, canSetCover = false }: Props = $props();
@@ -54,8 +51,7 @@
 	const isImage = (p: ViewerPhoto | undefined) => !!p && fileKind(p.mime, p.name) === 'image';
 	const preload = (url: string) => (new Image().src = url);
 
-	// The small previews around the current photo, so browsing through shows something at
-	// once (the full image follows when it has loaded).
+	// Neighbours' small previews, so browsing shows something at once.
 	$effect(() => {
 		if (!isOpen) return;
 		for (const d of [-2, -1, 1, 2]) if (isImage(at(d))) preload(photoUrl(at(d).id, 's'));

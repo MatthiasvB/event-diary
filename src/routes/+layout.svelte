@@ -15,7 +15,6 @@
 		label: string;
 		icon: string;
 		primary?: boolean;
-		/** Keyboard shortcut key, shown as tooltip. */
 		key?: string;
 	};
 	const items: NavItem[] = [
@@ -36,9 +35,7 @@
 		{ href: '/[diary]/more', label: t.nav.more, icon: 'M5 12h.01M12 12h.01M19 12h.01' }
 	];
 
-	// The navigation belongs to a diary; login and the diary list have none.
 	const diary = $derived(page.data.diary as { id: string; name: string } | undefined);
-	// Viewers get no "add" and camera buttons.
 	const shown = $derived(canEdit() ? items : items.filter((item) => !item.primary));
 
 	function isCurrent(href: NavItem['href']) {
@@ -73,7 +70,6 @@
 </svelte:head>
 
 {#if diary}
-	<!-- The primary item comes with the camera button: two cells. -->
 	<nav
 		class="nav"
 		aria-label="Hauptnavigation"

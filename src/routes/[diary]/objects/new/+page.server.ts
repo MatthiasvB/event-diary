@@ -16,7 +16,6 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = ({ url }) => {
 	const d = db();
 	const vocab = vocabulary(d);
-	// Offer the attributes other objects have, most common first.
 	const keys = [...vocab.keys.object].sort((a, b) => b.count - a.count).slice(0, 8);
 	// "Save & next" carries over the dates (e.g. "Erworben am") of the object just created.
 	const created = getObject(d, Number(url.searchParams.get('created')));
@@ -49,7 +48,6 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const { input: fields, error } = parseObjectForm(form, d);
 		if (error) return fail(400, { error });
-		// First photos (uploaded beforehand) become a photo event and the cover.
 		const fileIds = form
 			.getAll('file')
 			.map(String)

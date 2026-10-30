@@ -15,7 +15,6 @@
 	const existing = $derived(new Set(data.candidates.map((c) => c.value)));
 	const kinds = Object.entries(t.maintenance.kinds);
 
-	// Field names: kind of their values (text, date, number with unit).
 	let chosenKind = $state<Record<string, string>>({});
 	const kindOfKey = (key: string) => kindOf(data.fieldKinds, key);
 

@@ -11,7 +11,7 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
 
 - **Diaries**: after logging in you see your diaries (with only one, it opens directly).
   Each diary has its own objects, events, event types, suggestions and settings, and its
-  own URL: `/<diary>/…`. New diaries are created on that list; _Mehr → Alle Tagebücher_
+  own URL: `/<diary>/…`. New diaries are created on that list. _Mehr → Alle Tagebücher_
   leads back to it.
 - **Objekte** (start page of a diary): cards with cover photo, name and "last …" columns
   (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any property.
@@ -22,10 +22,10 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   corrected in one go.
 - **Attachments**: photos (thumbnails, viewer, cover image), videos (played in the
   browser's own player, with seeking) and any other files such as PDFs, which are listed by
-  name and can be downloaded; PDFs and plain text can also be opened in the browser. Files
+  name and can be downloaded. PDFs and plain text can also be opened in the browser. Files
   are kept exactly as uploaded. When saving, they are uploaded one by one, so the size
   limit (`maxUploadSize`) applies per file. Videos play if the browser supports their
-  format (e.g. iPhone HEVC `.mov` not everywhere); they can always be downloaded.
+  format (e.g. iPhone HEVC `.mov` not everywhere). They can always be downloaded.
   Image sizes are recorded on upload, so pages keep the space of an image while it loads.
   The viewer shows the small preview scaled up at once and the full image when it has
   arrived, so you can flip through quickly even on a slow connection.
@@ -34,23 +34,23 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
 - **Sharing photos into the app** (Android): installed via Chrome (or another
   Chromium-based browser), the app appears in the system share sheet for photos and
   videos. Shared files open the event form in photo mode. Firefox for Android and iOS don't support
-  this for web apps. A minimal service worker receives the shared images; it doesn't
+  this for web apps. A minimal service worker receives the shared images. It doesn't
   cache the app or provide offline use.
 - **Drag and drop** (desktop): drop photos or videos onto an object's card or page, or any
   files onto the file area of a form.
 - **Object page**: current properties with their history, a timeline with photos, and
   _Wiederholen_ (repeat) on every event.
   The order of the properties is set once for the whole diary under _Mehr →
-  Einstellungen_; names not placed there follow alphabetically.
+  Einstellungen_. Names not placed there follow alphabetically.
 - **Ereignisse**: all events, filtered by object, type, category and date range.
 - **Mehr → Daten pflegen**: rename or merge values (categories, event types, field names,
   values). Similar spellings are listed automatically ("Catleya" → "Cattleya").
 - **Kinds of values**: properties and event details are plain text by default. A new name
-  can get its kind right where it is first entered; later, under _Daten pflegen → Namen
+  can get its kind right where it is first entered, or later under _Daten pflegen → Namen
   von Angaben/Eigenschaften_. A name can be a date (entered as
   `YYYY-MM-DD`, with a calendar) or a number with an optional unit ("12,5 cm"). Values
   stay text in the database (dates as `YYYY-MM-DD`, numbers with a dot), so changing the
-  kind never loses data; a value that doesn't fit is shown as typed. "Speichern & weitere"
+  kind never loses data. A value that doesn't fit is shown as typed. "Speichern & weitere"
   carries date properties (e.g. _Erworben am_) over to the next object.
 
 ### Free values with suggestions
@@ -70,14 +70,14 @@ Events and objects have a small fixed core. Everything else is a key/value field
   event restores the previous value.
 
 A name is either a property or an event detail. Entering a property's name in an event
-always records a change (marked "ändert Eigenschaft"); suggestions mark both kinds. A new
+always records a change (marked "ändert Eigenschaft"). Suggestions mark both kinds. A new
 name, or an event detail's name, becomes a property when chosen so in the event form or
-added on an object; the earlier event details of that name then become changes of their
+added on an object. The earlier event details of that name then become changes of their
 objects' property. Only the first recorded change of a property can set the value before
-it (or mark it as not recorded); for later ones, the value before is the previous change's.
+it (or mark it as not recorded). For later ones, the value before is the previous change's.
 
 Event types learn which fields they are used with. On the event type page you can edit
-them and set default values; without a default, the value from the last use is suggested.
+them and set default values. Without a default, the value from the last use is suggested.
 
 ## Development
 
@@ -169,19 +169,19 @@ What the module sets up:
 - Read-only options `snapshotDir` and `photosDir` for the backup paths.
 - With `auth.backend = "pam"` (default): a `security.pam.services.event-diary` entry, and
   the service runs with the supplementary group `shadow`, which pam_unix needs to verify
-  passwords of other users. `auth.backend = "none"` turns login off; only use that if the
+  passwords of other users. `auth.backend = "none"` turns login off. Only use that if the
   proxy restricts access.
 
 ### Users and diaries
 
 Users log in with their system account (PAM) and get a session cookie for 90 days.
 Each user sees only the diaries they are a member of. A diary is its own database
-(`db/diaries/<id>.sqlite`); a central database (`db/registry.sqlite`) records the diaries
+(`db/diaries/<id>.sqlite`). A central database (`db/registry.sqlite`) records the diaries
 (name, type), the memberships (user, diary, role) and the sessions. Every access to a
 diary's data checks the membership, so another user's diary, its pages and its files
 are simply "not found".
 
-A user can have several diaries ("Mehr → Alle Tagebücher"); the owner renames or
+A user can have several diaries ("Mehr → Alle Tagebücher"). The owner renames or
 deletes one under "Mehr → Tagebuch & Teilen". Deleting removes its database and files.
 
 **Sharing** works with one-time invite links, so nobody ever picks from (or learns) the
@@ -191,13 +191,13 @@ list of accounts on the server:
    (editor) or _Nur ansehen_ (viewer), and sends it, e.g. by messenger.
 2. The recipient opens it, logs in with their own account and taps "Annehmen".
 
-A link works once and for 7 days, and can be revoked; only a hash of it is stored.
+A link works once and for 7 days, and can be revoked. Only a hash of it is stored.
 Opening it doesn't use it up (link previews would), only the button does. Login rules
 still apply (`auth.allowedUsers`). The owner sees the members, changes their role or
-removes them, which takes effect immediately; members can leave. Viewers can't change
+removes them, which takes effect immediately. Members can leave. Viewers can't change
 anything: every change is a POST inside the diary, and those are refused for viewers.
 
-Diaries have a type; for now there is only `objects`, whose views are the pages under
+Diaries have a type. For now there is only `objects`, whose views are the pages under
 `src/routes/[diary]/`. Another type would get its own views.
 
 Without login (`auth.backend = "none"`) there is one implicit user, `local`.
@@ -205,7 +205,7 @@ Without login (`auth.backend = "none"`) there is one implicit user, `local`.
 ### Authentication backends
 
 Backends live in [src/lib/server/auth/](src/lib/server/auth/): a backend implements
-`checkPassword(username, password)`; sessions, login page and throttling are shared.
+`checkPassword(username, password)`. Sessions, login page and throttling are shared.
 To add one (e.g. trusting a proxy header), implement `AuthBackend` and register it in
 `backends` in `auth/index.ts`.
 
@@ -230,7 +230,7 @@ as downloads, so a shared diary can't be used to inject scripts.
 
 `event-diary-backup` (the oneshot service on NixOS) runs SQLite's `VACUUM INTO` for every
 database in `db/` while the app keeps running, and atomically replaces its copy in
-`snapshot/` (same relative path; copies of databases that no longer exist are removed).
+`snapshot/` (same relative path). Copies of databases that no longer exist are removed.
 Back up `snapshot/` and `photos/` after it. Copying the live database files is not safe.
 
 Restore (tested by the VM test in [nix/test.nix](nix/test.nix)):

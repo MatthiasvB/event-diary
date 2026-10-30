@@ -10,7 +10,6 @@
 	let columns = $state(untrack(() => $state.snapshot(data.columns)));
 	let properties = $state(untrack(() => [...data.properties]));
 
-	/** The list with entry i moved by one step up (-1) or down (1). */
 	function moved<T>(list: T[], i: number, step: number): T[] {
 		const next = [...list];
 		[next[i], next[i + step]] = [next[i + step], next[i]];

@@ -1,15 +1,9 @@
-// Typeahead matching and ranking, shared by the browser (comboboxes) and the server
-// (near-duplicate detection in data maintenance).
-
 export type Candidate = {
 	value: string;
-	/** How often the value is used overall. */
 	count: number;
-	/** Last date it was used, YYYY-MM-DD. */
 	last?: string | null;
 	/** How often it is used in the current context, e.g. with the chosen event type. */
 	context?: number;
-	/** Shown next to the value, e.g. what kind of name it is; `accent` stands out. */
 	tag?: { text: string; accent?: boolean };
 };
 
@@ -17,7 +11,6 @@ export type MatchKind = 'exact' | 'prefix' | 'word' | 'substring' | 'fuzzy' | 'n
 
 export type Suggestion = Candidate & { score: number; match: MatchKind };
 
-/** Case-, umlaut- and whitespace-insensitive form: "Düngen" ≈ "duengen" ≈ "DUNGEN". */
 export function normalize(s: string): string {
 	return s
 		.toLowerCase()
@@ -53,7 +46,6 @@ export function distance(a: string, b: string): number {
 	return prev[b.length];
 }
 
-/** Typos tolerated for a term of this length. */
 function allowedTypos(length: number): number {
 	return length <= 3 ? 0 : length <= 7 ? 1 : 2;
 }
@@ -89,7 +81,7 @@ function daysBetween(from: string, to: string): number {
 	return Math.max(0, (Date.parse(to) - Date.parse(from)) / 86_400_000);
 }
 
-/** Usage bonus; capped so that it reorders within a match tier but never across tiers. */
+/** Stays below the gap between match tiers, so usage reorders within a tier only. */
 function usageScore(c: Candidate, today: string): number {
 	const frequency = Math.log2(1 + c.count) * 20;
 	const recency = c.last ? 40 * Math.exp(-daysBetween(c.last, today) / 120) : 0;
@@ -115,10 +107,6 @@ export function rank(
 	return results.slice(0, options.limit ?? 8);
 }
 
-/**
- * Existing values that look like a variant of `input` (case, umlauts, small typos),
- * excluding an exact match. Used to warn before a near-duplicate is created.
- */
 export function findSimilar(input: string, values: string[]): string[] {
 	const n = normalize(input);
 	if (!n) return [];
@@ -132,7 +120,6 @@ export function findSimilar(input: string, values: string[]): string[] {
 
 export type DuplicateHint = { from: string; to: string; fromCount: number; toCount: number };
 
-/** Pairs of values that are probably the same thing; suggests merging the rarer one. */
 export function nearDuplicates(candidates: Candidate[]): DuplicateHint[] {
 	const hints: DuplicateHint[] = [];
 	for (let i = 0; i < candidates.length; i++) {

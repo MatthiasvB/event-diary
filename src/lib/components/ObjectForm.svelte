@@ -19,11 +19,10 @@
 	let { object, attrs, vocab, isNew = false, error }: Props = $props();
 	const leave = leaveFormOnRedirect();
 
-	// Initial values only; the pages re-create the form with {#key}.
+	// Pages re-create the form with {#key} when its initial values change.
 	let fields = $state<Field[]>(
 		untrack(() => attrs.map((a) => ({ ...a, target: 'object' as const })))
 	);
-	// New objects only: first photos, saved as a photo event.
 	let files = $state<File[]>([]);
 	let photoDate = $state('');
 	let uploaded = $state<number | null>(null);
@@ -35,7 +34,6 @@
 	action="?/save"
 	class="stack"
 	use:enhance={async ({ formData, cancel }) => {
-		// Photos are uploaded one by one first; the object is saved with their IDs.
 		uploadError = '';
 		try {
 			uploaded = 0;

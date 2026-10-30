@@ -1,6 +1,3 @@
-// The diary of the current request (the /<diary>/… part of the URL). It is only opened
-// if the logged-in user is a member, so data can't leak between users or diaries.
-// Attached files are shared in photos/, but are only served when the diary references them.
 import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 import { t } from '../i18n.ts';
@@ -10,7 +7,6 @@ import { promoteToProperties } from './objects.ts';
 import { deleteFiles, measureOldImages } from './files.ts';
 import { deleteDiary, diaryFile, memberDiary, registry, type DiaryInfo } from './registry.ts';
 
-/** The current diary; "not found" unless the user is a member. */
 export function currentDiary(): DiaryInfo {
 	const { params, locals } = getRequestEvent();
 	const diary =
@@ -19,7 +15,6 @@ export function currentDiary(): DiaryInfo {
 	return diary;
 }
 
-/** The current diary, if the user owns it; otherwise "forbidden". */
 export function requireOwner(): DiaryInfo {
 	const diary = currentDiary();
 	if (diary.role !== 'owner') error(403, t.errors.forbidden);
@@ -28,23 +23,19 @@ export function requireOwner(): DiaryInfo {
 
 const open = new Map<string, Db>();
 
-/** The current diary's database, opened on first use. */
 export function db(): Db {
 	const { id } = currentDiary();
 	let diary = open.get(id);
 	if (!diary) {
 		diary = openDb(diaryFile(config.dbDir, id));
-		// Names that are both (from before this rule) become properties.
 		const d = diary;
 		transaction(d, () => promoteToProperties(d));
-		// In the background: sizes of images uploaded before they were recorded.
 		measureOldImages(d).catch((e) => console.error('Measuring images failed:', e));
 		open.set(id, diary);
 	}
 	return diary;
 }
 
-/** What deleting the current diary takes along. */
 export function diaryContents(): { objects: number; events: number; files: number } {
 	return db()
 		.prepare(
@@ -54,7 +45,6 @@ export function diaryContents(): { objects: number; events: number; files: numbe
 		.get() as { objects: number; events: number; files: number };
 }
 
-/** Deletes the current diary with everything in it, including its photo files. Owners only. */
 export function deleteCurrentDiary() {
 	const { id } = requireOwner();
 	const diary = db();

@@ -63,7 +63,7 @@ describe('sharing', () => {
 	it('expires and revokes links, and keeps the role of existing members', () => {
 		const reg = openRegistry(':memory:');
 		const id = createDiary(reg, 'Orchideen', 'objects', 'alice');
-		// Created 8 days ago; links are valid for 7.
+		// Created 8 days ago. Links are valid for 7.
 		vi.useFakeTimers({ now: Date.now() - 8 * 86_400_000 });
 		const old = createInvite(reg, id, 'editor', 'alice');
 		vi.useRealTimers();

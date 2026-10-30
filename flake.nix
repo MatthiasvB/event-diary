@@ -26,7 +26,7 @@
             pkgs.vips
             pkgs.sqlite
           ];
-          # No login in development; PAM is covered by the VM test (`nix build .#checks.<system>.vm`).
+          # PAM is covered by the VM test (`nix build .#checks.<system>.vm`).
           AUTH_BACKEND = "none";
           DATA_DIR = "./data";
         };

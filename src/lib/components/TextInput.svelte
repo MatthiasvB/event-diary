@@ -1,4 +1,3 @@
-<!-- A text field with a × that empties it. -->
 <script lang="ts">
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import { t } from '#lib/i18n.ts';

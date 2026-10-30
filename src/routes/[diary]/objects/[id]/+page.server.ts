@@ -33,7 +33,6 @@ export const load: PageServerLoad = ({ params }) => {
 	return {
 		object,
 		history,
-		/** In the order chosen in the settings. */
 		attrKeys: sortProperties(d, Object.keys(history)),
 		events: listEvents(d, { objectId: object.id, limit: 5000 }),
 		lastDates: columns.map((c, i) => ({ label: c.label, date: stats?.columns[i] ?? null })),
@@ -50,7 +49,6 @@ export const actions: Actions = {
 	cover: async ({ request, params }) => {
 		const photo = String((await request.formData()).get('photo') ?? '');
 		const file = FILE_ID.test(photo) ? getFile(db(), photo) : undefined;
-		// Only photos can be the cover.
 		if (!file || fileKind(file.mime, file.original_name) !== 'image') return fail(400);
 		setCover(db(), objectOr404(params.id).id, photo);
 	},

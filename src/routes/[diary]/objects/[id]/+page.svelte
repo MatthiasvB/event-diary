@@ -18,14 +18,12 @@
 	let gallery = $state<Gallery>();
 	let coverHint = $state(false);
 
-	// Running as installed app (home screen) rather than in a browser tab.
 	let standalone = $state(false);
 	onMount(() => {
 		standalone =
 			matchMedia('(display-mode: standalone)').matches ||
 			(navigator as { standalone?: boolean }).standalone === true;
 	});
-	// All photos and videos of the object, newest first (events are sorted newest first).
 	const photos = $derived(
 		data.events
 			.flatMap((e) =>
@@ -50,8 +48,7 @@
 				class="cover-button"
 				onclick={() => gallery?.show(object.coverPhotoId!)}
 			>
-				<!-- Its space is kept while it loads; until then the small preview (usually
-				     cached from the overview) shows scaled up. -->
+				<!-- Until it loads, the small preview (usually cached from the overview) shows scaled up. -->
 				<img
 					class="cover"
 					src={photoUrl(object.coverPhotoId, 'l')}
@@ -95,7 +92,7 @@
 						/>
 						📷 {t.objects.takePhoto}
 					</label>
-					<!-- The installed app opens the camera directly; a browser also offers the gallery. -->
+					<!-- The installed app opens the camera directly. A browser also offers the gallery. -->
 					{#if standalone}
 						<label class="button primary">
 							<input

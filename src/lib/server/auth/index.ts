@@ -1,10 +1,7 @@
-// Pluggable authentication. A backend only checks credentials; sessions are shared.
-// To add a backend, implement AuthBackend and register it in `backends`.
 import { config } from '../config.ts';
 import { pamBackend } from './pam.ts';
 
 export interface AuthBackend {
-	/** False if the app is open to everyone who can reach it (e.g. auth done by the proxy). */
 	readonly requiresLogin: boolean;
 	checkPassword(username: string, password: string): Promise<boolean>;
 }
@@ -35,7 +32,6 @@ export function isAllowed(username: string): boolean {
 	return !allowed.length || allowed.includes(username);
 }
 
-// Slows down password guessing: after 5 failures per user, wait a minute per failure.
 const failures = new Map<string, { count: number; until: number }>();
 
 export function isThrottled(username: string): boolean {
