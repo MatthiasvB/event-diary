@@ -5,7 +5,7 @@
 	import FieldsEditor from '#lib/components/FieldsEditor.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
-	import type { Field } from '#lib/types.ts';
+	import { entry, type FieldEntry } from '#lib/types.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -14,8 +14,8 @@
 	// Field templates reuse the field editor: the value is the default.
 	const start = untrack(() => $state.snapshot(data.type));
 	let category = $state(start.category);
-	let fields = $state<Field[]>(
-		start.fields.map((f) => ({ key: f.key, target: f.target, value: f.default ?? '' }))
+	let fields = $state<FieldEntry[]>(
+		start.fields.map((f) => entry(f.target, f.key, f.default ?? ''))
 	);
 </script>
 

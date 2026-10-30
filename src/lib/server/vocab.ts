@@ -31,8 +31,9 @@ export function vocabulary(db: Db): Vocabulary {
 		.all() as UsageRow[];
 	const objectRows = db
 		.prepare(
-			`SELECT f.name AS key, a.value, e.type_id, count(*) AS n, max(a.since) AS last
-			FROM object_attrs a JOIN fields f ON f.id = a.field_id
+			`SELECT f.name AS key, a.value, e.type_id, count(*) AS n,
+				max(coalesce(e.date, a.since)) AS last
+			FROM property_values a JOIN fields f ON f.id = a.field_id
 			LEFT JOIN events e ON e.id = a.event_id
 			GROUP BY f.id, a.value, e.type_id`
 		)
@@ -101,7 +102,7 @@ function renameValue(db: Db, key: string, from: string, to: string): number {
 		.prepare(`UPDATE event_details SET value = ? WHERE field_id = ${field} AND value = ?`)
 		.run(to, key, from);
 	const b = db
-		.prepare(`UPDATE object_attrs SET value = ? WHERE field_id = ${field} AND value = ?`)
+		.prepare(`UPDATE property_values SET value = ? WHERE field_id = ${field} AND value = ?`)
 		.run(to, key, from);
 	db.prepare(
 		`UPDATE event_type_fields SET default_value = ? WHERE field_id = ${field} AND default_value = ?`
@@ -118,7 +119,7 @@ function renameKey(db: Db, from: string, to: string): number {
 	const uses = db
 		.prepare(
 			`SELECT (SELECT count(*) FROM event_details WHERE field_id = ?1)
-				+ (SELECT count(*) FROM object_attrs WHERE field_id = ?1) AS n`
+				+ (SELECT count(*) FROM property_values WHERE field_id = ?1) AS n`
 		)
 		.get(source.id) as { n: number };
 	const existing = find.get(to) as FieldRow | undefined;
@@ -150,7 +151,10 @@ function renameKey(db: Db, from: string, to: string): number {
 		);
 	}
 	db.prepare('UPDATE event_details SET field_id = ? WHERE field_id = ?').run(target.id, source.id);
-	db.prepare('UPDATE object_attrs SET field_id = ? WHERE field_id = ?').run(target.id, source.id);
+	db.prepare('UPDATE property_values SET field_id = ? WHERE field_id = ?').run(
+		target.id,
+		source.id
+	);
 	db.prepare('UPDATE OR IGNORE event_type_fields SET field_id = ? WHERE field_id = ?').run(
 		target.id,
 		source.id

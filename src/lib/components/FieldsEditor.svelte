@@ -6,17 +6,26 @@
 	import { FIELD_KINDS, TEXT, type FieldKindName, type FieldKinds } from '#lib/fieldKinds.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
+	import { isFirstChange, replaced, unsaved } from '#lib/domain/propertyHistory.ts';
 	import type { Candidate } from '#lib/suggest.ts';
-	import type { Field, FieldTarget, ObjectAttr, Vocabulary } from '#lib/types.ts';
+	import {
+		entry,
+		KEEP,
+		type FieldEntry,
+		type FieldTarget,
+		type InitialChoice,
+		type PropertyValue,
+		type Vocabulary
+	} from '#lib/types.ts';
 
 	type Props = {
-		fields: Field[];
+		fields: FieldEntry[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		typeId?: number;
 		showTarget?: boolean;
 		defaultTarget?: FieldTarget;
 		addLabel?: string;
-		history?: Record<string, ObjectAttr[]>;
+		history?: Record<string, PropertyValue[]>;
 		date?: string;
 		eventId?: number;
 		convertsDetails?: boolean;
@@ -38,7 +47,8 @@
 	const properties = $derived(new Set(vocab.keys.object.map((k) => k.value)));
 	const details = $derived(new Map(vocab.keys.event.map((k) => [k.value, k.count])));
 	const isProperty = (key: string) => properties.has(key.trim());
-	const changesObject = (f: Field) => isProperty(f.key) || f.target === 'object';
+	const changesObject = (f: FieldEntry) => isProperty(f.key) || f.target === 'object';
+	const initialOf = (f: FieldEntry) => (f.target === 'object' ? f.initial : KEEP);
 
 	function keyCandidates(): Candidate[] {
 		const used = new Set(fields.map((f) => f.key));
@@ -57,33 +67,40 @@
 		].filter((k) => !used.has(k.value));
 	}
 
-	function before(f: Field) {
-		// Editing: the event's own change doesn't count.
-		const rows = (history?.[f.key.trim()] ?? []).filter((r) => !eventId || r.eventId !== eventId);
-		const earlier = rows.filter((r) => r.since !== null && date && r.since <= date).at(-1);
-		const initial = rows.find((r) => r.since === null && r.eventId === null);
-		return { earlier, initial };
+	function before(f: FieldEntry) {
+		const r = replaced(history?.[f.key.trim()] ?? [], unsaved(date), eventId);
+		return {
+			first: isFirstChange(r),
+			earlier: r && !r.initial ? r.value : undefined,
+			initial: r?.initial ? r.value : undefined
+		};
 	}
 
 	function valueCandidates(key: string): Candidate[] {
 		return (vocab.values[key] ?? []).map((v) => ({ ...v, context: typeId ? v.byType[typeId] : 0 }));
 	}
 
-	type PreviousMode = 'keep' | 'unknown' | 'value';
-	function previousMode(f: Field): PreviousMode {
-		return f.previous === undefined ? 'keep' : f.previous === null ? 'unknown' : 'value';
+	function setTarget(i: number, target: FieldTarget) {
+		const { key, value, kind } = fields[i];
+		fields[i] = { ...entry(target, key, value), kind };
 	}
-	function setPreviousMode(f: Field, mode: string) {
-		if (mode === 'keep') delete f.previous;
-		else f.previous = mode === 'unknown' ? null : '';
+	function setInitial(i: number, initial: InitialChoice) {
+		const { key, value, kind } = fields[i];
+		fields[i] = { target: 'object', key, value, kind, initial };
+	}
+	function setInitialMode(i: number, mode: string) {
+		setInitial(
+			i,
+			mode === 'unknown' ? { kind: 'unknown' } : mode === 'set' ? { kind: 'set', value: '' } : KEEP
+		);
 	}
 	// Only the first change of a property may set the value before it.
 	$effect(() => {
-		for (const f of fields) {
-			if (f.previous !== undefined && (!changesObject(f) || !history || before(f).earlier)) {
-				delete f.previous;
+		fields.forEach((f, i) => {
+			if (initialOf(f).kind !== 'keep' && (!changesObject(f) || !history || !before(f).first)) {
+				setInitial(i, KEEP);
 			}
-		}
+		});
 	});
 
 	const knownNames = $derived(
@@ -94,15 +111,15 @@
 		const kinds = page.data.fieldKinds as FieldKinds | undefined;
 		return !!name && !knownNames.has(name) && !kinds?.[name];
 	}
-	function chosenKind(f: Field) {
+	function chosenKind(f: FieldEntry) {
 		return isNewName(f.key) ? (f.kind ?? TEXT) : undefined;
 	}
-	function setKind(f: Field, kind: string) {
+	function setKind(f: FieldEntry, kind: string) {
 		f.kind = { kind: kind as FieldKindName, unit: f.kind?.unit ?? '' };
 	}
 
 	function add() {
-		fields = [...fields, { key: '', value: '', target: defaultTarget }];
+		fields = [...fields, entry(defaultTarget, '', '')];
 	}
 </script>
 
@@ -162,7 +179,7 @@
 								<input
 									type="checkbox"
 									checked={field.target === 'object'}
-									onchange={(e) => (field.target = e.currentTarget.checked ? 'object' : 'event')}
+									onchange={(e) => setTarget(i, e.currentTarget.checked ? 'object' : 'event')}
 								/>
 								<span>{t.events.targetObject}</span>
 							</label>
@@ -172,32 +189,31 @@
 						{/if}
 						{#if changesObject(field) && history}
 							{@const { earlier, initial } = before(field)}
-							{#if earlier}
-								<p class="small muted">{t.events.before(showValue(name, earlier.value))}</p>
+							{@const choice = initialOf(field)}
+							{#if earlier !== undefined}
+								<p class="small muted">{t.events.before(showValue(name, earlier))}</p>
 							{:else}
 								<label class="previous small" title={t.events.previousHint}>
 									{t.events.previous}
 									<select
-										value={initial || typeof field.previous === 'string'
-											? previousMode(field)
-											: 'keep'}
-										onchange={(e) => setPreviousMode(field, e.currentTarget.value)}
+										value={initial !== undefined || choice.kind === 'set' ? choice.kind : 'keep'}
+										onchange={(e) => setInitialMode(i, e.currentTarget.value)}
 									>
-										{#if initial}
-											<option value="keep">{showValue(name, initial.value)}</option>
+										{#if initial !== undefined}
+											<option value="keep">{showValue(name, initial)}</option>
 											<option value="unknown">{t.objects.notRecorded}</option>
-											<option value="value">{t.events.previousOther}</option>
+											<option value="set">{t.events.previousOther}</option>
 										{:else}
 											<option value="keep">{t.objects.notRecorded}</option>
-											<option value="value">{t.events.previousValue}</option>
+											<option value="set">{t.events.previousValue}</option>
 										{/if}
 									</select>
 								</label>
-								{#if typeof field.previous === 'string'}
+								{#if choice.kind === 'set'}
 									<FieldValueInput
 										key={field.key}
 										kind={chosenKind(field)}
-										bind:value={() => field.previous ?? '', (v) => (field.previous = v)}
+										bind:value={() => choice.value, (v) => setInitial(i, { kind: 'set', value: v })}
 										candidates={valueCandidates(field.key)}
 										placeholder={t.events.previousPlaceholder}
 										label={t.events.previousPlaceholder}

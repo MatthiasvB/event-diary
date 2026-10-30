@@ -29,8 +29,8 @@ export function useField(db: Db, name: string, role: Role): FieldRow {
 function makeProperty(db: Db, id: number) {
 	transaction(db, () => {
 		db.prepare(
-			`INSERT INTO object_attrs (object_id, field_id, value, since, event_id)
-			SELECT e.object_id, d.field_id, d.value, e.date, d.event_id
+			`INSERT INTO property_values (object_id, field_id, value, event_id)
+			SELECT e.object_id, d.field_id, d.value, d.event_id
 			FROM event_details d JOIN events e ON e.id = d.event_id
 			WHERE d.field_id = ? ORDER BY e.date, e.id`
 		).run(id);

@@ -8,6 +8,7 @@ import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import type { EventFile } from '#lib/files.ts';
+import type { RecordedField } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -26,7 +27,7 @@ export const load: PageServerLoad = ({ url }) => {
 		category: preset?.category ?? '',
 		date: today(),
 		note: '',
-		fields: [] as { key: string; value: string; target: 'event' | 'object' }[],
+		fields: [] as RecordedField[],
 		files: [] as EventFile[]
 	};
 

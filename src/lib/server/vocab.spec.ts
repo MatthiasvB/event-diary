@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Field } from '../types.ts';
+import { KEEP, type InitialChoice } from '../types.ts';
 import type { Db } from './db.ts';
 import { openDiary } from './diarySchema.ts';
 import {
@@ -181,7 +181,7 @@ describe('object attributes from events', () => {
 			typeId: type.id,
 			date: '2026-09-20',
 			note: '',
-			fields: [{ key: 'Standort', value: 'Südfenster', target: 'object' }],
+			fields: [{ key: 'Standort', value: 'Südfenster', target: 'object', initial: KEEP }],
 			fileIds: []
 		});
 
@@ -200,16 +200,16 @@ describe('object attributes from events', () => {
 		// The object was entered with its current location, then an older move was added.
 		object(1, { Standort: 'Südfenster' });
 		const type = ensureType(db, 'Standortwechsel');
-		const move = (date: string, value: string, previous?: string | null) =>
+		const move = (date: string, value: string, initial: InitialChoice) =>
 			createEvents(db, [1], {
 				typeId: type.id,
 				date,
 				note: '',
-				fields: [{ key: 'Standort', value, target: 'object', previous }],
+				fields: [{ key: 'Standort', value, target: 'object', initial }],
 				fileIds: []
 			});
 
-		move('2026-09-24', 'Südfenster', null);
+		move('2026-09-24', 'Südfenster', { kind: 'unknown' });
 		expect(attrHistory(db, 1).Standort.map((h) => [h.value, h.since])).toEqual([
 			['Südfenster', '2026-09-24']
 		]);
@@ -220,14 +220,16 @@ describe('object attributes from events', () => {
 			typeId: type.id,
 			date: '2026-03-01',
 			note: '',
-			fields: [{ key: 'Standort', value: 'Dachboden', target: 'object' }],
+			fields: [{ key: 'Standort', value: 'Dachboden', target: 'object', initial: KEEP }],
 			fileIds: []
 		});
 		createEvents(db, [2], {
 			typeId: type.id,
 			date: '2026-09-24',
 			note: '',
-			fields: [{ key: 'Standort', value: 'Südfenster', target: 'object', previous: null }],
+			fields: [
+				{ key: 'Standort', value: 'Südfenster', target: 'object', initial: { kind: 'unknown' } }
+			],
 			fileIds: []
 		});
 		expect(attrHistory(db, 2).Standort).toHaveLength(3);
@@ -243,7 +245,14 @@ describe('object attributes from events', () => {
 			typeId: type.id,
 			date: '2026-09-24',
 			note: '',
-			fields: [{ key: 'Standort', value: 'Südfenster', target: 'object', previous: 'Ostfenster' }],
+			fields: [
+				{
+					key: 'Standort',
+					value: 'Südfenster',
+					target: 'object',
+					initial: { kind: 'set', value: 'Ostfenster' }
+				}
+			],
 			fileIds: []
 		});
 		const history = () => attrHistory(db, 1).Standort.map((h) => [h.value, h.since]);
@@ -265,34 +274,40 @@ describe('object attributes from events', () => {
 
 describe('changes of properties', () => {
 	const type = () => ensureType(db, 'Umtopfen');
-	const repot = (objectId: number, date: string, field: Partial<Field>) =>
+	const repot = (objectId: number, date: string, value: string, initial = KEEP) =>
 		createEvents(db, [objectId], {
 			typeId: type().id,
 			date,
 			note: '',
-			fields: [{ key: 'Substrat', value: '', target: 'object', ...field }],
+			fields: [{ key: 'Substrat', value, target: 'object', initial }],
 			fileIds: []
 		})[0];
 
 	it('show the value they replaced', () => {
 		object(1, { Substrat: 'Moos' });
-		const first = repot(1, '2026-03-01', { value: 'Rinde' });
-		const second = repot(1, '2026-09-01', { value: 'Lava' });
+		const first = repot(1, '2026-03-01', 'Rinde');
+		const second = repot(1, '2026-09-01', 'Lava');
 		const change = (id: number) => getEvent(db, id)?.fields[0];
-		expect(change(first)).toMatchObject({ value: 'Rinde', before: 'Moos', firstChange: true });
-		expect(change(second)).toMatchObject({ value: 'Lava', before: 'Rinde', firstChange: false });
+		expect(change(first)).toMatchObject({
+			value: 'Rinde',
+			replaced: { value: 'Moos', initial: true }
+		});
+		expect(change(second)).toMatchObject({
+			value: 'Lava',
+			replaced: { value: 'Rinde', initial: false }
+		});
 
 		// Without a recorded initial value, the first change replaced an unknown one.
 		forgetInitialValue(db, 1, 'Substrat');
-		expect(change(first)).toMatchObject({ before: null, firstChange: true });
+		expect(change(first)).toMatchObject({ replaced: null });
 	});
 
 	it('set the value before only for the first change', () => {
 		object(1, { Substrat: 'Moos' });
-		repot(1, '2026-03-01', { value: 'Rinde' });
+		repot(1, '2026-03-01', 'Rinde');
 		// A later change: the value before it is the earlier change's, so nothing is set.
-		repot(1, '2026-09-01', { value: 'Lava', previous: 'Erde' });
-		repot(1, '2026-10-01', { value: 'Lava', previous: null });
+		repot(1, '2026-09-01', 'Lava', { kind: 'set', value: 'Erde' });
+		repot(1, '2026-10-01', 'Lava', { kind: 'unknown' });
 		expect(attrHistory(db, 1).Substrat.map((h) => h.value)).toEqual([
 			'Moos',
 			'Rinde',
@@ -300,7 +315,7 @@ describe('changes of properties', () => {
 			'Lava'
 		]);
 		// A change on the same day as an earlier one isn't the first either.
-		repot(1, '2026-03-01', { value: 'Bims', previous: 'Erde' });
+		repot(1, '2026-03-01', 'Bims', { kind: 'set', value: 'Erde' });
 		expect(attrHistory(db, 1).Substrat[0].value).toBe('Moos');
 	});
 
@@ -346,11 +361,10 @@ describe('changes of properties', () => {
 		]);
 		expect(getEvent(db, later)?.fields).toEqual([
 			{
+				target: 'object',
 				key: 'Substrat',
 				value: 'Rinde',
-				target: 'object',
-				before: 'Moos',
-				firstChange: false
+				replaced: { value: 'Moos', initial: false }
 			}
 		]);
 		expect(db.prepare('SELECT count(*) AS n FROM event_details').get()).toEqual({ n: 0 });
@@ -397,7 +411,9 @@ describe('deleting an object', () => {
 		expect(db.prepare('SELECT count(*) AS n FROM events WHERE object_id = 1').get()).toEqual({
 			n: 0
 		});
-		expect(db.prepare('SELECT count(*) AS n FROM object_attrs WHERE object_id = 1').get()).toEqual({
+		expect(
+			db.prepare('SELECT count(*) AS n FROM property_values WHERE object_id = 1').get()
+		).toEqual({
 			n: 0
 		});
 		expect(getEvent(db, kept)?.objectId).toBe(2);
@@ -422,7 +438,7 @@ describe('deleting event types and categories', () => {
 			...input,
 			typeId: move.id,
 			date: '2026-09-01',
-			fields: [{ key: 'Standort', value: 'Bad', target: 'object' }],
+			fields: [{ key: 'Standort', value: 'Bad', target: 'object', initial: KEEP }],
 			fileIds: ['p']
 		});
 		createEvents(db, [1], { ...input, typeId: water.id, date: '2026-09-02' });

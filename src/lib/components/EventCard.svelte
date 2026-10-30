@@ -93,8 +93,8 @@
 				<li>
 					<span class="muted">{f.key}:</span>
 					{#if f.target === 'object'}
-						<span class="before" title={f.before == null ? t.objects.notRecorded : undefined}
-							>{f.before == null ? '–' : showValue(f.key, f.before)}</span
+						<span class="before" title={f.replaced === null ? t.objects.notRecorded : undefined}
+							>{f.replaced === null ? '–' : showValue(f.key, f.replaced.value)}</span
 						>
 						→
 					{/if}

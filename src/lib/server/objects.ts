@@ -1,4 +1,4 @@
-import type { DiaryObject, ObjectAttr } from '../types.ts';
+import type { DiaryObject, PropertyValue } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { useField } from './fields.ts';
 
@@ -30,13 +30,10 @@ type AttrRow = {
 	event_id: number | null;
 };
 
-const attrFromRow = (r: AttrRow): ObjectAttr => ({
-	id: r.id,
-	key: r.key,
-	value: r.value,
-	since: r.since,
-	eventId: r.event_id
-});
+const attrFromRow = ({ id, key, value, since, event_id }: AttrRow): PropertyValue =>
+	since === null
+		? { id, key, value, since, eventId: null }
+		: { id, key, value, since, eventId: event_id };
 
 const FIRST_PHOTO = `(
 	SELECT ef.file_id FROM events e JOIN event_files ef ON ef.event_id = e.id
@@ -58,9 +55,11 @@ export function pinCover(db: Db, objectId: number) {
 	).run(objectId);
 }
 
-const ATTRS = `SELECT a.id, a.object_id, f.name AS key, a.value, a.since, a.event_id
-	FROM object_attrs a JOIN fields f ON f.id = a.field_id`;
-const HISTORY_ORDER = "coalesce(a.since, ''), a.id";
+const ATTRS = `SELECT a.id, a.object_id, f.name AS key, a.value,
+		coalesce(e.date, a.since) AS since, a.event_id
+	FROM property_values a JOIN fields f ON f.id = a.field_id
+	LEFT JOIN events e ON e.id = a.event_id`;
+const HISTORY_ORDER = "coalesce(e.date, a.since, ''), a.id";
 
 export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, string> })[] {
 	const objects = (db.prepare(`${SELECT_OBJECT} ORDER BY x.name`).all() as Row[]).map(fromRow);
@@ -84,11 +83,11 @@ export function getObject(db: Db, id: number): DiaryObject | undefined {
 	return row && fromRow(row);
 }
 
-export function attrHistory(db: Db, objectId: number): Record<string, ObjectAttr[]> {
+export function attrHistory(db: Db, objectId: number): Record<string, PropertyValue[]> {
 	const rows = db
 		.prepare(`${ATTRS} WHERE a.object_id = ? ORDER BY ${HISTORY_ORDER}`)
 		.all(objectId) as AttrRow[];
-	const result: Record<string, ObjectAttr[]> = {};
+	const result: Record<string, PropertyValue[]> = {};
 	for (const r of rows) (result[r.key] ??= []).push(attrFromRow(r));
 	return result;
 }
@@ -109,7 +108,7 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 				.run(input.name, input.active ? 1 : 0, input.notes).lastInsertRowid
 		);
 		const insert = db.prepare(
-			'INSERT INTO object_attrs (object_id, field_id, value) VALUES (?, ?, ?)'
+			'INSERT INTO property_values (object_id, field_id, value) VALUES (?, ?, ?)'
 		);
 		for (const a of input.attrs) {
 			if (a.value) insert.run(id, useField(db, a.key, 'property').id, a.value);
@@ -142,54 +141,30 @@ export function updateObject(db: Db, input: ObjectInput, today: string) {
 			if (current?.value === value) continue;
 			if (current && !current.eventId) {
 				if (value)
-					db.prepare('UPDATE object_attrs SET value = ? WHERE id = ?').run(value, current.id);
-				else db.prepare('DELETE FROM object_attrs WHERE id = ?').run(current.id);
+					db.prepare('UPDATE property_values SET value = ? WHERE id = ?').run(value, current.id);
+				else db.prepare('DELETE FROM property_values WHERE id = ?').run(current.id);
 			} else if (value) {
 				db.prepare(
-					'INSERT INTO object_attrs (object_id, field_id, value, since) VALUES (?, ?, ?, ?)'
+					'INSERT INTO property_values (object_id, field_id, value, since) VALUES (?, ?, ?, ?)'
 				).run(input.id, useField(db, key, 'property').id, value, current ? today : null);
 			}
 		}
 	});
 }
 
-export type Change = { date: string; eventId: number };
+const INITIAL = `object_id = ? AND field_id = (SELECT id FROM fields WHERE name = ?)
+	AND since IS NULL AND event_id IS NULL`;
 
-// A dated value of the key, other than the change's own, on or before its date. If there is
-// one, the change is not the first one.
-const FIELD = '(SELECT id FROM fields WHERE name = ?)';
-const EARLIER_CHANGE = `SELECT 1 FROM object_attrs WHERE object_id = ? AND field_id = ${FIELD}
-	AND since IS NOT NULL AND since <= ? AND event_id IS NOT ?`;
-
-/**
- * Marks the value before the first change as not recorded. With `change`, only if that
- * change is the key's first.
- */
-export function forgetInitialValue(db: Db, objectId: number, key: string, change?: Change) {
-	if (change && db.prepare(EARLIER_CHANGE).get(objectId, key, change.date, change.eventId)) return;
-	db.prepare(
-		`DELETE FROM object_attrs WHERE object_id = ? AND field_id = ${FIELD}
-		AND since IS NULL AND event_id IS NULL`
-	).run(objectId, key);
+export function forgetInitialValue(db: Db, objectId: number, key: string) {
+	db.prepare(`DELETE FROM property_values WHERE ${INITIAL}`).run(objectId, key);
 }
 
-/** With `change`, only if that change is the key's first. */
-export function setInitialValue(
-	db: Db,
-	objectId: number,
-	key: string,
-	value: string,
-	change?: Change
-) {
-	if (change && db.prepare(EARLIER_CHANGE).get(objectId, key, change.date, change.eventId)) return;
+export function setInitialValue(db: Db, objectId: number, key: string, value: string) {
 	const updated = db
-		.prepare(
-			`UPDATE object_attrs SET value = ? WHERE object_id = ? AND field_id = ${FIELD}
-			AND since IS NULL AND event_id IS NULL`
-		)
+		.prepare(`UPDATE property_values SET value = ? WHERE ${INITIAL}`)
 		.run(value, objectId, key);
 	if (!updated.changes) {
-		db.prepare('INSERT INTO object_attrs (object_id, field_id, value) VALUES (?, ?, ?)').run(
+		db.prepare('INSERT INTO property_values (object_id, field_id, value) VALUES (?, ?, ?)').run(
 			objectId,
 			useField(db, key, 'property').id,
 			value
@@ -197,9 +172,9 @@ export function setInitialValue(
 	}
 }
 
-export function allHistories(db: Db): Record<number, Record<string, ObjectAttr[]>> {
+export function allHistories(db: Db): Record<number, Record<string, PropertyValue[]>> {
 	const rows = db.prepare(`${ATTRS} ORDER BY ${HISTORY_ORDER}`).all() as AttrRow[];
-	const result: Record<number, Record<string, ObjectAttr[]>> = {};
+	const result: Record<number, Record<string, PropertyValue[]>> = {};
 	for (const r of rows) ((result[r.object_id] ??= {})[r.key] ??= []).push(attrFromRow(r));
 	return result;
 }

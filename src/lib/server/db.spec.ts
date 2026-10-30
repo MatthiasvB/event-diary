@@ -155,7 +155,7 @@ it('renames plants to objects and photos to files, numbering the objects', async
 		all(
 			db,
 			`SELECT a.object_id, f.name AS key, a.event_id
-			FROM object_attrs a JOIN fields f ON f.id = a.field_id`
+			FROM property_values a JOIN fields f ON f.id = a.field_id`
 		)
 	).toEqual([{ object_id: 2, key: 'Standort', event_id: 5 }]);
 	expect(all(db, 'SELECT event_id, file_id FROM event_files')).toEqual([
@@ -164,7 +164,7 @@ it('renames plants to objects and photos to files, numbering the objects', async
 	expect(getType(db, 3)?.fields).toEqual([{ key: 'Standort', target: 'object' }]);
 	// References still hold: deleting the event takes the property it set along.
 	db.prepare('DELETE FROM events WHERE id = 5').run();
-	expect(all(db, 'SELECT * FROM object_attrs')).toEqual([]);
+	expect(all(db, 'SELECT * FROM property_values')).toEqual([]);
 
 	expect(structure(db)).toEqual(structure(openDiary(':memory:')));
 	db.close();
@@ -234,6 +234,37 @@ it('gives every field name one field with its role, kind and place at version 9'
 			WHERE name IN ('event_attrs', 'field_kinds', 'object_attrs_v8')`
 		)
 	).toEqual([]);
+	db.close();
+});
+
+it('dates changes by their event at version 10, and keeps them with its object', async () => {
+	const file = oldDatabase(path.join(dirs.dbDir, 'diary.sqlite'), fixture(9));
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	expect(
+		all(
+			db,
+			'SELECT count(*) AS n FROM property_values WHERE event_id IS NOT NULL AND since IS NOT NULL'
+		)
+	).toEqual([{ n: 0 }]);
+
+	const change = all(
+		db,
+		'SELECT id, event_id, object_id FROM property_values WHERE event_id IS NOT NULL LIMIT 1'
+	)[0] as { id: number; event_id: number; object_id: number };
+	const other = change.object_id === 1 ? 2 : 1;
+	expect(() =>
+		db.exec(`UPDATE property_values SET since = '2026-01-01' WHERE id = ${change.id}`)
+	).toThrow(/CHECK/);
+	expect(() =>
+		transaction(db, () =>
+			db.exec(`UPDATE property_values SET object_id = ${other} WHERE id = ${change.id}`)
+		)
+	).toThrow(/FOREIGN KEY/);
+	db.exec(`UPDATE events SET object_id = ${other} WHERE id = ${change.event_id}`);
+	expect(all(db, `SELECT object_id FROM property_values WHERE id = ${change.id}`)).toEqual([
+		{ object_id: other }
+	]);
 	db.close();
 });
 

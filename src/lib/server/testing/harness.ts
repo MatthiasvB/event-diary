@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isFirstChange } from '../../domain/propertyHistory.ts';
 import type { FieldKind } from '../../fieldKinds.ts';
 import type { DiaryEvent, ValueCandidate } from '../../types.ts';
 import type { Db } from '../db.ts';
@@ -225,7 +226,16 @@ export class Diary {
 			...Object.entries(entry.changes ?? {}).map(([key, change]) =>
 				typeof change === 'string'
 					? { key, value: change, target: 'object', kind: kind(key) }
-					: { key, value: change.value, previous: change.before, target: 'object', kind: kind(key) }
+					: {
+							key,
+							value: change.value,
+							target: 'object',
+							initial:
+								change.before === null
+									? { kind: 'unknown' }
+									: { kind: 'set', value: change.before },
+							kind: kind(key)
+						}
 			)
 		];
 		const form = new FormData();
@@ -290,7 +300,12 @@ export function view(db: Db) {
 		),
 		changes: e.fields
 			.filter((f) => f.target === 'object')
-			.map((f) => ({ key: f.key, value: f.value, before: f.before ?? null, first: f.firstChange })),
+			.map((f) => ({
+				key: f.key,
+				value: f.value,
+				before: f.replaced?.value ?? null,
+				first: isFirstChange(f.replaced)
+			})),
 		files: e.files.map((f) => f.name)
 	});
 	const candidates = (list: ValueCandidate[]) =>

@@ -29,24 +29,30 @@ const FIELDS = `
 		PRIMARY KEY (event_id, field_id),
 		FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED
 	);
+`;
 
-	-- A field's current value is the row with the latest "since". NULL means "from the
-	-- beginning". A row set by an event carries its date and goes with it.
-	CREATE TABLE object_attrs (
+// A value without event and date is the initial one. A value with a date is a correction,
+// and one with an event changes the property on the event's date.
+const PROPERTY_VALUES = `
+	CREATE UNIQUE INDEX events_id_object ON events(id, object_id);
+	CREATE TABLE property_values (
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
 		field_id INTEGER NOT NULL,
 		role TEXT NOT NULL DEFAULT 'property' CHECK (role = 'property'),
 		value TEXT NOT NULL,
 		since TEXT,
-		event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-		FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED
+		event_id INTEGER,
+		CHECK (event_id IS NULL OR since IS NULL),
+		FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED,
+		FOREIGN KEY (event_id, object_id) REFERENCES events(id, object_id)
+			ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED
 	);
-	CREATE INDEX object_attrs_object ON object_attrs(object_id, field_id);
+	CREATE INDEX property_values_object ON property_values(object_id, field_id);
 `;
 
 export const DIARY_SCHEMA: Schema = {
-	version: 9,
+	version: 10,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -91,6 +97,7 @@ export const DIARY_SCHEMA: Schema = {
 	CREATE INDEX events_batch ON events(batch_id);
 
 	${FIELDS}
+	${PROPERTY_VALUES}
 
 	CREATE TABLE event_files (
 		event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -186,7 +193,46 @@ export const DIARY_SCHEMA: Schema = {
 		9: `
 		ALTER TABLE object_attrs RENAME TO object_attrs_v8;
 		DROP INDEX object_attrs_object;
-		${FIELDS}
+		CREATE TABLE fields (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE CHECK (name != ''),
+			role TEXT NOT NULL CHECK (role IN ('detail', 'property')),
+			kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'date', 'number')),
+			unit TEXT CHECK (unit IS NULL OR (kind = 'number' AND unit != '')),
+			position INTEGER CHECK (position IS NULL OR role = 'property'),
+			UNIQUE (id, role)
+		);
+
+		CREATE TABLE event_type_fields (
+			type_id INTEGER NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
+			field_id INTEGER NOT NULL REFERENCES fields(id),
+			position INTEGER NOT NULL,
+			default_value TEXT CHECK (default_value != ''),
+			PRIMARY KEY (type_id, field_id)
+		);
+
+		CREATE TABLE event_details (
+			event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			field_id INTEGER NOT NULL,
+			role TEXT NOT NULL DEFAULT 'detail' CHECK (role = 'detail'),
+			value TEXT NOT NULL,
+			PRIMARY KEY (event_id, field_id),
+			FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED
+		);
+
+		-- A field's current value is the row with the latest "since". NULL means "from the
+		-- beginning". A row set by an event carries its date and goes with it.
+		CREATE TABLE object_attrs (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+			field_id INTEGER NOT NULL,
+			role TEXT NOT NULL DEFAULT 'property' CHECK (role = 'property'),
+			value TEXT NOT NULL,
+			since TEXT,
+			event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+			FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED
+		);
+		CREATE INDEX object_attrs_object ON object_attrs(object_id, field_id);
 
 		CREATE TEMP TABLE template_fields AS
 		SELECT t.id AS type_id, j.key AS position, j.value ->> 'key' AS name,
@@ -232,6 +278,27 @@ export const DIARY_SCHEMA: Schema = {
 		DROP TABLE event_attrs;
 		DROP TABLE field_kinds;
 		DROP TABLE temp.template_fields;
+		`,
+		10: `
+		CREATE UNIQUE INDEX events_id_object ON events(id, object_id);
+		CREATE TABLE property_values (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+			field_id INTEGER NOT NULL,
+			role TEXT NOT NULL DEFAULT 'property' CHECK (role = 'property'),
+			value TEXT NOT NULL,
+			since TEXT,
+			event_id INTEGER,
+			CHECK (event_id IS NULL OR since IS NULL),
+			FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED,
+			FOREIGN KEY (event_id, object_id) REFERENCES events(id, object_id)
+				ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED
+		);
+		CREATE INDEX property_values_object ON property_values(object_id, field_id);
+		INSERT INTO property_values (id, object_id, field_id, value, since, event_id)
+		SELECT id, object_id, field_id, value, CASE WHEN event_id IS NULL THEN since END, event_id
+		FROM object_attrs;
+		DROP TABLE object_attrs;
 		`
 	}
 };

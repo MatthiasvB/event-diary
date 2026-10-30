@@ -7,7 +7,7 @@
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { uploadFiles } from '#lib/upload.ts';
-	import type { Field, Vocabulary } from '#lib/types.ts';
+	import { entry, type FieldEntry, type Vocabulary } from '#lib/types.ts';
 
 	type Props = {
 		object: { name: string; active: boolean; notes: string };
@@ -20,8 +20,8 @@
 	const leave = leaveFormOnRedirect();
 
 	// Pages re-create the form with {#key} when its initial values change.
-	let fields = $state<Field[]>(
-		untrack(() => attrs.map((a) => ({ ...a, target: 'object' as const })))
+	let fields = $state<FieldEntry[]>(
+		untrack(() => attrs.map((a) => entry('object', a.key, a.value)))
 	);
 	let files = $state<File[]>([]);
 	let photoDate = $state('');

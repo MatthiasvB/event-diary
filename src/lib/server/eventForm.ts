@@ -1,7 +1,7 @@
-import { kindOf, parseKind, storedValue } from '../fieldKinds.ts';
+import { kindOf, parseKind, storedValue, type FieldKind } from '../fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
-import type { Field } from '../types.ts';
+import { KEEP, type FieldEntry, type InitialChoice } from '../types.ts';
 import type { Db } from './db.ts';
 import { createEvents, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
@@ -15,7 +15,7 @@ export type EventPayload = {
 	milestone: boolean;
 	date: string;
 	note: string;
-	fields: Field[];
+	fields: FieldEntry[];
 	files: string[];
 	applyToBatch: boolean;
 };
@@ -32,16 +32,19 @@ export function chosenKinds(
 	});
 }
 
+function parseInitial(raw: unknown, kind: FieldKind): InitialChoice {
+	const r = raw as { kind?: unknown; value?: unknown } | null | undefined;
+	if (r?.kind === 'unknown') return { kind: 'unknown' };
+	const value = r?.kind === 'set' ? storedValue(str(r.value), kind) : '';
+	return value ? { kind: 'set', value } : KEEP;
+}
+
 /** Stores kinds chosen for new field names right away. */
 export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
 	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
 	const properties = propertyKeys(db);
-	const targetOf = (f: { key?: unknown; target?: unknown }) =>
-		properties.has(str(f?.key)) || f?.target === 'object'
-			? ('object' as const)
-			: ('event' as const);
 	const payload: EventPayload = {
 		objectIds: [...new Set(list(raw.objectIds).map(Number))].filter(
 			(id) => Number.isInteger(id) && id > 0
@@ -51,19 +54,14 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 		milestone: raw.milestone === true,
 		date: str(raw.date),
 		note: str(raw.note),
-		fields: list(raw.fields)
-			.map((f) => ({
-				key: str(f?.key),
-				value: storedValue(str(f?.value), kindOf(kinds, str(f?.key))),
-				target: targetOf(f),
-				previous:
-					targetOf(f) !== 'object' || f.previous === undefined
-						? undefined
-						: f.previous === null
-							? null
-							: storedValue(str(f.previous), kindOf(kinds, str(f?.key))) || undefined
-			}))
-			.filter((f) => f.key && f.value),
+		fields: list(raw.fields).flatMap((f): FieldEntry[] => {
+			const key = str(f?.key);
+			const kind = kindOf(kinds, key);
+			const value = storedValue(str(f?.value), kind);
+			if (!key || !value) return [];
+			if (!properties.has(key) && f?.target !== 'object') return [{ target: 'event', key, value }];
+			return [{ target: 'object', key, value, initial: parseInitial(f?.initial, kind) }];
+		}),
 		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),
 		applyToBatch: raw.applyToBatch === true
 	};

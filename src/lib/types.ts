@@ -5,22 +5,24 @@ import type { Candidate } from './suggest.ts';
 
 export type FieldTarget = 'event' | 'object';
 
-export type Field = {
-	key: string;
-	value: string;
-	target: FieldTarget;
-	/**
-	 * Object fields only, when saving: the value before this change.
-	 * Omitted: leave as is; null: not recorded; a string: that value.
-	 */
-	previous?: string | null;
-	/** A name used for the first time: the kind of its values, chosen while entering it. */
-	kind?: FieldKind;
-	/** Object fields of a saved event: the value the change replaced (null: not recorded). */
-	before?: string | null;
-	/** Object fields of a saved event: it is the first dated change of the property. */
-	firstChange?: boolean;
-};
+/** What a change does to the value before it, if it is the property's first change. */
+export type InitialChoice = { kind: 'keep' } | { kind: 'unknown' } | { kind: 'set'; value: string };
+export const KEEP: InitialChoice = { kind: 'keep' };
+
+/** A field as entered. `kind` is the kind chosen for a name used for the first time. */
+type EntryBase = { key: string; value: string; kind?: FieldKind };
+export type FieldEntry =
+	(EntryBase & { target: 'event' }) | (EntryBase & { target: 'object'; initial: InitialChoice });
+
+export const entry = (target: FieldTarget, key: string, value: string): FieldEntry =>
+	target === 'object' ? { target, key, value, initial: KEEP } : { target, key, value };
+
+/** `initial` tells whether the replaced value is the initial one. */
+export type Replaced = { value: string; initial: boolean } | null;
+
+export type EventDetail = { target: 'event'; key: string; value: string };
+export type PropertyChange = { target: 'object'; key: string; value: string; replaced: Replaced };
+export type RecordedField = EventDetail | PropertyChange;
 
 export type FieldTemplate = { key: string; target: FieldTarget; default?: string };
 
@@ -45,13 +47,9 @@ export type DiaryObject = {
 	coverRatio: number | null;
 };
 
-export type ObjectAttr = {
-	id: number;
-	key: string;
-	value: string;
-	since: string | null;
-	eventId: number | null;
-};
+export type PropertyValue = { id: number; key: string; value: string } & (
+	{ since: null; eventId: null } | { since: string; eventId: number | null }
+);
 
 export type DiaryEvent = {
 	id: number;
@@ -65,7 +63,7 @@ export type DiaryEvent = {
 	note: string;
 	batchId: string | null;
 	batchSize: number;
-	fields: Field[];
+	fields: RecordedField[];
 	files: EventFile[];
 };
 

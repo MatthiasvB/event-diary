@@ -12,7 +12,14 @@
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { isMedia, type EventFile } from '#lib/files.ts';
 	import { uploadFiles } from '#lib/upload.ts';
-	import type { EventType, Field, ObjectAttr, Vocabulary } from '#lib/types.ts';
+	import {
+		entry,
+		type EventType,
+		type FieldEntry,
+		type PropertyValue,
+		type RecordedField,
+		type Vocabulary
+	} from '#lib/types.ts';
 
 	type ObjectOption = { id: number; name: string; active: boolean; attrs: Record<string, string> };
 	export type EventFormInitial = {
@@ -21,15 +28,15 @@
 		category: string;
 		date: string;
 		note: string;
-		fields: Field[];
+		fields: RecordedField[];
 		files: EventFile[];
 	};
 
 	type Props = {
 		objects: ObjectOption[];
 		vocab: Vocabulary;
-		lastFields: Record<number, Field[]>;
-		histories: Record<number, Record<string, ObjectAttr[]>>;
+		lastFields: Record<number, RecordedField[]>;
+		histories: Record<number, Record<string, PropertyValue[]>>;
 		initial: EventFormInitial;
 		eventId?: number;
 		files?: File[];
@@ -60,7 +67,8 @@
 	const start = untrack(() => {
 		const s = $state.snapshot(initial);
 		const ty = vocab.types.find((x) => x.name === s.typeName && x.category === s.category);
-		const fields = !edit && !s.fields.length && ty ? proposeFields(ty, []) : s.fields;
+		const own = s.fields.map((f) => entry(f.target, f.key, f.value));
+		const fields = !edit && !own.length && ty ? proposeFields(ty, []) : own;
 		return { ...s, fields, typeId: ty?.id };
 	});
 	let objectIds = $state(start.objectIds);
@@ -124,7 +132,7 @@
 		}
 	});
 
-	function proposeFields(ty: EventType, own: Field[]): Field[] {
+	function proposeFields(ty: EventType, own: FieldEntry[]): FieldEntry[] {
 		const last = lastFields[ty.id] ?? [];
 		const proposed = ty.fields.map((f) => {
 			const mine = own.find((o) => o.key === f.key && o.value);
@@ -132,7 +140,7 @@
 				f.target === 'event'
 					? last.find((l) => l.key === f.key && l.target === f.target)?.value
 					: '';
-			return { key: f.key, target: f.target, value: mine?.value || f.default || learned || '' };
+			return entry(f.target, f.key, mine?.value || f.default || learned || '');
 		});
 		const extra = own.filter((o) => o.key && o.value && !proposed.some((p) => p.key === o.key));
 		return [...proposed, ...extra];

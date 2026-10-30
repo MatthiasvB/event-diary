@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { EventFile } from '../files.ts';
-import type { DiaryEvent, Field } from '../types.ts';
+import { isFirstChange, replaced, unsaved } from '../domain/propertyHistory.ts';
+import { KEEP, type DiaryEvent, type FieldEntry, type RecordedField } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { roleOf, useField } from './fields.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
-import { forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
+import { attrHistory, forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
 
 type Row = {
 	id: number;
@@ -70,7 +71,7 @@ export function getEvent(db: Db, id: number): DiaryEvent | undefined {
 	return row && withDetails(db, [row])[0];
 }
 
-export function lastFieldsByType(db: Db): Record<number, Field[]> {
+export function lastFieldsByType(db: Db): Record<number, RecordedField[]> {
 	const rows = db
 		.prepare(
 			`${SELECT} WHERE e.id = (SELECT l.id FROM events l WHERE l.type_id = e.type_id
@@ -84,7 +85,7 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	if (!rows.length) return [];
 	const ids = rows.map((r) => r.id);
 	const placeholders = ids.map(() => '?').join(',');
-	const fields = new Map<number, Field[]>();
+	const fields = new Map<number, RecordedField[]>();
 	const files = new Map<number, EventFile[]>();
 
 	const eventAttrs = db
@@ -94,35 +95,21 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 		)
 		.all(...ids) as { event_id: number; key: string; value: string }[];
 	for (const a of eventAttrs)
-		push(fields, a.event_id, { key: a.key, value: a.value, target: 'event' as const });
+		push(fields, a.event_id, { target: 'event' as const, key: a.key, value: a.value });
 
-	const objectAttrs = db
-		.prepare(
-			`SELECT * FROM (
-				SELECT a.id, a.event_id, f.name AS key, a.value,
-					lag(a.id) OVER w AS before_id, lag(a.value) OVER w AS before,
-					lag(a.since) OVER w AS before_since
-				FROM object_attrs a JOIN fields f ON f.id = a.field_id
-				WHERE a.object_id IN (SELECT object_id FROM events WHERE id IN (${placeholders}))
-				WINDOW w AS (PARTITION BY a.object_id, a.field_id ORDER BY coalesce(a.since, ''), a.id)
-			) WHERE event_id IN (${placeholders}) ORDER BY id`
-		)
-		.all(...ids, ...ids) as {
-		event_id: number;
-		key: string;
-		value: string;
-		before_id: number | null;
-		before: string | null;
-		before_since: string | null;
-	}[];
-	for (const a of objectAttrs)
-		push(fields, a.event_id, {
-			key: a.key,
-			value: a.value,
-			target: 'object' as const,
-			before: a.before,
-			firstChange: a.before_id === null || a.before_since === null
-		});
+	const objectIds = [...new Set(rows.map((r) => r.object_id))];
+	const histories = Object.fromEntries(objectIds.map((id) => [id, attrHistory(db, id)]));
+	for (const r of rows) {
+		const changes = Object.values(histories[r.object_id]).flatMap((values) =>
+			values.flatMap((v) =>
+				v.eventId === r.id && v.since !== null ? [{ v, replaced: replaced(values, v) }] : []
+			)
+		);
+		changes.sort((a, b) => a.v.id - b.v.id);
+		for (const { v, replaced } of changes) {
+			push(fields, r.id, { target: 'object' as const, key: v.key, value: v.value, replaced });
+		}
+	}
 
 	const links = db
 		.prepare(
@@ -160,28 +147,31 @@ export type EventInput = {
 	typeId: number;
 	date: string;
 	note: string;
-	fields: Field[];
+	fields: FieldEntry[];
 	fileIds: string[];
 };
 
 function writeDetails(db: Db, eventId: number, objectId: number, input: EventInput) {
 	db.prepare('DELETE FROM event_details WHERE event_id = ?').run(eventId);
-	db.prepare('DELETE FROM object_attrs WHERE event_id = ?').run(eventId);
+	db.prepare('DELETE FROM property_values WHERE event_id = ?').run(eventId);
 	db.prepare('DELETE FROM event_files WHERE event_id = ?').run(eventId);
 	const detail = db.prepare(
 		'INSERT OR REPLACE INTO event_details (event_id, field_id, value) VALUES (?, ?, ?)'
 	);
-	const value = db.prepare(
-		'INSERT INTO object_attrs (object_id, field_id, value, since, event_id) VALUES (?, ?, ?, ?, ?)'
+	const change = db.prepare(
+		'INSERT INTO property_values (object_id, field_id, value, event_id) VALUES (?, ?, ?, ?)'
 	);
 	for (const f of input.fields) {
 		if (!f.key || !f.value) continue;
 		const field = useField(db, f.key, roleOf(f.target));
 		if (field.role === 'property') {
-			value.run(objectId, field.id, f.value, input.date, eventId);
-			const change = { date: input.date, eventId };
-			if (f.previous === null) forgetInitialValue(db, objectId, f.key, change);
-			else if (f.previous) setInitialValue(db, objectId, f.key, f.previous, change);
+			change.run(objectId, field.id, f.value, eventId);
+			const initial = f.target === 'object' ? f.initial : KEEP;
+			if (initial.kind === 'keep') continue;
+			const history = attrHistory(db, objectId)[f.key] ?? [];
+			if (!isFirstChange(replaced(history, unsaved(input.date), eventId))) continue;
+			if (initial.kind === 'unknown') forgetInitialValue(db, objectId, f.key);
+			else setInitialValue(db, objectId, f.key, initial.value);
 		} else {
 			detail.run(eventId, field.id, f.value);
 		}
@@ -193,7 +183,7 @@ function writeDetails(db: Db, eventId: number, objectId: number, input: EventInp
 	if (input.fileIds.length) pinCover(db, objectId);
 }
 
-function learnFields(db: Db, typeId: number, fields: Field[]) {
+function learnFields(db: Db, typeId: number, fields: FieldEntry[]) {
 	const learn = db.prepare(
 		`INSERT OR IGNORE INTO event_type_fields (type_id, field_id, position)
 		SELECT ?1, id, (SELECT coalesce(max(position) + 1, 0) FROM event_type_fields WHERE type_id = ?1)
@@ -241,13 +231,13 @@ export function updateEvent(
 			db,
 			targets.map((t) => t.id)
 		);
+		if (targets.length === 1) {
+			db.prepare('UPDATE events SET object_id = ? WHERE id = ?').run(input.objectId, id);
+		}
 		const update = db.prepare('UPDATE events SET type_id = ?, date = ?, note = ? WHERE id = ?');
 		for (const t of targets) {
 			update.run(input.typeId, input.date, input.note, t.id);
 			writeDetails(db, t.id, t.object_id, input);
-		}
-		if (targets.length === 1) {
-			db.prepare('UPDATE events SET object_id = ? WHERE id = ?').run(input.objectId, id);
 		}
 		learnFields(db, input.typeId, input.fields);
 		return orphaned(db, before);

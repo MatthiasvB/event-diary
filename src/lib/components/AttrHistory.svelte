@@ -7,15 +7,15 @@
 	import { formatDate } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { Candidate } from '#lib/suggest.ts';
-	import type { ObjectAttr } from '#lib/types.ts';
+	import type { PropertyValue } from '#lib/types.ts';
 
-	type Props = { key: string; history: ObjectAttr[]; candidates: Candidate[] };
+	type Props = { key: string; history: PropertyValue[]; candidates: Candidate[] };
 	let { key, history, candidates }: Props = $props();
 
 	let editing = $state(false);
 	let draft = $state('');
 
-	const initial = $derived(history.find((h) => !h.since && !h.eventId));
+	const initial = $derived(history.find((h) => h.since === null));
 	const changed = $derived(history.length > 1);
 
 	function edit() {
