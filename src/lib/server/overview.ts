@@ -47,8 +47,9 @@ export type ObjectStats = {
 export function objectStats(db: Db, columns: OverviewColumn[]): Map<number, ObjectStats> {
 	const rows = db
 		.prepare(
-			`SELECT e.object_id, e.type_id, t.name, count(*) AS n, max(e.date) AS last
-			FROM events e JOIN event_types t ON t.id = e.type_id GROUP BY e.object_id, e.type_id`
+			`SELECT eo.object_id, e.type_id, t.name, count(*) AS n, max(e.date) AS last
+			FROM event_objects eo JOIN events e ON e.id = eo.event_id
+			JOIN event_types t ON t.id = e.type_id GROUP BY eo.object_id, e.type_id`
 		)
 		.all() as { object_id: number; type_id: number; name: string; n: number; last: string }[];
 
@@ -69,9 +70,10 @@ export function objectStats(db: Db, columns: OverviewColumn[]): Map<number, Obje
 	// Same order as the timeline.
 	const last = db
 		.prepare(
-			`SELECT e.object_id, e.date, t.name FROM events e JOIN event_types t ON t.id = e.type_id
-			WHERE e.id = (SELECT l.id FROM events l WHERE l.object_id = e.object_id
-				ORDER BY l.date DESC, l.id DESC LIMIT 1)`
+			`SELECT eo.object_id, e.date, t.name FROM event_objects eo
+			JOIN events e ON e.id = eo.event_id JOIN event_types t ON t.id = e.type_id
+			WHERE e.id = (SELECT l.id FROM event_objects lo JOIN events l ON l.id = lo.event_id
+				WHERE lo.object_id = eo.object_id ORDER BY l.date DESC, l.id DESC LIMIT 1)`
 		)
 		.all() as { object_id: number; date: string; name: string }[];
 	for (const r of last) {

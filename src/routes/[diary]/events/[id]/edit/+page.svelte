@@ -31,7 +31,9 @@
 		initial={data.initial}
 		eventId={data.event.id}
 		edit
-		batchSize={data.event.batchSize}
+		part={data.part === null
+			? null
+			: { objectId: data.part, objectIds: data.event.objects.map((o) => o.id) }}
 		error={form?.error}
 	/>
 {/key}
@@ -45,6 +47,7 @@
 		return leave;
 	}}
 >
+	{#if data.part !== null}<input type="hidden" name="object" value={data.part} />{/if}
 	<button class="danger">{t.common.delete}</button>
 </form>
 

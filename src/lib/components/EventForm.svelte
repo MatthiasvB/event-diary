@@ -41,7 +41,8 @@
 		eventId?: number;
 		files?: File[];
 		edit?: boolean;
-		batchSize?: number;
+		/** Opened for one object of a shared event: that object, and all of the event's. */
+		part?: { objectId: number; objectIds: number[] } | null;
 		photoMode?: boolean;
 		error?: string;
 	};
@@ -55,7 +56,7 @@
 		eventId,
 		files = $bindable([]),
 		edit = false,
-		batchSize = 1,
+		part = null,
 		photoMode = false,
 		error
 	}: Props = $props();
@@ -193,7 +194,7 @@
 				note,
 				fields,
 				files: [...keptFiles.map((f) => f.id), ...newFiles],
-				applyToBatch
+				only: part && !applyToBatch ? part.objectId : null
 			})
 		);
 		return async (submitted) => {
@@ -319,10 +320,20 @@
 		</fieldset>
 	{/if}
 
-	{#if edit && batchSize > 1}
+	{#if part}
+		{@const { objectId, objectIds: all } = part}
 		<label class="check"
-			><input type="checkbox" bind:checked={applyToBatch} />
-			{t.events.applyToBatch(batchSize)}</label
+			><input
+				type="checkbox"
+				bind:checked={
+					() => applyToBatch,
+					(on) => {
+						applyToBatch = on;
+						objectIds = on ? [...all] : [objectId];
+					}
+				}
+			/>
+			{t.events.applyToBatch(all.length)}</label
 		>
 	{/if}
 

@@ -9,15 +9,37 @@
 	import { formatDate } from '#lib/format.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
+	import { fieldsFor } from '#lib/domain/eventFields.ts';
 	import type { DiaryEvent } from '#lib/types.ts';
 
 	type Props = {
 		event: DiaryEvent;
+		/** The object whose timeline shows the event. */
+		objectId?: number | null;
 		showObject?: boolean;
 		coverPhotoId?: string | null;
 		canSetCover?: boolean;
 	};
-	let { event, showObject = false, coverPhotoId = null, canSetCover = false }: Props = $props();
+	let {
+		event,
+		objectId = null,
+		showObject = false,
+		coverPhotoId = null,
+		canSetCover = false
+	}: Props = $props();
+
+	const shared = $derived(event.objects.length > 1);
+	// Without one object, a change shows no value before it: that differs between the objects.
+	const single = $derived(objectId ?? (shared ? null : event.objects[0].id));
+	const fields = $derived(fieldsFor(event, single));
+	const editHref = $derived(
+		shared && objectId !== null
+			? resolve(`/[diary]/events/[id]/edit?object=${objectId}`, {
+					diary: diaryId(),
+					id: String(event.id)
+				})
+			: resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(event.id) })
+	);
 
 	let viewer = $state<PhotoViewer>();
 
@@ -61,11 +83,7 @@
 			<time datetime={event.date}>{formatDate(event.date)}</time>
 			<!-- Covers the whole tile through .open::after. The other controls sit above it. -->
 			{#if canEdit()}
-				<a
-					class="open"
-					href={resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(event.id) })}
-					><strong>{event.typeName}</strong></a
-				>
+				<a class="open" href={editHref}><strong>{event.typeName}</strong></a>
 			{:else}
 				<strong>{event.typeName}</strong>
 			{/if}
@@ -73,26 +91,28 @@
 		</div>
 		<div class="row small">
 			{#if event.category}<span class="badge">{event.category}</span>{/if}
-			{#if event.batchSize > 1}<span class="badge">{t.events.batch(event.batchSize)}</span>{/if}
+			{#if shared}<span class="badge">{t.events.batch(event.objects.length)}</span>{/if}
 		</div>
 	</header>
 
 	{#if showObject}
-		<p>
-			<a
-				class="above"
-				href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(event.objectId) })}
-				>{event.objectName}</a
-			>
+		<p class="row">
+			{#each event.objects as o (o.id)}
+				<a
+					class="above"
+					href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(o.id) })}
+					>{o.name}</a
+				>
+			{/each}
 		</p>
 	{/if}
 
-	{#if event.fields.length}
+	{#if fields.length}
 		<ul class="fields">
-			{#each event.fields as f (f.target + f.key)}
+			{#each fields as f (f.target + f.key)}
 				<li>
 					<span class="muted">{f.key}:</span>
-					{#if f.target === 'object'}
+					{#if f.target === 'object' && single !== null}
 						<span class="before" title={f.replaced === null ? t.objects.notRecorded : undefined}
 							>{f.replaced === null ? '–' : showValue(f.key, f.replaced.value)}</span
 						>

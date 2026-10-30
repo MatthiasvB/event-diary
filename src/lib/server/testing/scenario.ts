@@ -107,7 +107,7 @@ export function buildScenario(d: Diary) {
 		date: '2026-04-15',
 		details: { Produkt: 'Orchideendünger' }
 	});
-	const [moved] = d.record({
+	const moved = d.record({
 		objects: ['Dendrobium'],
 		type: 'Standortwechsel',
 		category: 'Pflege',

@@ -3,7 +3,7 @@ import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import type { Db } from './db.ts';
 import { chosenKinds } from './eventForm.ts';
-import { createEvents } from './events.ts';
+import { createEvent } from './events.ts';
 import { photoType } from './eventTypes.ts';
 import { learnKinds } from './fields.ts';
 import { FILE_ID, filesExist } from './files.ts';
@@ -52,7 +52,7 @@ export function saveNewObject(
 	const id = createObject(db, input);
 	if (fileIds.length) {
 		const photoDate = String(form.get('photoDate') ?? '');
-		createEvents(db, [id], {
+		createEvent(db, [id], {
 			typeId: photoType(db).id,
 			date: isValidDate(photoDate) ? photoDate : today,
 			note: '',

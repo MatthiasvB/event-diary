@@ -30,9 +30,10 @@ function makeProperty(db: Db, id: number) {
 	transaction(db, () => {
 		db.prepare(
 			`INSERT INTO property_values (object_id, field_id, value, event_id)
-			SELECT e.object_id, d.field_id, d.value, d.event_id
+			SELECT eo.object_id, d.field_id, d.value, d.event_id
 			FROM event_details d JOIN events e ON e.id = d.event_id
-			WHERE d.field_id = ? ORDER BY e.date, e.id`
+			JOIN event_objects eo ON eo.event_id = d.event_id
+			WHERE d.field_id = ? ORDER BY e.date, e.id, eo.object_id`
 		).run(id);
 		db.prepare('DELETE FROM event_details WHERE field_id = ?').run(id);
 		db.prepare("UPDATE fields SET role = 'property' WHERE id = ?").run(id);

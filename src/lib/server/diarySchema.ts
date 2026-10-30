@@ -33,8 +33,32 @@ const FIELDS = `
 
 // A value without event and date is the initial one. A value with a date is a correction,
 // and one with an event changes the property on the event's date.
+const EVENTS = `
+	CREATE TABLE events (
+		id INTEGER PRIMARY KEY,
+		type_id INTEGER NOT NULL REFERENCES event_types(id),
+		date TEXT NOT NULL,
+		note TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+	);
+	CREATE INDEX events_type ON events(type_id, date);
+	CREATE INDEX events_date ON events(date);
+
+	CREATE TABLE event_objects (
+		event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+		PRIMARY KEY (event_id, object_id)
+	);
+	CREATE INDEX event_objects_object ON event_objects(object_id, event_id);
+
+	CREATE TRIGGER events_without_objects AFTER DELETE ON event_objects
+	WHEN NOT EXISTS (SELECT 1 FROM event_objects WHERE event_id = old.event_id)
+	BEGIN
+		DELETE FROM events WHERE id = old.event_id;
+	END;
+`;
+
 const PROPERTY_VALUES = `
-	CREATE UNIQUE INDEX events_id_object ON events(id, object_id);
 	CREATE TABLE property_values (
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
@@ -45,7 +69,7 @@ const PROPERTY_VALUES = `
 		event_id INTEGER,
 		CHECK (event_id IS NULL OR since IS NULL),
 		FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED,
-		FOREIGN KEY (event_id, object_id) REFERENCES events(id, object_id)
+		FOREIGN KEY (event_id, object_id) REFERENCES event_objects(event_id, object_id)
 			ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED
 	);
 	CREATE INDEX property_values_object ON property_values(object_id, field_id);
@@ -95,7 +119,7 @@ const OVERVIEW_COLUMNS = `
 `;
 
 export const DIARY_SCHEMA: Schema = {
-	version: 11,
+	version: 12,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -119,18 +143,7 @@ export const DIARY_SCHEMA: Schema = {
 
 	${EVENT_TYPES}
 
-	CREATE TABLE events (
-		id INTEGER PRIMARY KEY,
-		object_id INTEGER NOT NULL REFERENCES objects(id),
-		type_id INTEGER NOT NULL REFERENCES event_types(id),
-		date TEXT NOT NULL,
-		note TEXT NOT NULL DEFAULT '',
-		batch_id TEXT,
-		created_at TEXT NOT NULL DEFAULT (datetime('now'))
-	);
-	CREATE INDEX events_object ON events(object_id, date);
-	CREATE INDEX events_type ON events(type_id, date);
-	CREATE INDEX events_batch ON events(batch_id);
+	${EVENTS}
 
 	${FIELDS}
 	${PROPERTY_VALUES}
@@ -391,6 +404,79 @@ export const DIARY_SCHEMA: Schema = {
 			AND ty.value IN (SELECT id FROM event_types);
 
 		DROP TABLE settings;
+		`,
+		12: `
+		CREATE TEMP TABLE signatures AS
+		SELECT e.id, e.batch_id, e.type_id || char(30) || e.date || char(30) || e.note || char(30)
+			|| coalesce((SELECT group_concat(field_id || '=' || value, char(31) ORDER BY field_id)
+				FROM event_details WHERE event_id = e.id), '') || char(30)
+			|| coalesce((SELECT group_concat(field_id || '=' || value, char(31) ORDER BY field_id, id)
+				FROM property_values WHERE event_id = e.id), '') || char(30)
+			|| coalesce((SELECT group_concat(file_id, char(31) ORDER BY position, file_id)
+				FROM event_files WHERE event_id = e.id), '') AS signature
+		FROM events e;
+		-- Copies of a batch that are still alike become one event. A copy edited on its own
+		-- stays an event of its own.
+		CREATE TEMP TABLE merged AS
+		SELECT id AS old, CASE WHEN batch_id IS NULL THEN id
+			ELSE min(id) OVER (PARTITION BY batch_id, signature) END AS new
+		FROM temp.signatures;
+
+		CREATE TABLE events_new (
+			id INTEGER PRIMARY KEY,
+			type_id INTEGER NOT NULL REFERENCES event_types(id),
+			date TEXT NOT NULL,
+			note TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+		INSERT INTO events_new (id, type_id, date, note, created_at)
+		SELECT id, type_id, date, note, created_at FROM events
+		WHERE id IN (SELECT new FROM temp.merged);
+
+		CREATE TABLE event_objects (
+			event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+			PRIMARY KEY (event_id, object_id)
+		);
+		INSERT OR IGNORE INTO event_objects (event_id, object_id)
+		SELECT m.new, e.object_id FROM events e JOIN temp.merged m ON m.old = e.id;
+
+		CREATE TABLE property_values_new (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
+			field_id INTEGER NOT NULL,
+			role TEXT NOT NULL DEFAULT 'property' CHECK (role = 'property'),
+			value TEXT NOT NULL,
+			since TEXT,
+			event_id INTEGER,
+			CHECK (event_id IS NULL OR since IS NULL),
+			FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED,
+			FOREIGN KEY (event_id, object_id) REFERENCES event_objects(event_id, object_id)
+				ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED
+		);
+		INSERT INTO property_values_new (id, object_id, field_id, value, since, event_id)
+		SELECT p.id, p.object_id, p.field_id, p.value, p.since, m.new
+		FROM property_values p LEFT JOIN temp.merged m ON m.old = p.event_id;
+
+		DELETE FROM event_details WHERE event_id NOT IN (SELECT new FROM temp.merged);
+		DELETE FROM event_files WHERE event_id NOT IN (SELECT new FROM temp.merged);
+		DROP TABLE property_values;
+		-- Tables that refer to events refer to the new one after this.
+		DROP TABLE events;
+		ALTER TABLE events_new RENAME TO events;
+		ALTER TABLE property_values_new RENAME TO property_values;
+		CREATE INDEX events_type ON events(type_id, date);
+		CREATE INDEX events_date ON events(date);
+		CREATE INDEX event_objects_object ON event_objects(object_id, event_id);
+		CREATE INDEX property_values_object ON property_values(object_id, field_id);
+		CREATE TRIGGER events_without_objects AFTER DELETE ON event_objects
+		WHEN NOT EXISTS (SELECT 1 FROM event_objects WHERE event_id = old.event_id)
+		BEGIN
+			DELETE FROM events WHERE id = old.event_id;
+		END;
+
+		DROP TABLE temp.signatures;
+		DROP TABLE temp.merged;
 		`
 	}
 };

@@ -159,8 +159,7 @@ export const t = {
 		chooseCategory: (name: string) =>
 			`„${name}“ gibt es in mehreren Kategorien. Welche ist gemeint?`,
 		categoryRequired: 'Bitte eine Kategorie wählen.',
-		applyToBatch: (n: number) =>
-			`Änderungen auf alle ${n} Ereignisse dieser Sammelbuchung anwenden`,
+		applyToBatch: (n: number) => `Für alle ${n} Objekte dieser Sammelbuchung übernehmen`,
 		batch: (n: number) => `Sammelbuchung (${n})`,
 		removePhoto: 'Entfernen',
 		noObjects: 'Bitte mindestens ein Objekt wählen.',

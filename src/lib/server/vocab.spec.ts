@@ -4,7 +4,7 @@ import type { Db } from './db.ts';
 import { openDiary } from './diarySchema.ts';
 import {
 	categoryImpact,
-	createEvents,
+	createEvent,
 	deleteCategory,
 	deleteObject,
 	deleteType,
@@ -59,7 +59,7 @@ describe('rename and merge', () => {
 		const type = ensureType(db, 'Umtopfen', {
 			fields: [{ key: 'Gattung', target: 'event', default: 'Catleya' }]
 		});
-		createEvents(db, [1], {
+		createEvent(db, [1], {
 			typeId: type.id,
 			date: '2026-09-01',
 			note: '',
@@ -77,7 +77,7 @@ describe('rename and merge', () => {
 	it('renames keys and keeps both values when an event has both', () => {
 		object(1);
 		const type = ensureType(db, 'Düngen');
-		const [id] = createEvents(db, [1], {
+		const id = createEvent(db, [1], {
 			typeId: type.id,
 			date: '2026-09-01',
 			note: '',
@@ -100,7 +100,7 @@ describe('rename and merge', () => {
 		object(1);
 		const typo = ensureType(db, 'Dügen', { category: 'Pflege' });
 		const right = ensureType(db, 'Düngen', { category: 'Pflege' });
-		const [id] = createEvents(db, [1], {
+		const id = createEvent(db, [1], {
 			typeId: typo.id,
 			date: '2026-09-01',
 			note: '',
@@ -155,7 +155,7 @@ describe('cover photo', () => {
 				.prepare("INSERT INTO files (id, file, mime) VALUES (?, ?, 'image/jpeg')")
 				.run(id, `${id}.jpg`);
 		const event = (date: string, fileIds: string[]) =>
-			createEvents(db, [1], { typeId: type.id, date, note: '', fields: [], fileIds });
+			createEvent(db, [1], { typeId: type.id, date, note: '', fields: [], fileIds });
 
 		expect(getObject(db, 1)?.coverPhotoId).toBeNull();
 		photo('a');
@@ -177,7 +177,7 @@ describe('object attributes from events', () => {
 	it('an event sets an object attribute from its date on, and deleting it restores the old value', () => {
 		object(1, { Standort: 'Ostfenster' });
 		const type = ensureType(db, 'Standortwechsel');
-		const [id] = createEvents(db, [1], {
+		const id = createEvent(db, [1], {
 			typeId: type.id,
 			date: '2026-09-20',
 			note: '',
@@ -201,7 +201,7 @@ describe('object attributes from events', () => {
 		object(1, { Standort: 'Südfenster' });
 		const type = ensureType(db, 'Standortwechsel');
 		const move = (date: string, value: string, initial: InitialChoice) =>
-			createEvents(db, [1], {
+			createEvent(db, [1], {
 				typeId: type.id,
 				date,
 				note: '',
@@ -216,14 +216,14 @@ describe('object attributes from events', () => {
 
 		// An even older recorded change means the value before it is known: nothing removed.
 		object(2, { Standort: 'Ostfenster' });
-		createEvents(db, [2], {
+		createEvent(db, [2], {
 			typeId: type.id,
 			date: '2026-03-01',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Dachboden', target: 'object', initial: KEEP }],
 			fileIds: []
 		});
-		createEvents(db, [2], {
+		createEvent(db, [2], {
 			typeId: type.id,
 			date: '2026-09-24',
 			note: '',
@@ -241,7 +241,7 @@ describe('object attributes from events', () => {
 	it('can set the known value before a backdated change', () => {
 		object(1, { Standort: 'Südfenster' });
 		const type = ensureType(db, 'Standortwechsel');
-		createEvents(db, [1], {
+		createEvent(db, [1], {
 			typeId: type.id,
 			date: '2026-09-24',
 			note: '',
@@ -275,13 +275,13 @@ describe('object attributes from events', () => {
 describe('changes of properties', () => {
 	const type = () => ensureType(db, 'Umtopfen');
 	const repot = (objectId: number, date: string, value: string, initial = KEEP) =>
-		createEvents(db, [objectId], {
+		createEvent(db, [objectId], {
 			typeId: type().id,
 			date,
 			note: '',
 			fields: [{ key: 'Substrat', value, target: 'object', initial }],
 			fileIds: []
-		})[0];
+		});
 
 	it('show the value they replaced', () => {
 		object(1, { Substrat: 'Moos' });
@@ -324,13 +324,13 @@ describe('changes of properties', () => {
 		object(2, { Standort: 'Küche' });
 		const ty = type();
 		const detail = (objectId: number, date: string, value: string) =>
-			createEvents(db, [objectId], {
+			createEvent(db, [objectId], {
 				typeId: ty.id,
 				date,
 				note: '',
 				fields: [{ key: 'Substrat', value, target: 'event' }],
 				fileIds: []
-			})[0];
+			});
 		detail(1, '2026-01-10', 'Moos');
 		const later = detail(1, '2026-05-01', 'Rinde');
 		detail(2, '2026-02-01', 'Erde');
@@ -364,6 +364,7 @@ describe('changes of properties', () => {
 				target: 'object',
 				key: 'Substrat',
 				value: 'Rinde',
+				objectId: 1,
 				replaced: { value: 'Moos', initial: false }
 			}
 		]);
@@ -397,26 +398,26 @@ describe('deleting an object', () => {
 			db.prepare("INSERT INTO files (id, file, mime) VALUES (?, ?, 'image/jpeg')").run(id, id);
 		}
 		const input = { typeId: type.id, note: '', fields: [] };
-		createEvents(db, [1], { ...input, date: '2026-09-01', fileIds: ['own'] });
-		const [, kept] = createEvents(db, [1, 2], {
+		createEvent(db, [1], { ...input, date: '2026-09-01', fileIds: ['own'] });
+		const kept = createEvent(db, [1, 2], {
 			...input,
 			date: '2026-09-02',
 			fileIds: ['shared']
 		});
 
-		expect(objectImpact(db, 1)).toEqual({ events: 2, files: 1 });
+		expect(objectImpact(db, 1)).toEqual({ events: 1, files: 1 });
 		deleteObject(db, 1);
 
 		expect(getObject(db, 1)).toBeUndefined();
-		expect(db.prepare('SELECT count(*) AS n FROM events WHERE object_id = 1').get()).toEqual({
-			n: 0
-		});
+		expect(db.prepare('SELECT count(*) AS n FROM event_objects WHERE object_id = 1').get()).toEqual(
+			{ n: 0 }
+		);
 		expect(
 			db.prepare('SELECT count(*) AS n FROM property_values WHERE object_id = 1').get()
 		).toEqual({
 			n: 0
 		});
-		expect(getEvent(db, kept)?.objectId).toBe(2);
+		expect(getEvent(db, kept)?.objects.map((o) => o.id)).toEqual([2]);
 		expect(getEvent(db, kept)?.files.map((f) => f.id)).toEqual(['shared']);
 		const photos = db
 			.prepare('SELECT id FROM files')
@@ -434,15 +435,15 @@ describe('deleting event types and categories', () => {
 		const water = ensureType(db, 'Gießen', { category: 'Pflege' });
 		const bloom = ensureType(db, 'Blüte', { category: 'Beobachtung' });
 		const input = { note: '', fields: [], fileIds: [] };
-		createEvents(db, [1], {
+		createEvent(db, [1], {
 			...input,
 			typeId: move.id,
 			date: '2026-09-01',
 			fields: [{ key: 'Standort', value: 'Bad', target: 'object', initial: KEEP }],
 			fileIds: ['p']
 		});
-		createEvents(db, [1], { ...input, typeId: water.id, date: '2026-09-02' });
-		const [kept] = createEvents(db, [1], { ...input, typeId: bloom.id, date: '2026-09-03' });
+		createEvent(db, [1], { ...input, typeId: water.id, date: '2026-09-02' });
+		const kept = createEvent(db, [1], { ...input, typeId: bloom.id, date: '2026-09-03' });
 		expect(currentAttrs(db).get(1)).toEqual({ Standort: 'Bad' });
 
 		expect(typeImpact(db, water.id)).toEqual({ events: 1, files: 0 });
@@ -484,7 +485,7 @@ describe('types of the same name in several categories', () => {
 		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
 		const water = ensureType(db, 'Gießen', { category: 'Haus' });
 		const input = { note: '', fields: [], fileIds: [], date: '2026-09-01' };
-		const [moved] = createEvents(db, [1], { ...input, typeId: house.id });
+		const moved = createEvent(db, [1], { ...input, typeId: house.id });
 
 		rename(db, { kind: 'category' }, 'Haus', 'Pflege');
 

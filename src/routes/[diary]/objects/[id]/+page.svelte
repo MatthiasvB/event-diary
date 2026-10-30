@@ -186,7 +186,12 @@
 		</h2>
 		<div class="stack timeline">
 			{#each data.events as event (event.id)}
-				<EventCard {event} coverPhotoId={object.coverPhotoId} canSetCover={canEdit()} />
+				<EventCard
+					{event}
+					objectId={object.id}
+					coverPhotoId={object.coverPhotoId}
+					canSetCover={canEdit()}
+				/>
 			{:else}
 				<p class="muted">{t.objects.noEvents}</p>
 			{/each}

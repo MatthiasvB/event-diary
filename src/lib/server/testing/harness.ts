@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { fieldsFor } from '../../domain/eventFields.ts';
 import { isFirstChange } from '../../domain/propertyHistory.ts';
 import type { FieldKind } from '../../fieldKinds.ts';
 import type { DiaryEvent, ValueCandidate } from '../../types.ts';
 import type { Db } from '../db.ts';
-import { parseEventForm, saveEditedEvent, saveNewEvents, validate } from '../eventForm.ts';
+import { parseEventForm, saveEditedEvent, saveNewEvent, validate } from '../eventForm.ts';
 import {
 	categoryImpact,
 	deleteEvent,
+	deleteObject,
 	lastFieldsByType,
 	listEvents,
 	objectImpact,
@@ -35,6 +37,8 @@ import { rename, vocabulary, type ValueKind } from '../vocab.ts';
 
 /** A plain value keeps the value before the change as it is. `before: null` means not recorded. */
 export type Change = string | { value: string; before: string | null };
+
+type EventRef = { event: DiaryEvent; objectId: number };
 
 /** A name in both `details` and `changes` is sent twice, as the form can send it. */
 export type EventEntry = {
@@ -94,14 +98,14 @@ export class Diary {
 		return row.id;
 	}
 
-	event(object: string, date: string, type: string): number {
-		const event = listEvents(this.db, {
-			objectId: this.objectId(object),
-			from: date,
-			to: date
-		}).find((e) => typeLabel(e.category, e.typeName) === type);
+	/** The event as seen from one of its objects, as the object's timeline links to it. */
+	event(object: string, date: string, type: string): EventRef {
+		const objectId = this.objectId(object);
+		const event = listEvents(this.db, { objectId, from: date, to: date }).find(
+			(e) => typeLabel(e.category, e.typeName) === type
+		);
 		if (!event) throw new Error(`No event ${date} ${type} of ${object}`);
-		return event.id;
+		return { event, objectId };
 	}
 
 	file(name: string, mime = 'image/jpeg') {
@@ -134,17 +138,24 @@ export class Diary {
 		updateObject(this.db, { ...input, id }, this.today);
 	}
 
-	record(entry: EventEntry): number[] {
-		const payload = this.eventForm(entry, false);
-		return saveNewEvents(this.db, payload);
+	record(entry: EventEntry): number {
+		return saveNewEvent(this.db, this.eventForm(entry, null));
 	}
 
-	edit(id: number, entry: EventEntry & { applyToBatch?: boolean }) {
-		saveEditedEvent(this.db, id, this.eventForm(entry, entry.applyToBatch ?? false));
+	/** Like the form: "apply to all" selects all the event's objects. */
+	edit({ event, objectId }: EventRef, entry: EventEntry & { applyToBatch?: boolean }) {
+		const shared = event.objects.length > 1;
+		const objects = entry.applyToBatch ? event.objects.map((o) => o.name) : entry.objects;
+		const only = shared && !entry.applyToBatch ? objectId : null;
+		saveEditedEvent(this.db, event.id, this.eventForm({ ...entry, objects }, only));
 	}
 
 	deleteEvent(id: number) {
 		deleteEvent(this.db, id);
+	}
+
+	delete(object: string) {
+		deleteObject(this.db, this.objectId(object));
 	}
 
 	setInitial(object: string, key: string, value: string) {
@@ -214,7 +225,7 @@ export class Diary {
 		return form;
 	}
 
-	private eventForm(entry: EventEntry, applyToBatch: boolean) {
+	private eventForm(entry: EventEntry, only: number | null) {
 		const kind = (key: string) => entry.kinds?.[key];
 		const fields = [
 			...Object.entries(entry.details ?? {}).map(([key, value]) => ({
@@ -250,7 +261,7 @@ export class Diary {
 				note: entry.note ?? '',
 				fields,
 				files: (entry.files ?? []).map((name) => this.fileId(name)),
-				applyToBatch
+				only
 			})
 		);
 		const payload = parseEventForm(form, this.db);
@@ -283,22 +294,15 @@ export function view(db: Db) {
 		const event = events.find((e) => e.id === id);
 		return event ? `${event.date} ${typeOf(event.typeId)}` : null;
 	};
-	const batch = (e: DiaryEvent) =>
-		e.batchId
-			? events
-					.filter((b) => b.batchId === e.batchId)
-					.map((b) => b.objectName)
-					.sort()
-			: [e.objectName];
-	const showEvent = (e: DiaryEvent) => ({
+	const showEvent = (e: DiaryEvent, objectId: number) => ({
 		event: ref(e.id),
-		objects: batch(e),
+		objects: e.objects.map((o) => o.name).sort(),
 		milestone: e.milestone,
 		note: e.note,
 		details: Object.fromEntries(
 			e.fields.filter((f) => f.target === 'event').map((f) => [f.key, f.value])
 		),
-		changes: e.fields
+		changes: fieldsFor(e, objectId)
 			.filter((f) => f.target === 'object')
 			.map((f) => ({
 				key: f.key,
@@ -347,7 +351,9 @@ export function view(db: Db) {
 						history[key].map((h) => ({ value: h.value, since: h.since, by: ref(h.eventId) }))
 					])
 				),
-				timeline: events.filter((e) => e.objectId === o.id).map(showEvent)
+				timeline: events
+					.filter((e) => e.objects.some((eo) => eo.id === o.id))
+					.map((e) => showEvent(e, o.id))
 			};
 		}),
 		types: types.map((ty) => ({

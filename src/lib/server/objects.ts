@@ -36,9 +36,9 @@ const attrFromRow = ({ id, key, value, since, event_id }: AttrRow): PropertyValu
 		: { id, key, value, since, eventId: event_id };
 
 const FIRST_PHOTO = `(
-	SELECT ef.file_id FROM events e JOIN event_files ef ON ef.event_id = e.id
-	JOIN files f ON f.id = ef.file_id
-	WHERE e.object_id = o.id AND f.mime LIKE 'image/%' ORDER BY e.date, e.id, ef.position LIMIT 1
+	SELECT ef.file_id FROM event_objects eo JOIN events e ON e.id = eo.event_id
+	JOIN event_files ef ON ef.event_id = e.id JOIN files f ON f.id = ef.file_id
+	WHERE eo.object_id = o.id AND f.mime LIKE 'image/%' ORDER BY e.date, e.id, ef.position LIMIT 1
 )`;
 
 // pinCover fixes the cover. The fallback only applies once the pinned photo is deleted.

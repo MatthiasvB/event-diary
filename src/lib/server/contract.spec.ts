@@ -16,18 +16,11 @@ const type = (label: string) => view(d.db).types.find((ty) => ty.type === label)
 describe('editing an event', () => {
 	const fertilize = { type: 'Düngen', date: '2026-03-01', details: { Produkt: 'Blau' } };
 
-	it('changes its whole batch only when asked', () => {
+	it('changes for all its objects when asked, or for one, which then leaves it', () => {
 		d.object('A');
 		d.object('B');
-		d.record({ ...fertilize, objects: ['A', 'B'], note: 'halbe Dosis' });
-
-		d.edit(d.event('A', '2026-03-01', 'Düngen'), {
-			...fertilize,
-			objects: ['A'],
-			note: 'volle Dosis'
-		});
-		expect(timeline('A').map((e) => e.note)).toEqual(['volle Dosis']);
-		expect(timeline('B').map((e) => e.note)).toEqual(['halbe Dosis']);
+		d.object('C');
+		d.record({ ...fertilize, objects: ['A', 'B', 'C'], note: 'halbe Dosis' });
 
 		d.edit(d.event('B', '2026-03-01', 'Düngen'), {
 			...fertilize,
@@ -36,11 +29,39 @@ describe('editing an event', () => {
 			details: { Produkt: 'Rot' },
 			applyToBatch: true
 		});
-		for (const name of ['A', 'B']) {
+		for (const name of ['A', 'B', 'C']) {
 			expect(timeline(name).map((e) => [e.objects, e.note, e.details])).toEqual([
-				[['A', 'B'], 'Rest', { Produkt: 'Rot' }]
+				[['A', 'B', 'C'], 'Rest', { Produkt: 'Rot' }]
 			]);
 		}
+
+		d.edit(d.event('A', '2026-03-01', 'Düngen'), {
+			...fertilize,
+			objects: ['A'],
+			note: 'volle Dosis'
+		});
+		expect(timeline('A').map((e) => [e.objects, e.note])).toEqual([[['A'], 'volle Dosis']]);
+		expect(timeline('B').map((e) => [e.objects, e.note])).toEqual([[['B', 'C'], 'Rest']]);
+		expect(type('Düngen')?.count).toBe(2);
+	});
+
+	it('keeps a change for each of its objects, and drops one with its object', () => {
+		d.object('A', { properties: { Standort: 'Küche' } });
+		d.object('B', { properties: { Standort: 'Flur' } });
+		const move = { type: 'Umzug', date: '2026-05-01', changes: { Standort: 'Bad' } };
+		d.record({ ...move, objects: ['A', 'B'] });
+		expect(timeline('A')[0].changes).toEqual([
+			{ key: 'Standort', value: 'Bad', before: 'Küche', first: true }
+		]);
+		expect(timeline('B')[0].changes).toEqual([
+			{ key: 'Standort', value: 'Bad', before: 'Flur', first: true }
+		]);
+
+		d.record({ objects: ['B'], type: 'Gießen', date: '2026-05-02' });
+		d.delete('B');
+		expect(timeline('A').map((e) => e.objects)).toEqual([['A']]);
+		expect(history('A', 'Standort').map((h) => h.value)).toEqual(['Küche', 'Bad']);
+		expect(type('Gießen')?.count).toBe(0);
 	});
 
 	it('moves to another object with the property it changes', () => {

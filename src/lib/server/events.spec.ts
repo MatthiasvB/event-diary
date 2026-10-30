@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { openDiary } from './diarySchema.ts';
-import { createEvents, listEvents } from './events.ts';
+import { createEvent, listEvents } from './events.ts';
 import { ensureType } from './eventTypes.ts';
 import { createObject } from './objects.ts';
 
@@ -12,7 +12,7 @@ it('searches event type names and notes, ignoring case and umlauts', () => {
 	const log = ensureType(db, 'Log', { category: 'Sonstiges' });
 	const fertilize = ensureType(db, 'Düngen');
 	const add = (object: number, typeId: number, note: string) =>
-		createEvents(db, [object], { typeId, date: '2026-10-26', note, fields: [], fileIds: [] })[0];
+		createEvent(db, [object], { typeId, date: '2026-10-26', note, fields: [], fileIds: [] });
 	const cellar = add(1, log.id, 'Kellerdecke betoniert, Lüftung verlegt');
 	const fed = add(1, fertilize.id, '');
 	const other = add(2, log.id, 'Lüftungsrohr im Bad zersägt');

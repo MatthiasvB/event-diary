@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { t } from '../i18n.ts';
 import { migrateDb, transaction, type DataDirs, type Db } from './db.ts';
 import { DIARY_SCHEMA, openDiary } from './diarySchema.ts';
+import { getEvent } from './events.ts';
 import { findPhotoType, findType, getType } from './eventTypes.ts';
 import { getFieldKinds, getPropertyOrder } from './fields.ts';
 import { migrateAll } from './migrate.ts';
@@ -152,7 +153,9 @@ it('renames plants to objects and photos to files, numbering the objects', async
 		{ id: 1, name: 'Older', cover_photo_id: 'f1' },
 		{ id: 2, name: 'Newer', cover_photo_id: null }
 	]);
-	expect(all(db, 'SELECT id, object_id FROM events')).toEqual([{ id: 5, object_id: 2 }]);
+	expect(all(db, 'SELECT event_id, object_id FROM event_objects')).toEqual([
+		{ event_id: 5, object_id: 2 }
+	]);
 	expect(
 		all(
 			db,
@@ -254,7 +257,11 @@ it('dates changes by their event at version 10, and keeps them with its object',
 		db,
 		'SELECT id, event_id, object_id FROM property_values WHERE event_id IS NOT NULL LIMIT 1'
 	)[0] as { id: number; event_id: number; object_id: number };
-	const other = change.object_id === 1 ? 2 : 1;
+	const { id: other } = all(
+		db,
+		`SELECT id FROM objects
+		WHERE id NOT IN (SELECT object_id FROM event_objects WHERE event_id = ${change.event_id})`
+	)[0] as { id: number };
 	expect(() =>
 		db.exec(`UPDATE property_values SET since = '2026-01-01' WHERE id = ${change.id}`)
 	).toThrow(/CHECK/);
@@ -263,7 +270,10 @@ it('dates changes by their event at version 10, and keeps them with its object',
 			db.exec(`UPDATE property_values SET object_id = ${other} WHERE id = ${change.id}`)
 		)
 	).toThrow(/FOREIGN KEY/);
-	db.exec(`UPDATE events SET object_id = ${other} WHERE id = ${change.event_id}`);
+	db.exec(
+		`UPDATE event_objects SET object_id = ${other}
+		WHERE event_id = ${change.event_id} AND object_id = ${change.object_id}`
+	);
 	expect(all(db, `SELECT object_id FROM property_values WHERE id = ${change.id}`)).toEqual([
 		{ object_id: other }
 	]);
@@ -295,13 +305,37 @@ it('moves categories, the photo type and the overview columns into tables at ver
 	db.close();
 });
 
+it('makes the alike copies of a batch one event at version 12, and needs an object', async () => {
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diary.sqlite'),
+		fixture(11) +
+			`INSERT INTO events (id, object_id, type_id, date, note, batch_id) VALUES
+				(100, 1, 1, '2026-06-01', 'gleich', 'b'), (101, 2, 1, '2026-06-01', 'gleich', 'b'),
+				(102, 3, 1, '2026-06-01', 'anders', 'b');`
+	);
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	const objectsOf = (id: number) =>
+		getEvent(db, id)
+			?.objects.map((o) => o.id)
+			.sort();
+	expect(objectsOf(100)).toEqual([1, 2]);
+	expect(getEvent(db, 101)).toBeUndefined();
+	expect(objectsOf(102)).toEqual([3]);
+
+	db.exec('DELETE FROM event_objects WHERE event_id = 102');
+	expect(getEvent(db, 102)).toBeUndefined();
+	db.close();
+});
+
 it('keeps details and properties apart, and units for numbers', () => {
 	const db = openDiary(':memory:');
 	db.exec(`
 		INSERT INTO fields (id, name, role) VALUES (1, 'Standort', 'property');
 		INSERT INTO objects (id, name) VALUES (1, 'A');
 		INSERT INTO event_types (id, name) VALUES (1, 'Umzug');
-		INSERT INTO events (id, object_id, type_id, date) VALUES (1, 1, 1, '2026-05-01');`);
+		INSERT INTO events (id, type_id, date) VALUES (1, 1, '2026-05-01');
+		INSERT INTO event_objects (event_id, object_id) VALUES (1, 1);`);
 	const detail = "INSERT INTO event_details (event_id, field_id, value) VALUES (1, 1, 'Bad')";
 	expect(() => transaction(db, () => db.exec(detail))).toThrow(/FOREIGN KEY/);
 	expect(() => db.exec("UPDATE fields SET unit = 'cm' WHERE id = 1")).toThrow(/CHECK/);

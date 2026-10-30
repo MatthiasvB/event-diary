@@ -40,10 +40,10 @@ export const load: PageServerLoad = ({ params }) => {
 };
 
 export const actions: Actions = {
-	deleteEvent: async ({ request }) => {
+	deleteEvent: async ({ request, params }) => {
 		const id = Number((await request.formData()).get('id'));
 		if (!Number.isInteger(id) || id <= 0) return fail(400);
-		deleteEvent(db(), id);
+		deleteEvent(db(), id, objectOr404(params.id).id);
 	},
 	cover: async ({ request, params }) => {
 		const photo = String((await request.formData()).get('photo') ?? '');

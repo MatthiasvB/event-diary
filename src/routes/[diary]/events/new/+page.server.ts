@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
-import { parseEventForm, saveNewEvents, validate } from '#lib/server/eventForm.ts';
-import { batchObjectIds, getEvent, lastFieldsByType } from '#lib/server/events.ts';
+import { parseEventForm, saveNewEvent, validate } from '#lib/server/eventForm.ts';
+import { getEvent, lastFieldsByType } from '#lib/server/events.ts';
 import { photoType } from '#lib/server/eventTypes.ts';
 import { objectOptions } from '#lib/server/objectOptions.ts';
 import { allHistories } from '#lib/server/objects.ts';
@@ -9,6 +9,7 @@ import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import type { EventFile } from '#lib/files.ts';
 import type { RecordedField } from '#lib/types.ts';
+import { fieldsFor } from '#lib/domain/eventFields.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -33,14 +34,13 @@ export const load: PageServerLoad = ({ url }) => {
 
 	const from = getEvent(d, Number(url.searchParams.get('from')));
 	if (from) {
-		const objectIds = from.batchId ? batchObjectIds(d, from.batchId) : [from.objectId];
 		initial = {
 			...initial,
-			objectIds,
+			objectIds: from.objects.map((o) => o.id),
 			typeName: from.typeName,
 			category: from.category,
 			note: from.note,
-			fields: from.fields
+			fields: fieldsFor(from, null)
 		};
 	}
 
@@ -63,9 +63,9 @@ export const actions: Actions = {
 		const error = validate(d, payload);
 		if (error) return fail(400, { error });
 
-		const ids = saveNewEvents(d, payload);
+		saveNewEvent(d, payload);
 		if (payload.objectIds.length === 1)
 			redirect(303, `/${params.diary}/objects/${payload.objectIds[0]}`);
-		redirect(303, `/${params.diary}/events?saved=${ids.length}`);
+		redirect(303, `/${params.diary}/events?saved=1`);
 	}
 };

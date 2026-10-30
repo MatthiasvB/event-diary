@@ -21,7 +21,13 @@ export const entry = (target: FieldTarget, key: string, value: string): FieldEnt
 export type Replaced = { value: string; initial: boolean } | null;
 
 export type EventDetail = { target: 'event'; key: string; value: string };
-export type PropertyChange = { target: 'object'; key: string; value: string; replaced: Replaced };
+export type PropertyChange = {
+	target: 'object';
+	key: string;
+	value: string;
+	objectId: number;
+	replaced: Replaced;
+};
 export type RecordedField = EventDetail | PropertyChange;
 
 export type FieldTemplate = { key: string; target: FieldTarget; default?: string };
@@ -51,18 +57,18 @@ export type PropertyValue = { id: number; key: string; value: string } & (
 	{ since: null; eventId: null } | { since: string; eventId: number | null }
 );
 
+export type EventObject = { id: number; name: string };
+
+/** `objects` has at least one, in the order of their names. */
 export type DiaryEvent = {
 	id: number;
-	objectId: number;
-	objectName: string;
+	objects: EventObject[];
 	typeId: number;
 	typeName: string;
 	category: string | null;
 	milestone: boolean;
 	date: string;
 	note: string;
-	batchId: string | null;
-	batchSize: number;
 	fields: RecordedField[];
 	files: EventFile[];
 };

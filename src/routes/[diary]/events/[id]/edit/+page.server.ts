@@ -6,6 +6,8 @@ import { objectOptions } from '#lib/server/objectOptions.ts';
 import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
+import { fieldsFor } from '#lib/domain/eventFields.ts';
+import type { DiaryEvent } from '#lib/types.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 function eventOr404(id: string) {
@@ -14,22 +16,30 @@ function eventOr404(id: string) {
 	return event;
 }
 
-export const load: PageServerLoad = ({ params }) => {
+/** The object whose part of a shared event is edited, as its timeline links here. */
+function partOf(event: DiaryEvent, object: unknown): number | null {
+	const id = Number(object);
+	return event.objects.length > 1 && event.objects.some((o) => o.id === id) ? id : null;
+}
+
+export const load: PageServerLoad = ({ params, url }) => {
 	const d = db();
 	const event = eventOr404(params.id);
+	const part = partOf(event, url.searchParams.get('object'));
 	return {
 		event,
+		part,
 		objects: objectOptions(d),
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
 		histories: allHistories(d),
 		initial: {
-			objectIds: [event.objectId],
+			objectIds: part === null ? event.objects.map((o) => o.id) : [part],
 			typeName: event.typeName,
 			category: event.category,
 			date: event.date,
 			note: event.note,
-			fields: event.fields,
+			fields: fieldsFor(event, part),
 			files: event.files
 		}
 	};
@@ -46,10 +56,11 @@ export const actions: Actions = {
 		saveEditedEvent(d, event.id, payload);
 		redirect(303, `/${params.diary}/objects/${payload.objectIds[0]}`);
 	},
-	delete: ({ params }) => {
+	delete: async ({ request, params }) => {
 		const d = db();
 		const event = eventOr404(params.id);
-		deleteEvent(d, event.id);
-		redirect(303, `/${params.diary}/objects/${event.objectId}`);
+		const part = partOf(event, (await request.formData()).get('object'));
+		deleteEvent(d, event.id, part);
+		redirect(303, `/${params.diary}/objects/${part ?? event.objects[0].id}`);
 	}
 };

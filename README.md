@@ -18,8 +18,10 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   The columns are chosen under _Mehr → Einstellungen_.
 - **Erfassen (+)**: the main flow. Choose object(s), type or choose the event type, add
   fields, a note, photos, videos and other files, then save. Choosing a type fills in its
-  usual fields and shows its hint. Several objects at once create a _batch_ that can later be
-  corrected in one go.
+  usual fields and shows its hint. Several objects at once create one event for all of them
+  (_Sammelbuchung_). Editing it from one object's timeline changes it for that object only,
+  which then gets an event of its own, unless _Für alle … übernehmen_ is checked. Deleting it
+  there removes only that object, and deleting an object keeps the events it shares.
 - **Attachments**: photos (thumbnails, viewer, cover image), videos (played in the
   browser's own player, with seeking) and any other files such as PDFs, which are listed by
   name and can be downloaded. PDFs and plain text can also be opened in the browser. Files

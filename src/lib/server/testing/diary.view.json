@@ -18,7 +18,7 @@
 				]
 			},
 			"impact": {
-				"events": 5,
+				"events": 4,
 				"files": 0
 			},
 			"properties": {
@@ -151,7 +151,7 @@
 				]
 			},
 			"impact": {
-				"events": 3,
+				"events": 2,
 				"files": 0
 			},
 			"properties": {
@@ -289,7 +289,7 @@
 				]
 			},
 			"impact": {
-				"events": 5,
+				"events": 4,
 				"files": 5
 			},
 			"properties": {
@@ -454,10 +454,10 @@
 					"target": "event"
 				}
 			],
-			"count": 5,
+			"count": 3,
 			"last": "2026-04-15",
 			"impact": {
-				"events": 5,
+				"events": 3,
 				"files": 0
 			}
 		},
@@ -553,7 +553,7 @@
 			"files": 0
 		},
 		"Pflege": {
-			"events": 11,
+			"events": 9,
 			"files": 2
 		},
 		"Sonstiges": {
@@ -651,7 +651,7 @@
 			},
 			{
 				"value": "Pflege",
-				"count": 11,
+				"count": 9,
 				"last": "2026-05-03"
 			},
 			{
@@ -664,18 +664,18 @@
 			"event": [
 				{
 					"value": "Menge",
-					"count": 4,
+					"count": 2,
 					"last": "2026-04-01",
 					"byType": {
-						"Pflege/Düngen": 4
+						"Pflege/Düngen": 2
 					}
 				},
 				{
 					"value": "Produkt",
-					"count": 5,
+					"count": 3,
 					"last": "2026-04-15",
 					"byType": {
-						"Pflege/Düngen": 5
+						"Pflege/Düngen": 3
 					}
 				},
 				{
@@ -748,20 +748,20 @@
 				},
 				{
 					"value": "2.5",
-					"count": 3,
+					"count": 1,
 					"last": "2026-03-01",
 					"byType": {
-						"Pflege/Düngen": 3
+						"Pflege/Düngen": 1
 					}
 				}
 			],
 			"Produkt": [
 				{
 					"value": "Orchideendünger",
-					"count": 5,
+					"count": 3,
 					"last": "2026-04-15",
 					"byType": {
-						"Pflege/Düngen": 5
+						"Pflege/Düngen": 3
 					}
 				}
 			],

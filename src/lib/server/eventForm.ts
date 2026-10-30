@@ -3,7 +3,7 @@ import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import { KEEP, type FieldEntry, type InitialChoice } from '../types.ts';
 import type { Db } from './db.ts';
-import { createEvents, updateEvent } from './events.ts';
+import { createEvent, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
 import { learnKinds, propertyKeys, type ChosenKind } from './fields.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
@@ -17,7 +17,8 @@ export type EventPayload = {
 	note: string;
 	fields: FieldEntry[];
 	files: string[];
-	applyToBatch: boolean;
+	/** On an event of several objects: the one whose part alone is edited. */
+	only: number | null;
 };
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
@@ -63,7 +64,7 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			return [{ target: 'object', key, value, initial: parseInitial(f?.initial, kind) }];
 		}),
 		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),
-		applyToBatch: raw.applyToBatch === true
+		only: Number.isInteger(raw.only) && Number(raw.only) > 0 ? Number(raw.only) : null
 	};
 	return payload;
 }
@@ -82,18 +83,13 @@ function resolveType(db: Db, p: EventPayload) {
 	return ensureType(db, p.typeName, { category: p.category, milestone: p.milestone });
 }
 
-export function saveNewEvents(db: Db, p: EventPayload): number[] {
+export function saveNewEvent(db: Db, p: EventPayload): number {
 	const type = resolveType(db, p);
-	return createEvents(db, p.objectIds, { ...p, typeId: type.id, fileIds: p.files });
+	return createEvent(db, p.objectIds, { ...p, typeId: type.id, fileIds: p.files });
 }
 
 export function saveEditedEvent(db: Db, id: number, p: EventPayload) {
 	const type = resolveType(db, p);
-	const orphans = updateEvent(
-		db,
-		id,
-		{ ...p, objectId: p.objectIds[0], typeId: type.id, fileIds: p.files },
-		p.applyToBatch
-	);
+	const orphans = updateEvent(db, id, { ...p, typeId: type.id, fileIds: p.files }, p.only);
 	deleteFiles(db, orphans);
 }
