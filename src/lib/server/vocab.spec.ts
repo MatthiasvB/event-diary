@@ -24,14 +24,15 @@ import {
 	setInitialValue,
 	updateObject
 } from './objects.ts';
-import { getFieldKinds, learnKinds, setFieldKind } from './fieldKinds.ts';
 import {
-	getOverviewColumns,
+	getFieldKinds,
 	getPropertyOrder,
-	setOverviewColumns,
+	learnKinds,
+	setFieldKind,
 	setPropertyOrder,
 	sortProperties
-} from './settings.ts';
+} from './fields.ts';
+import { getOverviewColumns, setOverviewColumns } from './settings.ts';
 import { rename, vocabulary } from './vocab.ts';
 
 let db: Db;
@@ -352,7 +353,7 @@ describe('changes of properties', () => {
 				firstChange: false
 			}
 		]);
-		expect(db.prepare('SELECT count(*) AS n FROM event_attrs').get()).toEqual({ n: 0 });
+		expect(db.prepare('SELECT count(*) AS n FROM event_details').get()).toEqual({ n: 0 });
 		expect(getType(db, ty.id)?.fields).toEqual([{ key: 'Substrat', target: 'object' }]);
 
 		expect(vocabulary(db).keys.event).toEqual([]);
@@ -483,6 +484,7 @@ describe('types of the same name in several categories', () => {
 
 describe('field kinds', () => {
 	it('stay with a field name when it is renamed, and plain text is not stored', () => {
+		object(1, { Hoehe: '12', Notiz: 'x', Breite: '2026-01-01' });
 		setFieldKind(db, 'Hoehe', { kind: 'number', unit: 'cm' });
 		setFieldKind(db, 'Notiz', { kind: 'text', unit: 'x' });
 		rename(db, { kind: 'key' }, 'Hoehe', 'Höhe');
@@ -496,17 +498,22 @@ describe('field kinds', () => {
 
 describe('kinds chosen for new names', () => {
 	it('apply only to names that are neither used nor typed yet', () => {
-		object(1, { Standort: 'Küche' });
+		object(1, { Standort: 'Küche', 'Erworben am': '2025-01-01' });
 		ensureType(db, 'Umtopfen', { fields: [{ key: 'Substrat', target: 'event' }] });
 		setFieldKind(db, 'Erworben am', { kind: 'date', unit: '' });
 
-		const kinds = learnKinds(db, {
-			Höhe: { kind: 'number', unit: 'cm' },
-			Standort: { kind: 'date', unit: '' },
-			Substrat: { kind: 'number', unit: 'l' },
-			'Erworben am': { kind: 'number', unit: '' },
-			Notiz: { kind: 'text', unit: '' }
-		});
+		const kinds = learnKinds(
+			db,
+			(
+				[
+					['Höhe', { kind: 'number', unit: 'cm' }],
+					['Standort', { kind: 'date', unit: '' }],
+					['Substrat', { kind: 'number', unit: 'l' }],
+					['Erworben am', { kind: 'number', unit: '' }],
+					['Notiz', { kind: 'text', unit: '' }]
+				] as const
+			).map(([name, kind]) => ({ name, role: 'detail', kind }))
+		);
 
 		expect(kinds).toEqual({
 			'Erworben am': { kind: 'date', unit: '' },
@@ -519,6 +526,7 @@ describe('kinds chosen for new names', () => {
 describe('property order', () => {
 	it('puts arranged names first, the others alphabetically, and follows renames', () => {
 		const keys = ['Substrat', 'Standort', 'Erworben am', 'Art'];
+		object(1, Object.fromEntries(keys.map((key) => [key, 'x'])));
 		expect(sortProperties(db, keys)).toEqual(['Art', 'Erworben am', 'Standort', 'Substrat']);
 		setPropertyOrder(db, ['Standort', 'Erworben am', 'Standort', '']);
 		expect(getPropertyOrder(db)).toEqual(['Standort', 'Erworben am']);

@@ -3,7 +3,7 @@ import { db } from '#lib/server/diary.ts';
 import { parseObjectForm } from '#lib/server/objectForm.ts';
 import { deleteObject, objectImpact } from '#lib/server/events.ts';
 import { currentAttrs, getObject, updateObject } from '#lib/server/objects.ts';
-import { sortProperties } from '#lib/server/settings.ts';
+import { sortProperties } from '#lib/server/fields.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';

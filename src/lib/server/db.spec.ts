@@ -4,9 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { migrateDb, type DataDirs, type Db } from './db.ts';
+import { migrateDb, transaction, type DataDirs, type Db } from './db.ts';
 import { DIARY_SCHEMA, openDiary } from './diarySchema.ts';
+import { findType, getType } from './eventTypes.ts';
+import { getFieldKinds, getPropertyOrder } from './fields.ts';
 import { migrateAll } from './migrate.ts';
+import { attrHistory } from './objects.ts';
 import { diaryFile, openRegistry, REGISTRY_SCHEMA, registryFile } from './registry.ts';
 
 // A diary at version 5.
@@ -148,15 +151,17 @@ it('renames plants to objects and photos to files, numbering the objects', async
 		{ id: 2, name: 'Newer', cover_photo_id: null }
 	]);
 	expect(all(db, 'SELECT id, object_id FROM events')).toEqual([{ id: 5, object_id: 2 }]);
-	expect(all(db, 'SELECT object_id, key, event_id FROM object_attrs')).toEqual([
-		{ object_id: 2, key: 'Standort', event_id: 5 }
-	]);
+	expect(
+		all(
+			db,
+			`SELECT a.object_id, f.name AS key, a.event_id
+			FROM object_attrs a JOIN fields f ON f.id = a.field_id`
+		)
+	).toEqual([{ object_id: 2, key: 'Standort', event_id: 5 }]);
 	expect(all(db, 'SELECT event_id, file_id FROM event_files')).toEqual([
 		{ event_id: 5, file_id: 'f1' }
 	]);
-	expect(all(db, 'SELECT fields FROM event_types')).toEqual([
-		{ fields: '[{"key":"Standort","target":"object"}]' }
-	]);
+	expect(getType(db, 3)?.fields).toEqual([{ key: 'Standort', target: 'object' }]);
 	// References still hold: deleting the event takes the property it set along.
 	db.prepare('DELETE FROM events WHERE id = 5').run();
 	expect(all(db, 'SELECT * FROM object_attrs')).toEqual([]);
@@ -174,38 +179,77 @@ it('renames the diary type in the registry', async () => {
 	reg.close();
 });
 
-it('measures old images and turns details into properties at version 8', async () => {
-	const file = path.join(dirs.dbDir, 'diary.sqlite');
-	const db = openDiary(file);
-	db.exec(`
-		INSERT INTO files (id, file, mime) VALUES ('a', 'a.jpg', 'image/jpeg'),
-			('gone', 'gone.jpg', 'image/jpeg'), ('doc', 'doc.pdf', 'application/pdf');
-		INSERT INTO objects (id, name) VALUES (1, 'A');
-		INSERT INTO event_types (id, name, fields) VALUES (1, 'Umzug', '[{"key":"Standort","target":"event"}]');
-		INSERT INTO events (id, object_id, type_id, date) VALUES (1, 1, 1, '2026-05-01');
-		INSERT INTO event_attrs (event_id, key, value) VALUES (1, 'Standort', 'Bad');
-		INSERT INTO object_attrs (object_id, key, value) VALUES (1, 'Standort', 'Küche');
-		PRAGMA user_version = 7;`);
-	db.close();
+const fixture = (version: number) =>
+	fs.readFileSync(path.join(import.meta.dirname, 'testing', `diary-v${version}.sql`), 'utf8');
+
+it('measures old images at version 8', async () => {
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diary.sqlite'),
+		fixture(7) +
+			`INSERT INTO files (id, file, mime) VALUES ('a', 'a.jpg', 'image/jpeg'),
+				('gone', 'gone.jpg', 'image/jpeg'), ('doc', 'doc.pdf', 'application/pdf');`
+	);
 	fs.mkdirSync(dirs.photosDir);
 	execFileSync('vips', ['black', path.join(dirs.photosDir, 'a.jpg'), '40', '20']);
 
 	await migrateDb(file, DIARY_SCHEMA, dirs);
-	const migrated = openDiary(file);
-	expect(all(migrated, 'SELECT id, width, height FROM files ORDER BY id')).toEqual([
+	const db = openDiary(file);
+	expect(
+		all(db, "SELECT id, width, height FROM files WHERE id IN ('a', 'doc', 'gone') ORDER BY id")
+	).toEqual([
 		{ id: 'a', width: 40, height: 20 },
 		{ id: 'doc', width: null, height: null },
 		{ id: 'gone', width: 0, height: 0 }
 	]);
-	expect(all(migrated, 'SELECT value, since, event_id FROM object_attrs ORDER BY id')).toEqual([
-		{ value: 'Küche', since: null, event_id: null },
-		{ value: 'Bad', since: '2026-05-01', event_id: 1 }
+	db.close();
+});
+
+it('gives every field name one field with its role, kind and place at version 9', async () => {
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diary.sqlite'),
+		fixture(8) +
+			`UPDATE event_types SET fields = '[{"key":"Topf","target":"object","default":"Ton"},'
+				|| '{"key":"Topf","target":"event"}]' WHERE name = 'Kontrolle' AND category = 'Haus';
+			INSERT INTO event_attrs (event_id, key, value)
+				SELECT id, 'Topf', 'Beton' FROM events WHERE note = 'Kellerdecke trocken';
+			INSERT INTO field_kinds (key, kind, unit) VALUES ('Höhe', 'number', '');
+			UPDATE settings SET value = '["Produkt","Standort"]' WHERE key = 'propertyOrder';`
+	);
+
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	// A template set it on the object, so it is a property, and the detail is its first change.
+	expect(attrHistory(db, 4).Topf).toEqual([
+		expect.objectContaining({ value: 'Beton', since: '2026-05-02' })
 	]);
-	expect(all(migrated, 'SELECT * FROM event_attrs')).toEqual([]);
-	expect(all(migrated, 'SELECT fields FROM event_types')).toEqual([
-		{ fields: '[{"key":"Standort","target":"object"}]' }
+	expect(findType(db, 'Kontrolle', 'Haus')?.fields).toEqual([
+		{ key: 'Topf', target: 'object', default: 'Ton' }
 	]);
-	migrated.close();
+	expect(getFieldKinds(db).Höhe).toEqual({ kind: 'number', unit: '' });
+	expect(getPropertyOrder(db)).toEqual(['Standort']);
+	expect(
+		all(
+			db,
+			`SELECT name FROM sqlite_master
+			WHERE name IN ('event_attrs', 'field_kinds', 'object_attrs_v8')`
+		)
+	).toEqual([]);
+	db.close();
+});
+
+it('keeps details and properties apart, and units for numbers', () => {
+	const db = openDiary(':memory:');
+	db.exec(`
+		INSERT INTO fields (id, name, role) VALUES (1, 'Standort', 'property');
+		INSERT INTO objects (id, name) VALUES (1, 'A');
+		INSERT INTO event_types (id, name) VALUES (1, 'Umzug');
+		INSERT INTO events (id, object_id, type_id, date) VALUES (1, 1, 1, '2026-05-01');`);
+	const detail = "INSERT INTO event_details (event_id, field_id, value) VALUES (1, 1, 'Bad')";
+	expect(() => transaction(db, () => db.exec(detail))).toThrow(/FOREIGN KEY/);
+	expect(() => db.exec("UPDATE fields SET unit = 'cm' WHERE id = 1")).toThrow(/CHECK/);
+	expect(() => db.exec("UPDATE fields SET role = 'detail', position = 0 WHERE id = 1")).toThrow(
+		/CHECK/
+	);
 });
 
 it('migrates the registry and every diary when the app starts, and keeps copies', async () => {

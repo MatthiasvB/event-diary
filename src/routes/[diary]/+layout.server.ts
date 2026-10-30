@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { currentDiary, db } from '#lib/server/diary.ts';
-import { getFieldKinds } from '#lib/server/fieldKinds.ts';
+import { getFieldKinds } from '#lib/server/fields.ts';
 import { FIELD_KINDS_DATA } from '#lib/fieldKinds.ts';
 import { t } from '#lib/i18n.ts';
 import type { LayoutServerLoad } from './$types';

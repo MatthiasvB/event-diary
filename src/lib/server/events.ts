@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { EventFile } from '../files.ts';
-import type { DiaryEvent, Field, FieldTemplate } from '../types.ts';
+import type { DiaryEvent, Field } from '../types.ts';
 import { transaction, type Db } from './db.ts';
-import { getType } from './eventTypes.ts';
+import { roleOf, useField } from './fields.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
-import { forgetInitialValue, pinCover, promoteToProperties, setInitialValue } from './objects.ts';
+import { forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
 
 type Row = {
 	id: number;
@@ -89,7 +89,8 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 
 	const eventAttrs = db
 		.prepare(
-			`SELECT event_id, key, value FROM event_attrs WHERE event_id IN (${placeholders}) ORDER BY rowid`
+			`SELECT d.event_id, f.name AS key, d.value FROM event_details d JOIN fields f ON f.id = d.field_id
+			WHERE d.event_id IN (${placeholders}) ORDER BY d.rowid`
 		)
 		.all(...ids) as { event_id: number; key: string; value: string }[];
 	for (const a of eventAttrs)
@@ -98,12 +99,12 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 	const objectAttrs = db
 		.prepare(
 			`SELECT * FROM (
-				SELECT id, event_id, key, value,
-					lag(id) OVER w AS before_id, lag(value) OVER w AS before,
-					lag(since) OVER w AS before_since
-				FROM object_attrs
-				WHERE object_id IN (SELECT object_id FROM events WHERE id IN (${placeholders}))
-				WINDOW w AS (PARTITION BY object_id, key ORDER BY coalesce(since, ''), id)
+				SELECT a.id, a.event_id, f.name AS key, a.value,
+					lag(a.id) OVER w AS before_id, lag(a.value) OVER w AS before,
+					lag(a.since) OVER w AS before_since
+				FROM object_attrs a JOIN fields f ON f.id = a.field_id
+				WHERE a.object_id IN (SELECT object_id FROM events WHERE id IN (${placeholders}))
+				WINDOW w AS (PARTITION BY a.object_id, a.field_id ORDER BY coalesce(a.since, ''), a.id)
 			) WHERE event_id IN (${placeholders}) ORDER BY id`
 		)
 		.all(...ids, ...ids) as {
@@ -164,24 +165,25 @@ export type EventInput = {
 };
 
 function writeDetails(db: Db, eventId: number, objectId: number, input: EventInput) {
-	db.prepare('DELETE FROM event_attrs WHERE event_id = ?').run(eventId);
+	db.prepare('DELETE FROM event_details WHERE event_id = ?').run(eventId);
 	db.prepare('DELETE FROM object_attrs WHERE event_id = ?').run(eventId);
 	db.prepare('DELETE FROM event_files WHERE event_id = ?').run(eventId);
-	const eventAttr = db.prepare(
-		'INSERT OR REPLACE INTO event_attrs (event_id, key, value) VALUES (?, ?, ?)'
+	const detail = db.prepare(
+		'INSERT OR REPLACE INTO event_details (event_id, field_id, value) VALUES (?, ?, ?)'
 	);
-	const objectAttr = db.prepare(
-		'INSERT INTO object_attrs (object_id, key, value, since, event_id) VALUES (?, ?, ?, ?, ?)'
+	const value = db.prepare(
+		'INSERT INTO object_attrs (object_id, field_id, value, since, event_id) VALUES (?, ?, ?, ?, ?)'
 	);
 	for (const f of input.fields) {
 		if (!f.key || !f.value) continue;
-		if (f.target === 'object') {
-			objectAttr.run(objectId, f.key, f.value, input.date, eventId);
+		const field = useField(db, f.key, roleOf(f.target));
+		if (field.role === 'property') {
+			value.run(objectId, field.id, f.value, input.date, eventId);
 			const change = { date: input.date, eventId };
 			if (f.previous === null) forgetInitialValue(db, objectId, f.key, change);
 			else if (f.previous) setInitialValue(db, objectId, f.key, f.previous, change);
 		} else {
-			eventAttr.run(eventId, f.key, f.value);
+			detail.run(eventId, field.id, f.value);
 		}
 	}
 	const photo = db.prepare(
@@ -192,17 +194,12 @@ function writeDetails(db: Db, eventId: number, objectId: number, input: EventInp
 }
 
 function learnFields(db: Db, typeId: number, fields: Field[]) {
-	const type = getType(db, typeId);
-	if (!type) return;
-	const known = new Set(type.fields.map((f) => `${f.target}:${f.key}`));
-	const learned: FieldTemplate[] = fields
-		.filter((f) => f.key && !known.has(`${f.target}:${f.key}`))
-		.map((f) => ({ key: f.key, target: f.target }));
-	if (!learned.length) return;
-	db.prepare('UPDATE event_types SET fields = ? WHERE id = ?').run(
-		JSON.stringify([...type.fields, ...learned]),
-		typeId
+	const learn = db.prepare(
+		`INSERT OR IGNORE INTO event_type_fields (type_id, field_id, position)
+		SELECT ?1, id, (SELECT coalesce(max(position) + 1, 0) FROM event_type_fields WHERE type_id = ?1)
+		FROM fields WHERE name = ?2`
 	);
+	for (const f of fields) if (f.key) learn.run(typeId, f.key);
 }
 
 export function createEvents(db: Db, objectIds: number[], input: EventInput): number[] {
@@ -219,7 +216,6 @@ export function createEvents(db: Db, objectIds: number[], input: EventInput): nu
 			return id;
 		});
 		learnFields(db, input.typeId, input.fields);
-		promoteToProperties(db);
 		return ids;
 	});
 }
@@ -254,7 +250,6 @@ export function updateEvent(
 			db.prepare('UPDATE events SET object_id = ? WHERE id = ?').run(input.objectId, id);
 		}
 		learnFields(db, input.typeId, input.fields);
-		promoteToProperties(db);
 		return orphaned(db, before);
 	});
 }

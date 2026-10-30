@@ -1,5 +1,6 @@
-import type { DiaryObject, FieldTemplate, ObjectAttr } from '../types.ts';
+import type { DiaryObject, ObjectAttr } from '../types.ts';
 import { transaction, type Db } from './db.ts';
+import { useField } from './fields.ts';
 
 type Row = {
 	id: number;
@@ -57,7 +58,9 @@ export function pinCover(db: Db, objectId: number) {
 	).run(objectId);
 }
 
-const HISTORY_ORDER = "coalesce(since, '') , id";
+const ATTRS = `SELECT a.id, a.object_id, f.name AS key, a.value, a.since, a.event_id
+	FROM object_attrs a JOIN fields f ON f.id = a.field_id`;
+const HISTORY_ORDER = "coalesce(a.since, ''), a.id";
 
 export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, string> })[] {
 	const objects = (db.prepare(`${SELECT_OBJECT} ORDER BY x.name`).all() as Row[]).map(fromRow);
@@ -66,9 +69,7 @@ export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, stri
 }
 
 export function currentAttrs(db: Db): Map<number, Record<string, string>> {
-	const rows = db
-		.prepare(`SELECT * FROM object_attrs ORDER BY ${HISTORY_ORDER}`)
-		.all() as AttrRow[];
+	const rows = db.prepare(`${ATTRS} ORDER BY ${HISTORY_ORDER}`).all() as AttrRow[];
 	const result = new Map<number, Record<string, string>>();
 	for (const r of rows) {
 		const attrs = result.get(r.object_id) ?? {};
@@ -85,7 +86,7 @@ export function getObject(db: Db, id: number): DiaryObject | undefined {
 
 export function attrHistory(db: Db, objectId: number): Record<string, ObjectAttr[]> {
 	const rows = db
-		.prepare(`SELECT * FROM object_attrs WHERE object_id = ? ORDER BY ${HISTORY_ORDER}`)
+		.prepare(`${ATTRS} WHERE a.object_id = ? ORDER BY ${HISTORY_ORDER}`)
 		.all(objectId) as AttrRow[];
 	const result: Record<string, ObjectAttr[]> = {};
 	for (const r of rows) (result[r.key] ??= []).push(attrFromRow(r));
@@ -107,9 +108,12 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 				.prepare('INSERT INTO objects (name, active, notes) VALUES (?, ?, ?)')
 				.run(input.name, input.active ? 1 : 0, input.notes).lastInsertRowid
 		);
-		const insert = db.prepare('INSERT INTO object_attrs (object_id, key, value) VALUES (?, ?, ?)');
-		for (const a of input.attrs) if (a.value) insert.run(id, a.key, a.value);
-		promoteToProperties(db);
+		const insert = db.prepare(
+			'INSERT INTO object_attrs (object_id, field_id, value) VALUES (?, ?, ?)'
+		);
+		for (const a of input.attrs) {
+			if (a.value) insert.run(id, useField(db, a.key, 'property').id, a.value);
+		}
 		return id;
 	});
 }
@@ -128,10 +132,7 @@ export function updateObject(db: Db, input: ObjectInput, today: string) {
 		);
 		// A name that was an event detail brings its values from past events along first, so
 		// the value entered here applies from today on (unless it is the same).
-		promoteToProperties(
-			db,
-			input.attrs.filter((a) => a.value).map((a) => a.key)
-		);
+		for (const a of input.attrs) if (a.value) useField(db, a.key, 'property');
 		const history = attrHistory(db, input.id);
 		const wanted = new Map(input.attrs.map((a) => [a.key, a.value]));
 		for (const key of Object.keys(history)) if (!wanted.has(key)) wanted.set(key, '');
@@ -145,8 +146,8 @@ export function updateObject(db: Db, input: ObjectInput, today: string) {
 				else db.prepare('DELETE FROM object_attrs WHERE id = ?').run(current.id);
 			} else if (value) {
 				db.prepare(
-					'INSERT INTO object_attrs (object_id, key, value, since) VALUES (?, ?, ?, ?)'
-				).run(input.id, key, value, current ? today : null);
+					'INSERT INTO object_attrs (object_id, field_id, value, since) VALUES (?, ?, ?, ?)'
+				).run(input.id, useField(db, key, 'property').id, value, current ? today : null);
 			}
 		}
 	});
@@ -156,7 +157,8 @@ export type Change = { date: string; eventId: number };
 
 // A dated value of the key, other than the change's own, on or before its date. If there is
 // one, the change is not the first one.
-const EARLIER_CHANGE = `SELECT 1 FROM object_attrs WHERE object_id = ? AND key = ?
+const FIELD = '(SELECT id FROM fields WHERE name = ?)';
+const EARLIER_CHANGE = `SELECT 1 FROM object_attrs WHERE object_id = ? AND field_id = ${FIELD}
 	AND since IS NOT NULL AND since <= ? AND event_id IS NOT ?`;
 
 /**
@@ -166,7 +168,8 @@ const EARLIER_CHANGE = `SELECT 1 FROM object_attrs WHERE object_id = ? AND key =
 export function forgetInitialValue(db: Db, objectId: number, key: string, change?: Change) {
 	if (change && db.prepare(EARLIER_CHANGE).get(objectId, key, change.date, change.eventId)) return;
 	db.prepare(
-		'DELETE FROM object_attrs WHERE object_id = ? AND key = ? AND since IS NULL AND event_id IS NULL'
+		`DELETE FROM object_attrs WHERE object_id = ? AND field_id = ${FIELD}
+		AND since IS NULL AND event_id IS NULL`
 	).run(objectId, key);
 }
 
@@ -181,62 +184,24 @@ export function setInitialValue(
 	if (change && db.prepare(EARLIER_CHANGE).get(objectId, key, change.date, change.eventId)) return;
 	const updated = db
 		.prepare(
-			'UPDATE object_attrs SET value = ? WHERE object_id = ? AND key = ? AND since IS NULL AND event_id IS NULL'
+			`UPDATE object_attrs SET value = ? WHERE object_id = ? AND field_id = ${FIELD}
+			AND since IS NULL AND event_id IS NULL`
 		)
 		.run(value, objectId, key);
 	if (!updated.changes) {
-		db.prepare('INSERT INTO object_attrs (object_id, key, value) VALUES (?, ?, ?)').run(
+		db.prepare('INSERT INTO object_attrs (object_id, field_id, value) VALUES (?, ?, ?)').run(
 			objectId,
-			key,
+			useField(db, key, 'property').id,
 			value
 		);
 	}
 }
 
 export function allHistories(db: Db): Record<number, Record<string, ObjectAttr[]>> {
-	const rows = db
-		.prepare(`SELECT * FROM object_attrs ORDER BY ${HISTORY_ORDER}`)
-		.all() as AttrRow[];
+	const rows = db.prepare(`${ATTRS} ORDER BY ${HISTORY_ORDER}`).all() as AttrRow[];
 	const result: Record<number, Record<string, ObjectAttr[]>> = {};
 	for (const r of rows) ((result[r.object_id] ??= {})[r.key] ??= []).push(attrFromRow(r));
 	return result;
-}
-
-export function propertyKeys(db: Db): Set<string> {
-	const rows = db.prepare('SELECT DISTINCT key FROM object_attrs').all() as { key: string }[];
-	return new Set(rows.map((r) => r.key));
-}
-
-/**
- * Turns event details whose name is a property, or one of `newNames`, into changes of that
- * property on the event's date. Call after anything that adds property names.
- */
-export function promoteToProperties(db: Db, newNames: string[] = []) {
-	const names = `(SELECT key FROM object_attrs UNION SELECT value FROM json_each(?))`;
-	const json = JSON.stringify(newNames);
-	db.prepare(
-		`INSERT INTO object_attrs (object_id, key, value, since, event_id)
-		SELECT e.object_id, a.key, a.value, e.date, a.event_id
-		FROM event_attrs a JOIN events e ON e.id = a.event_id
-		WHERE a.key IN ${names}
-		ORDER BY e.date, e.id`
-	).run(json);
-	db.prepare(`DELETE FROM event_attrs WHERE key IN ${names}`).run(json);
-	const properties = propertyKeys(db);
-	const types = db.prepare('SELECT id, fields FROM event_types').all() as {
-		id: number;
-		fields: string;
-	}[];
-	for (const ty of types) {
-		const fields = (JSON.parse(ty.fields) as FieldTemplate[]).map((f) =>
-			properties.has(f.key) ? { ...f, target: 'object' as const } : f
-		);
-		const unique = fields.filter((f, i) => fields.findIndex((g) => g.key === f.key) === i);
-		const json = JSON.stringify(unique);
-		if (json !== ty.fields) {
-			db.prepare('UPDATE event_types SET fields = ? WHERE id = ?').run(json, ty.id);
-		}
-	}
 }
 
 export function setCover(db: Db, objectId: number, photoId: string | null) {

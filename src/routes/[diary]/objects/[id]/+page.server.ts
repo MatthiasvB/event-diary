@@ -12,9 +12,9 @@ import {
 	setInitialValue
 } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
-import { getFieldKinds } from '#lib/server/fieldKinds.ts';
+import { getFieldKinds, sortProperties } from '#lib/server/fields.ts';
 import { kindOf, storedValue } from '#lib/fieldKinds.ts';
-import { getOverviewColumns, sortProperties } from '#lib/server/settings.ts';
+import { getOverviewColumns } from '#lib/server/settings.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 

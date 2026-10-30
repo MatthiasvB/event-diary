@@ -1,16 +1,9 @@
 import type { Candidate } from '../suggest.ts';
-import type { FieldTarget, FieldTemplate, ValueCandidate, Vocabulary } from '../types.ts';
+import type { FieldTarget, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { listTypes, PHOTO_TYPE_SETTING } from './eventTypes.ts';
-import { promoteToProperties } from './objects.ts';
-import {
-	getPropertyOrder,
-	getSetting,
-	setOverviewColumns,
-	setPropertyOrder,
-	setSetting,
-	type OverviewColumn
-} from './settings.ts';
+import { propertyKeys, useField, type Role } from './fields.ts';
+import { getSetting, setOverviewColumns, setSetting, type OverviewColumn } from './settings.ts';
 
 type UsageRow = {
 	key: string;
@@ -31,16 +24,17 @@ function collect(map: Map<string, ValueCandidate>, value: string, r: UsageRow) {
 export function vocabulary(db: Db): Vocabulary {
 	const eventRows = db
 		.prepare(
-			`SELECT a.key, a.value, e.type_id, count(*) AS n, max(e.date) AS last
-			FROM event_attrs a JOIN events e ON e.id = a.event_id
-			GROUP BY a.key, a.value, e.type_id`
+			`SELECT f.name AS key, d.value, e.type_id, count(*) AS n, max(e.date) AS last
+			FROM event_details d JOIN fields f ON f.id = d.field_id JOIN events e ON e.id = d.event_id
+			GROUP BY f.id, d.value, e.type_id`
 		)
 		.all() as UsageRow[];
 	const objectRows = db
 		.prepare(
-			`SELECT a.key, a.value, e.type_id, count(*) AS n, max(a.since) AS last
-			FROM object_attrs a JOIN objects p ON p.id = a.object_id LEFT JOIN events e ON e.id = a.event_id
-			GROUP BY a.key, a.value, e.type_id`
+			`SELECT f.name AS key, a.value, e.type_id, count(*) AS n, max(a.since) AS last
+			FROM object_attrs a JOIN fields f ON f.id = a.field_id
+			LEFT JOIN events e ON e.id = a.event_id
+			GROUP BY f.id, a.value, e.type_id`
 		)
 		.all() as UsageRow[];
 
@@ -58,6 +52,10 @@ export function vocabulary(db: Db): Vocabulary {
 			collect(values.get(r.key)!, r.value, r);
 			collect(keys[target], r.key, r);
 		}
+	}
+	for (const name of propertyKeys(db)) {
+		if (!keys.object.has(name))
+			keys.object.set(name, { value: name, count: 0, last: null, byType: {} });
 	}
 
 	const categories = db
@@ -89,11 +87,8 @@ export function rename(db: Db, what: ValueKind, from: string, to: string): numbe
 				return renameCategory(db, from, to);
 			case 'type':
 				return renameType(db, from, to);
-			case 'key': {
-				const n = renameKey(db, from, to);
-				promoteToProperties(db);
-				return n;
-			}
+			case 'key':
+				return renameKey(db, from, to);
 			case 'value':
 				return renameValue(db, what.key, from, to);
 		}
@@ -101,46 +96,79 @@ export function rename(db: Db, what: ValueKind, from: string, to: string): numbe
 }
 
 function renameValue(db: Db, key: string, from: string, to: string): number {
+	const field = '(SELECT id FROM fields WHERE name = ?)';
 	const a = db
-		.prepare('UPDATE event_attrs SET value = ? WHERE key = ? AND value = ?')
+		.prepare(`UPDATE event_details SET value = ? WHERE field_id = ${field} AND value = ?`)
 		.run(to, key, from);
 	const b = db
-		.prepare('UPDATE object_attrs SET value = ? WHERE key = ? AND value = ?')
+		.prepare(`UPDATE object_attrs SET value = ? WHERE field_id = ${field} AND value = ?`)
 		.run(to, key, from);
-	updateTemplates(db, (f) => (f.key === key && f.default === from ? { ...f, default: to } : f));
+	db.prepare(
+		`UPDATE event_type_fields SET default_value = ? WHERE field_id = ${field} AND default_value = ?`
+	).run(to, key, from);
 	return Number(a.changes) + Number(b.changes);
 }
 
+type FieldRow = { id: number; role: Role };
+
 function renameKey(db: Db, from: string, to: string): number {
-	// An event that has both keys keeps both values, joined.
+	const find = db.prepare('SELECT id, role FROM fields WHERE name = ?');
+	const source = find.get(from) as FieldRow | undefined;
+	if (!source) return 0;
+	const uses = db
+		.prepare(
+			`SELECT (SELECT count(*) FROM event_details WHERE field_id = ?1)
+				+ (SELECT count(*) FROM object_attrs WHERE field_id = ?1) AS n`
+		)
+		.get(source.id) as { n: number };
+	const existing = find.get(to) as FieldRow | undefined;
+	if (!existing) {
+		db.prepare('UPDATE fields SET name = ? WHERE id = ?').run(to, source.id);
+		return uses.n;
+	}
+	const role: Role = source.role === 'property' ? 'property' : existing.role;
+	const target = useField(db, to, role);
+	useField(db, from, role);
+
+	// An event that has both keeps both values, joined.
 	const both = db
 		.prepare(
-			`SELECT s.event_id, s.value AS source, d.value AS dest FROM event_attrs s
-			JOIN event_attrs d ON d.event_id = s.event_id AND d.key = ? WHERE s.key = ?`
+			`SELECT s.event_id, s.value AS source, d.value AS dest FROM event_details s
+			JOIN event_details d ON d.event_id = s.event_id AND d.field_id = ? WHERE s.field_id = ?`
 		)
-		.all(to, from) as { event_id: number; source: string; dest: string }[];
+		.all(target.id, source.id) as { event_id: number; source: string; dest: string }[];
 	for (const r of both) {
 		const joined = r.dest === r.source ? r.dest : `${r.dest} / ${r.source}`;
-		db.prepare('UPDATE event_attrs SET value = ? WHERE event_id = ? AND key = ?').run(
+		db.prepare('UPDATE event_details SET value = ? WHERE event_id = ? AND field_id = ?').run(
 			joined,
 			r.event_id,
-			to
+			target.id
 		);
-		db.prepare('DELETE FROM event_attrs WHERE event_id = ? AND key = ?').run(r.event_id, from);
+		db.prepare('DELETE FROM event_details WHERE event_id = ? AND field_id = ?').run(
+			r.event_id,
+			source.id
+		);
 	}
-	const a = db.prepare('UPDATE event_attrs SET key = ? WHERE key = ?').run(to, from);
-	const b = db.prepare('UPDATE object_attrs SET key = ? WHERE key = ?').run(to, from);
-	updateTemplates(db, (f) => (f.key === from ? { ...f, key: to } : f));
-	const order = getPropertyOrder(db);
-	if (order.includes(from))
-		setPropertyOrder(
-			db,
-			order.map((k) => (k === from ? to : k))
-		);
-	// The kind goes along, unless the name merged into already has one.
-	db.prepare('UPDATE OR IGNORE field_kinds SET key = ? WHERE key = ?').run(to, from);
-	db.prepare('DELETE FROM field_kinds WHERE key = ?').run(from);
-	return both.length + Number(a.changes) + Number(b.changes);
+	db.prepare('UPDATE event_details SET field_id = ? WHERE field_id = ?').run(target.id, source.id);
+	db.prepare('UPDATE object_attrs SET field_id = ? WHERE field_id = ?').run(target.id, source.id);
+	db.prepare('UPDATE OR IGNORE event_type_fields SET field_id = ? WHERE field_id = ?').run(
+		target.id,
+		source.id
+	);
+	db.prepare('DELETE FROM event_type_fields WHERE field_id = ?').run(source.id);
+	// The kind goes along, unless the name merged into already has one. The earlier position
+	// of the two is kept.
+	db.prepare(
+		`UPDATE fields SET
+			kind = CASE WHEN fields.kind = 'text' THEN s.kind ELSE fields.kind END,
+			unit = CASE WHEN fields.kind = 'text' THEN s.unit ELSE fields.unit END,
+			position = CASE WHEN s.position IS NULL THEN fields.position
+				WHEN fields.position IS NULL THEN s.position
+				ELSE min(s.position, fields.position) END
+		FROM fields s WHERE s.id = ? AND fields.id = ?`
+	).run(source.id, target.id);
+	db.prepare('DELETE FROM fields WHERE id = ?').run(source.id);
+	return uses.n;
 }
 
 type TypeRow = { id: number; name: string; category: string };
@@ -184,20 +212,4 @@ function moveType(db: Db, source: TypeRow, name: string, category: string): numb
 		);
 	}
 	return Number(moved.changes) + 1;
-}
-
-function updateTemplates(db: Db, map: (f: FieldTemplate) => FieldTemplate) {
-	const rows = db.prepare('SELECT id, fields FROM event_types').all() as {
-		id: number;
-		fields: string;
-	}[];
-	for (const r of rows) {
-		const fields = (JSON.parse(r.fields) as FieldTemplate[]).map(map);
-		const unique = fields.filter(
-			(f, i) => fields.findIndex((g) => g.key === f.key && g.target === f.target) === i
-		);
-		const json = JSON.stringify(unique);
-		if (json !== r.fields)
-			db.prepare('UPDATE event_types SET fields = ? WHERE id = ?').run(json, r.id);
-	}
 }

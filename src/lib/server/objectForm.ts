@@ -5,7 +5,7 @@ import type { Db } from './db.ts';
 import { chosenKinds } from './eventForm.ts';
 import { createEvents } from './events.ts';
 import { photoType } from './eventTypes.ts';
-import { learnKinds } from './fieldKinds.ts';
+import { learnKinds } from './fields.ts';
 import { FILE_ID, filesExist } from './files.ts';
 import { createObject, type ObjectInput } from './objects.ts';
 
@@ -21,7 +21,10 @@ export function parseObjectForm(
 	const keys = form.getAll('attrKey').map((v) => String(v).trim());
 	const values = form.getAll('attrValue').map((v) => String(v).trim());
 	const chosen = form.getAll('attrKind').map((v) => parseKind(String(v)));
-	const kinds = learnKinds(db, chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i] }))));
+	const kinds = learnKinds(
+		db,
+		chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i], target: 'object' })))
+	);
 	const input = {
 		name: get('name'),
 		active: form.get('active') === 'on',

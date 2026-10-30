@@ -71,9 +71,10 @@ Events and objects have a small fixed core. Everything else is a key/value field
 
 A name is either a property or an event detail. Entering a property's name in an event
 always records a change (marked "ändert Eigenschaft"). Suggestions mark both kinds. A new
-name, or an event detail's name, becomes a property when chosen so in the event form or
-added on an object. The earlier event details of that name then become changes of their
-objects' property. Only the first recorded change of a property can set the value before
+name, or an event detail's name, becomes a property when chosen so in the event form or on
+an event type, or added on an object. The earlier event details of that name then become
+changes of their objects' property. A property stays one, even when no object has a value
+for it any more. Only the first recorded change of a property can set the value before
 it (or mark it as not recorded). For later ones, the value before is the previous change's.
 
 Event types learn which fields they are used with. On the event type page you can edit

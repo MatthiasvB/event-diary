@@ -23,22 +23,3 @@ export function getOverviewColumns(db: Db): OverviewColumn[] {
 export function setOverviewColumns(db: Db, columns: OverviewColumn[]) {
 	setSetting(db, OVERVIEW, columns);
 }
-
-const PROPERTY_ORDER = 'propertyOrder';
-
-export function getPropertyOrder(db: Db): string[] {
-	return getSetting<string[]>(db, PROPERTY_ORDER) ?? [];
-}
-
-export function setPropertyOrder(db: Db, keys: string[]) {
-	setSetting(db, PROPERTY_ORDER, [...new Set(keys.filter(Boolean))]);
-}
-
-export function sortProperties(db: Db, keys: string[]): string[] {
-	const order = getPropertyOrder(db);
-	const rank = (key: string) => {
-		const i = order.indexOf(key);
-		return i < 0 ? order.length : i;
-	};
-	return [...keys].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'de'));
-}

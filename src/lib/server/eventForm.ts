@@ -1,13 +1,12 @@
-import { kindOf, parseKind, storedValue, type FieldKinds } from '../fieldKinds.ts';
-import { learnKinds } from './fieldKinds.ts';
+import { kindOf, parseKind, storedValue } from '../fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import type { Field } from '../types.ts';
 import type { Db } from './db.ts';
 import { createEvents, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
+import { learnKinds, propertyKeys, type ChosenKind } from './fields.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
-import { propertyKeys } from './objects.ts';
 
 export type EventPayload = {
 	objectIds: number[];
@@ -23,13 +22,14 @@ export type EventPayload = {
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-export function chosenKinds(fields: { key?: unknown; kind?: unknown }[]): FieldKinds {
-	return Object.fromEntries(
-		fields.flatMap((f) => {
-			const kind = parseKind(f?.kind);
-			return kind && str(f?.key) ? [[str(f?.key), kind]] : [];
-		})
-	);
+export function chosenKinds(
+	fields: { key?: unknown; kind?: unknown; target?: unknown }[]
+): ChosenKind[] {
+	return fields.flatMap((f) => {
+		const kind = parseKind(f?.kind);
+		const role = f?.target === 'object' ? ('property' as const) : ('detail' as const);
+		return kind && str(f?.key) ? [{ name: str(f?.key), role, kind }] : [];
+	});
 }
 
 /** Stores kinds chosen for new field names right away. */
@@ -81,11 +81,7 @@ export function validate(db: Db, p: EventPayload): string | null {
 }
 
 function resolveType(db: Db, p: EventPayload) {
-	return ensureType(db, p.typeName, {
-		category: p.category,
-		milestone: p.milestone,
-		fields: p.fields.map((f) => ({ key: f.key, target: f.target }))
-	});
+	return ensureType(db, p.typeName, { category: p.category, milestone: p.milestone });
 }
 
 export function saveNewEvents(db: Db, p: EventPayload): number[] {

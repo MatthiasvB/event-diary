@@ -12,25 +12,24 @@ import {
 	typeImpact
 } from '../events.ts';
 import { listTypes, PHOTO_TYPE_SETTING, updateType } from '../eventTypes.ts';
-import { getFieldKinds, setFieldKind } from '../fieldKinds.ts';
+import {
+	getFieldKinds,
+	propertyKeys,
+	setFieldKind,
+	setPropertyOrder,
+	sortProperties
+} from '../fields.ts';
 import { parseObjectForm, saveNewObject } from '../objectForm.ts';
 import {
 	attrHistory,
 	forgetInitialValue,
 	listObjects,
-	propertyKeys,
 	setCover,
 	setInitialValue,
 	updateObject
 } from '../objects.ts';
 import { objectStats } from '../overview.ts';
-import {
-	getOverviewColumns,
-	getSetting,
-	setOverviewColumns,
-	setPropertyOrder,
-	sortProperties
-} from '../settings.ts';
+import { getOverviewColumns, getSetting, setOverviewColumns } from '../settings.ts';
 import { parseTypeForm } from '../typeForm.ts';
 import { rename, vocabulary, type ValueKind } from '../vocab.ts';
 

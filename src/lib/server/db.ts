@@ -87,7 +87,9 @@ export async function migrateDb(file: string, schema: Schema, dirs: DataDirs) {
 	}
 }
 
+/** Inside another transaction, `fn` becomes part of it. */
 export function transaction<T>(db: Db, fn: () => T): T {
+	if (db.isTransaction) return fn();
 	db.exec('BEGIN IMMEDIATE');
 	try {
 		const result = fn();

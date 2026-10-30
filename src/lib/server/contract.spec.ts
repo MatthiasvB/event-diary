@@ -228,6 +228,29 @@ describe('the forms', () => {
 	});
 });
 
+describe('fields', () => {
+	it('become properties with their earlier values when a type sets them on the object', () => {
+		d.object('A');
+		d.record({ objects: ['A'], type: 'Umtopfen', date: '2026-03-01', details: { Topf: 'Ton' } });
+		d.saveType('Umtopfen', { fields: [{ key: 'Topf', target: 'object' }] });
+		expect(history('A', 'Topf')).toEqual([
+			{ value: 'Ton', since: '2026-03-01', by: '2026-03-01 Umtopfen' }
+		]);
+		expect(timeline('A')[0].details).toEqual({});
+	});
+
+	it('stay properties once their values are gone', () => {
+		d.object('A', { properties: { Standort: 'Küche' } });
+		d.editObject('A', {});
+		expect(view(d.db).vocabulary.keys.object.map((k) => k.value)).toEqual(['Standort']);
+
+		d.record({ objects: ['A'], type: 'Umzug', date: '2026-05-01', details: { Standort: 'Bad' } });
+		expect(timeline('A')[0].changes).toEqual([
+			{ key: 'Standort', value: 'Bad', before: null, first: true }
+		]);
+	});
+});
+
 describe('event types', () => {
 	const fertilize = (date: string, details: Record<string, string>) =>
 		d.record({ objects: ['A'], type: 'Düngen', date, details });
