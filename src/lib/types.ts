@@ -1,4 +1,4 @@
-import type { FieldKind } from './fieldKinds.ts';
+import type { NameChoice } from './fieldKinds.ts';
 import type { EventFile } from './files.ts';
 
 import type { Candidate } from './suggest.ts';
@@ -9,8 +9,8 @@ export type FieldTarget = 'event' | 'object';
 export type InitialChoice = { kind: 'keep' } | { kind: 'unknown' } | { kind: 'set'; value: string };
 export const KEEP: InitialChoice = { kind: 'keep' };
 
-/** A field as entered. `kind` is the kind chosen for a name used for the first time. */
-type EntryBase = { key: string; value: string; kind?: FieldKind };
+/** A field as entered. */
+type EntryBase = { key: string; value: string; chosen?: NameChoice };
 export type FieldEntry =
 	(EntryBase & { target: 'event' }) | (EntryBase & { target: 'object'; initial: InitialChoice });
 

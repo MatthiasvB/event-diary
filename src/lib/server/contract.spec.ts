@@ -272,6 +272,32 @@ describe('fields', () => {
 	});
 });
 
+describe('suggestions', () => {
+	it('can be turned off for a new name right where it is entered', () => {
+		d.object('A', { properties: { Preis: '8 €' }, withoutSuggestions: ['Preis'] });
+		d.record({
+			objects: ['A'],
+			type: 'Kauf',
+			date: '2026-05-01',
+			details: { Händler: 'Gärtnerei', Rabatt: '10 %' },
+			withoutSuggestions: ['Rabatt']
+		});
+		d.saveType('Kauf', { fields: [{ key: 'Beleg', suggest: false }] });
+		expect(view(d.db).withoutSuggestions).toEqual(['Beleg', 'Preis', 'Rabatt']);
+	});
+
+	it('can be turned off for a name, which keeps its values for maintenance', () => {
+		d.object('A', { properties: { Preis: '8 €' } });
+		expect(view(d.db).withoutSuggestions).toEqual([]);
+
+		d.suggestions('Preis', false);
+		d.rename({ kind: 'key' }, 'Preis', 'Kaufpreis');
+		const { withoutSuggestions, vocabulary } = view(d.db);
+		expect(withoutSuggestions).toEqual(['Kaufpreis']);
+		expect(vocabulary.values.Kaufpreis.map((v) => v.value)).toEqual(['8 €']);
+	});
+});
+
 describe('event types', () => {
 	const fertilize = (date: string, details: Record<string, string>) =>
 		d.record({ objects: ['A'], type: 'Düngen', date, details });

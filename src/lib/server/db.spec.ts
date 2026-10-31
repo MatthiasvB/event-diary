@@ -109,8 +109,12 @@ it('leaves current databases alone when the app starts, and refuses ones too old
 	expect(version(diary)).toBe(DIARY_SCHEMA.version);
 	expect(fs.existsSync(dirs.preMigrationDir)).toBe(false);
 
+	const oldest = Math.min(
+		DIARY_SCHEMA.version,
+		...Object.keys(DIARY_SCHEMA.migrations).map(Number)
+	);
 	const old = new DatabaseSync(diary);
-	old.exec(`PRAGMA user_version = ${DIARY_SCHEMA.version - 1}`);
+	old.exec(`PRAGMA user_version = ${oldest - 2}`);
 	old.close();
 	await expect(migrateAll(dirs)).rejects.toThrow(/too old/);
 });

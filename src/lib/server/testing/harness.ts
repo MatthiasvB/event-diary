@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fieldsFor } from '../../domain/eventFields.ts';
 import { isFirstChange } from '../../domain/propertyHistory.ts';
-import type { FieldKind } from '../../fieldKinds.ts';
+import { TEXT, type FieldKind, type NameChoice } from '../../fieldKinds.ts';
 import type { DiaryEvent, ValueCandidate } from '../../types.ts';
 import type { Db } from '../db.ts';
 import { parseEventForm, saveEditedEvent, saveNewEvent, validate } from '../eventForm.ts';
@@ -20,7 +20,9 @@ import {
 	propertyKeys,
 	setFieldKind,
 	setPropertyOrder,
-	sortProperties
+	setSuggestValues,
+	sortProperties,
+	withoutSuggestions
 } from '../fields.ts';
 import { parseObjectForm, saveNewObject } from '../objectForm.ts';
 import {
@@ -51,12 +53,14 @@ export type EventEntry = {
 	details?: Record<string, string>;
 	changes?: Record<string, Change>;
 	kinds?: Record<string, FieldKind>;
+	withoutSuggestions?: string[];
 	files?: string[];
 };
 
 export type ObjectEntry = {
 	properties?: Record<string, string>;
 	kinds?: Record<string, FieldKind>;
+	withoutSuggestions?: string[];
 	active?: boolean;
 	notes?: string;
 };
@@ -65,8 +69,26 @@ export type TypeEntry = {
 	category?: string;
 	milestone?: boolean;
 	hint?: string;
-	fields: { key: string; target?: 'event' | 'object'; default?: string; kind?: FieldKind }[];
+	fields: {
+		key: string;
+		target?: 'event' | 'object';
+		default?: string;
+		kind?: FieldKind;
+		suggest?: boolean;
+	}[];
 };
+
+/** What the form sends for a name it shows as new. */
+function choiceFor(
+	entry: { kinds?: Record<string, FieldKind>; withoutSuggestions?: string[] },
+	key: string
+): NameChoice | undefined {
+	const kind = entry.kinds?.[key];
+	const suggest = !entry.withoutSuggestions?.includes(key);
+	return kind || !suggest ? { kind: kind ?? TEXT, suggest } : undefined;
+}
+
+const json = (value: unknown) => (value === undefined ? '' : JSON.stringify(value));
 
 const typeLabel = (category: string | null, name: string) =>
 	category === null ? name : `${category}/${name}`;
@@ -179,7 +201,14 @@ export class Diary {
 			form.append('fieldKey', f.key);
 			form.append('fieldValue', f.default ?? '');
 			form.append('fieldTarget', f.target ?? 'event');
-			form.append('fieldKind', f.kind ? JSON.stringify(f.kind) : '');
+			form.append(
+				'fieldChoice',
+				json(
+					f.kind || f.suggest === false
+						? { kind: f.kind ?? TEXT, suggest: f.suggest ?? true }
+						: undefined
+				)
+			);
 		}
 		return updateType(this.db, { id: this.typeId(label), ...parseTypeForm(form, this.db) });
 	}
@@ -202,6 +231,10 @@ export class Diary {
 		setFieldKind(this.db, key, kind);
 	}
 
+	suggestions(key: string, on: boolean) {
+		setSuggestValues(this.db, key, on);
+	}
+
 	rename(what: ValueKind, from: string, to: string): number {
 		return rename(this.db, what, from, to);
 	}
@@ -220,23 +253,23 @@ export class Diary {
 		for (const [key, value] of Object.entries(entry.properties ?? {})) {
 			form.append('attrKey', key);
 			form.append('attrValue', value);
-			form.append('attrKind', entry.kinds?.[key] ? JSON.stringify(entry.kinds[key]) : '');
+			form.append('attrChoice', json(choiceFor(entry, key)));
 		}
 		return form;
 	}
 
 	private eventForm(entry: EventEntry, only: number | null) {
-		const kind = (key: string) => entry.kinds?.[key];
+		const chosen = (key: string) => choiceFor(entry, key);
 		const fields = [
 			...Object.entries(entry.details ?? {}).map(([key, value]) => ({
 				key,
 				value,
 				target: 'event',
-				kind: kind(key)
+				chosen: chosen(key)
 			})),
 			...Object.entries(entry.changes ?? {}).map(([key, change]) =>
 				typeof change === 'string'
-					? { key, value: change, target: 'object', kind: kind(key) }
+					? { key, value: change, target: 'object', chosen: chosen(key) }
 					: {
 							key,
 							value: change.value,
@@ -245,7 +278,7 @@ export class Diary {
 								change.before === null
 									? { kind: 'unknown' }
 									: { kind: 'set', value: change.before },
-							kind: kind(key)
+							chosen: chosen(key)
 						}
 			)
 		];
@@ -381,6 +414,7 @@ export function view(db: Db) {
 		columns: columns.map((c) => ({ label: c.label, types: c.typeIds.map(typeOf) })),
 		propertyOrder: sortProperties(db, [...propertyKeys(db)]),
 		kinds: Object.fromEntries(Object.entries(kinds).sort(([a], [b]) => a.localeCompare(b))),
+		withoutSuggestions: withoutSuggestions(db),
 		vocabulary: {
 			categories: [...vocab.categories].sort((a, b) => a.value.localeCompare(b.value)),
 			keys: { event: candidates(vocab.keys.event), object: candidates(vocab.keys.object) },

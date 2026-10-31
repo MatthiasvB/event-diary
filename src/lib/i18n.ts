@@ -238,6 +238,7 @@ export const t = {
 		names: { text: 'Text', date: 'Datum', number: 'Zahl' },
 		unit: 'Einheit',
 		unitPlaceholder: 'z. B. cm',
+		suggest: 'Werte vorschlagen',
 		saved: (key: string) => `„${key}“ gespeichert.`
 	},
 	files: {

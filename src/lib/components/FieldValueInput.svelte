@@ -2,7 +2,7 @@
 	import Combobox from './Combobox.svelte';
 	import DateInput from './DateInput.svelte';
 	import TextInput from './TextInput.svelte';
-	import { fieldKind } from '#lib/fieldValues.ts';
+	import { fieldKind, suggestsValues } from '#lib/fieldValues.ts';
 	import type { FieldKind } from '#lib/fieldKinds.ts';
 	import type { Candidate } from '#lib/suggest.ts';
 
@@ -12,11 +12,21 @@
 		candidates: Candidate[];
 		placeholder?: string;
 		label?: string;
-		/** Instead of the stored kind of the name, e.g. one chosen for a new name. */
+		/** Instead of what is stored for the name, e.g. what is chosen for a new name. */
 		kind?: FieldKind;
+		suggest?: boolean;
 	};
-	let { key, value = $bindable(''), candidates, placeholder, label, kind: given }: Props = $props();
-	const kind = $derived(given ?? fieldKind(key));
+	let {
+		key,
+		value = $bindable(''),
+		candidates,
+		placeholder,
+		label,
+		kind: givenKind,
+		suggest: givenSuggest
+	}: Props = $props();
+	const kind = $derived(givenKind ?? fieldKind(key));
+	const suggest = $derived(givenSuggest ?? suggestsValues(key));
 </script>
 
 {#if kind.kind === 'date'}
@@ -28,8 +38,10 @@
 		</div>
 		{#if kind.kind === 'number' && kind.unit}<span class="unit">{kind.unit}</span>{/if}
 	</div>
-{:else}
+{:else if suggest}
 	<Combobox bind:value {candidates} {placeholder} {label} />
+{:else}
+	<TextInput bind:value {placeholder} aria-label={label} />
 {/if}
 
 <style>

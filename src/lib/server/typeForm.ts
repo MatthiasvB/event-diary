@@ -1,18 +1,18 @@
-import { kindOf, parseKind, storedValue } from '../fieldKinds.ts';
+import { kindOf, storedValue } from '../fieldKinds.ts';
 import type { EventType, FieldTemplate } from '../types.ts';
 import type { Db } from './db.ts';
-import { chosenKinds } from './eventForm.ts';
-import { learnKinds, propertyKeys } from './fields.ts';
+import { chosenNames } from './eventForm.ts';
+import { learnChoices, propertyKeys } from './fields.ts';
 
 export function parseTypeForm(form: FormData, db: Db): Omit<EventType, 'id' | 'name'> {
 	const keys = form.getAll('fieldKey').map((v) => String(v).trim());
 	const values = form.getAll('fieldValue').map((v) => String(v).trim());
 	const targets = form.getAll('fieldTarget').map(String);
-	const chosen = form.getAll('fieldKind').map((v) => parseKind(String(v)));
-	// Kinds chosen for new names are stored first, so defaults are stored in their form.
-	const kinds = learnKinds(
+	const chosen = form.getAll('fieldChoice').map(String);
+	// What is chosen for new names is stored first, so defaults are stored in their kind.
+	const kinds = learnChoices(
 		db,
-		chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i], target: targets[i] })))
+		chosenNames(keys.map((key, i) => ({ key, chosen: chosen[i], target: targets[i] })))
 	);
 	const properties = propertyKeys(db);
 	const fields: FieldTemplate[] = keys

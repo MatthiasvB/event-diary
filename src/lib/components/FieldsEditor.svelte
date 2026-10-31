@@ -9,7 +9,8 @@
 		TEXT,
 		unitOf,
 		type FieldKindName,
-		type FieldKinds
+		type FieldKinds,
+		type NameChoice
 	} from '#lib/fieldKinds.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
@@ -88,12 +89,12 @@
 	}
 
 	function setTarget(i: number, target: FieldTarget) {
-		const { key, value, kind } = fields[i];
-		fields[i] = { ...entry(target, key, value), kind };
+		const { key, value, chosen } = fields[i];
+		fields[i] = { ...entry(target, key, value), chosen };
 	}
 	function setInitial(i: number, initial: InitialChoice) {
-		const { key, value, kind } = fields[i];
-		fields[i] = { target: 'object', key, value, kind, initial };
+		const { key, value, chosen } = fields[i];
+		fields[i] = { target: 'object', key, value, chosen, initial };
 	}
 	function setInitialMode(i: number, mode: string) {
 		setInitial(
@@ -116,13 +117,15 @@
 	function isNewName(key: string) {
 		const name = key.trim();
 		const kinds = page.data.fieldKinds as FieldKinds | undefined;
-		return !!name && !knownNames.has(name) && !kinds?.[name];
+		const quiet = page.data.withoutSuggestions as string[] | undefined;
+		return !!name && !knownNames.has(name) && !kinds?.[name] && !quiet?.includes(name);
 	}
-	function chosenKind(f: FieldEntry) {
-		return isNewName(f.key) ? (f.kind ?? TEXT) : undefined;
+	const choiceOf = (f: FieldEntry): NameChoice => f.chosen ?? { kind: TEXT, suggest: true };
+	function chosen(f: FieldEntry) {
+		return isNewName(f.key) ? choiceOf(f) : undefined;
 	}
-	function setKind(f: FieldEntry, kind: string) {
-		f.kind = kindFrom(kind as FieldKindName, (f.kind && unitOf(f.kind)) ?? '');
+	function choose(f: FieldEntry, change: Partial<NameChoice>) {
+		f.chosen = { ...choiceOf(f), ...change };
 	}
 
 	function add() {
@@ -142,7 +145,8 @@
 				/>
 				<FieldValueInput
 					key={field.key}
-					kind={chosenKind(field)}
+					kind={chosen(field)?.kind}
+					suggest={chosen(field)?.suggest}
 					bind:value={field.value}
 					candidates={valueCandidates(field.key)}
 					placeholder={t.events.fieldValue}
@@ -154,24 +158,38 @@
 					<label class="inline">
 						{t.fieldKinds.kind}
 						<select
-							value={field.kind?.kind ?? 'text'}
-							onchange={(e) => setKind(field, e.currentTarget.value)}
+							value={choiceOf(field).kind.kind}
+							onchange={(e) =>
+								choose(field, {
+									kind: kindFrom(
+										e.currentTarget.value as FieldKindName,
+										unitOf(choiceOf(field).kind) ?? ''
+									)
+								})}
 						>
 							{#each FIELD_KINDS as k (k)}<option value={k}>{t.fieldKinds.names[k]}</option>{/each}
 						</select>
 					</label>
-					{#if field.kind?.kind === 'number'}
+					{#if choiceOf(field).kind.kind === 'number'}
 						<label class="inline grow">
 							{t.fieldKinds.unit}
 							<TextInput
 								bind:value={
-									() => (field.kind && unitOf(field.kind)) ?? '',
-									(v) => (field.kind = { kind: 'number', unit: v || null })
+									() => unitOf(choiceOf(field).kind) ?? '',
+									(v) => choose(field, { kind: { kind: 'number', unit: v || null } })
 								}
 								placeholder={t.fieldKinds.unitPlaceholder}
 							/>
 						</label>
 					{/if}
+					<label class="inline">
+						<input
+							type="checkbox"
+							checked={choiceOf(field).suggest}
+							onchange={(e) => choose(field, { suggest: e.currentTarget.checked })}
+						/>
+						{t.fieldKinds.suggest}
+					</label>
 				</div>
 			{/if}
 			<div class="spread">
@@ -220,7 +238,8 @@
 								{#if choice.kind === 'set'}
 									<FieldValueInput
 										key={field.key}
-										kind={chosenKind(field)}
+										kind={chosen(field)?.kind}
+										suggest={chosen(field)?.suggest}
 										bind:value={() => choice.value, (v) => setInitial(i, { kind: 'set', value: v })}
 										candidates={valueCandidates(field.key)}
 										placeholder={t.events.previousPlaceholder}

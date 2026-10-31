@@ -1,11 +1,11 @@
-import { kindOf, parseKind, storedValue, type FieldKind } from '../fieldKinds.ts';
+import { kindOf, parseChoice, storedValue, type FieldKind } from '../fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import { KEEP, type FieldEntry, type InitialChoice } from '../types.ts';
 import type { Db } from './db.ts';
 import { createEvent, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
-import { learnKinds, propertyKeys, type ChosenKind } from './fields.ts';
+import { learnChoices, propertyKeys, type ChosenName } from './fields.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 
 export type EventPayload = {
@@ -23,13 +23,13 @@ export type EventPayload = {
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-export function chosenKinds(
-	fields: { key?: unknown; kind?: unknown; target?: unknown }[]
-): ChosenKind[] {
+export function chosenNames(
+	fields: { key?: unknown; chosen?: unknown; target?: unknown }[]
+): ChosenName[] {
 	return fields.flatMap((f) => {
-		const kind = parseKind(f?.kind);
+		const choice = parseChoice(f?.chosen);
 		const role = f?.target === 'object' ? ('property' as const) : ('detail' as const);
-		return kind && str(f?.key) ? [{ name: str(f?.key), role, kind }] : [];
+		return choice && str(f?.key) ? [{ ...choice, name: str(f?.key), role }] : [];
 	});
 }
 
@@ -44,7 +44,7 @@ function parseInitial(raw: unknown, kind: FieldKind): InitialChoice {
 export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
-	const kinds = learnKinds(db, chosenKinds(list(raw.fields)));
+	const kinds = learnChoices(db, chosenNames(list(raw.fields)));
 	const properties = propertyKeys(db);
 	const payload: EventPayload = {
 		objectIds: [...new Set(list(raw.objectIds).map(Number))].filter(

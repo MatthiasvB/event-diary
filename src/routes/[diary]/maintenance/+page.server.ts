@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
+import { transaction } from '#lib/server/db.ts';
 import { rename, vocabulary, type ValueKind } from '#lib/server/vocab.ts';
-import { setFieldKind } from '#lib/server/fields.ts';
+import { setFieldKind, setSuggestValues } from '#lib/server/fields.ts';
 import { FIELD_KINDS, kindFrom } from '#lib/fieldKinds.ts';
 import { nearDuplicates, type Candidate } from '#lib/suggest.ts';
 import { t } from '#lib/i18n.ts';
@@ -54,12 +55,16 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	setKind: async ({ request }) => {
+	saveField: async ({ request }) => {
 		const form = await request.formData();
 		const key = String(form.get('key') ?? '');
 		const kind = FIELD_KINDS.find((k) => k === form.get('kind'));
 		if (!key || !kind) return fail(400);
-		setFieldKind(db(), key, kindFrom(kind, String(form.get('unit') ?? '')));
+		const d = db();
+		transaction(d, () => {
+			setFieldKind(d, key, kindFrom(kind, String(form.get('unit') ?? '')));
+			setSuggestValues(d, key, form.get('suggest') === 'on');
+		});
 		return { message: t.fieldKinds.saved(key) };
 	},
 	rename: async ({ request }) => {

@@ -71,7 +71,7 @@
 		{#each fields as f, i (i)}
 			<input type="hidden" name="attrKey" value={f.key} />
 			<input type="hidden" name="attrValue" value={f.value} />
-			<input type="hidden" name="attrKind" value={f.kind ? JSON.stringify(f.kind) : ''} />
+			<input type="hidden" name="attrChoice" value={f.chosen ? JSON.stringify(f.chosen) : ''} />
 		{/each}
 	</fieldset>
 

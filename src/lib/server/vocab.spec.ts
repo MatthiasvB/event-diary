@@ -27,10 +27,11 @@ import {
 import {
 	getFieldKinds,
 	getPropertyOrder,
-	learnKinds,
+	learnChoices,
 	setFieldKind,
 	setPropertyOrder,
-	sortProperties
+	sortProperties,
+	withoutSuggestions
 } from './fields.ts';
 import { getOverviewColumns, setOverviewColumns } from './overview.ts';
 import { rename, vocabulary } from './vocab.ts';
@@ -519,23 +520,24 @@ describe('field kinds', () => {
 	});
 });
 
-describe('kinds chosen for new names', () => {
+describe('choices for new names', () => {
 	it('apply only to names that are neither used nor typed yet', () => {
 		object(1, { Standort: 'Küche', 'Erworben am': '2025-01-01' });
 		ensureType(db, 'Umtopfen', { fields: [{ key: 'Substrat', target: 'event' }] });
 		setFieldKind(db, 'Erworben am', { kind: 'date' });
 
-		const kinds = learnKinds(
+		const kinds = learnChoices(
 			db,
 			(
 				[
-					['Höhe', { kind: 'number', unit: 'cm' }],
-					['Standort', { kind: 'date' }],
-					['Substrat', { kind: 'number', unit: 'l' }],
-					['Erworben am', { kind: 'number', unit: null }],
-					['Notiz', { kind: 'text' }]
+					['Höhe', { kind: 'number', unit: 'cm' }, true],
+					['Standort', { kind: 'date' }, false],
+					['Substrat', { kind: 'number', unit: 'l' }, true],
+					['Erworben am', { kind: 'number', unit: null }, true],
+					['Notiz', { kind: 'text' }, true],
+					['Preis', { kind: 'text' }, false]
 				] as const
-			).map(([name, kind]) => ({ name, role: 'detail', kind }))
+			).map(([name, kind, suggest]) => ({ name, role: 'detail', kind, suggest }))
 		);
 
 		expect(kinds).toEqual({
@@ -543,6 +545,7 @@ describe('kinds chosen for new names', () => {
 			Höhe: { kind: 'number', unit: 'cm' }
 		});
 		expect(getFieldKinds(db)).toEqual(kinds);
+		expect(withoutSuggestions(db)).toEqual(['Preis']);
 	});
 });
 

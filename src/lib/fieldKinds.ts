@@ -17,6 +17,22 @@ export function kindFrom(name: FieldKindName, unit: string): FieldKind {
 
 export const unitOf = (kind: FieldKind) => (kind.kind === 'number' ? kind.unit : null);
 
+/** What is chosen for a name used for the first time. */
+export type NameChoice = { kind: FieldKind; suggest: boolean };
+
+export function parseChoice(value: unknown): NameChoice | undefined {
+	if (typeof value === 'string') {
+		try {
+			value = JSON.parse(value);
+		} catch {
+			return undefined;
+		}
+	}
+	const v = value as { kind?: unknown; suggest?: unknown } | null;
+	const kind = parseKind(v?.kind);
+	return kind && { kind, suggest: v?.suggest !== false };
+}
+
 export const FIELD_KINDS_DATA = 'diary:field-kinds';
 
 export function kindOf(kinds: FieldKinds | undefined, key: string): FieldKind {

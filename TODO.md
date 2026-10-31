@@ -20,7 +20,6 @@ These need changes on the server, so they wait:
   - No second owner, no ownership transfer.
   - The owner can't leave.
 - **Overview columns:** without saved settings there are none (the plant-specific defaults were removed). A neutral default might help new diaries.
-- Not all properties benefit from suggestions. A field "price" for which I enter "8 €" doesn't benefit from a hint that "9 €" already exists. There should be an opt-out from suggestions on given properties.
 
 ## Workarounds
 

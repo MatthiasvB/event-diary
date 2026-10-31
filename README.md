@@ -61,7 +61,10 @@ Event types, categories, field names and values are all just text you type. Ever
 field suggests existing values, ranked by match quality, frequency, recency and context
 (e.g. products used with this event type). Matching ignores case and umlauts and tolerates
 small typos. A value that doesn't exist yet is marked "+ Neu: …", and close existing
-values are offered to avoid near-duplicates.
+values are offered to avoid near-duplicates. For names whose values rarely repeat (e.g. a
+price), _Werte vorschlagen_ can be turned off right where a new name is first entered, or
+later under _Daten pflegen → Namen von Angaben/Eigenschaften_. Their values are then typed
+freely, and maintenance still lists them.
 
 Events and objects have a small fixed core. Everything else is a key/value field:
 

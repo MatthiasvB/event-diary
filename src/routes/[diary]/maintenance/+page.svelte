@@ -106,7 +106,7 @@
 					{@const kind = kindOfKey(c.value)}
 					<form
 						method="POST"
-						action="?/setKind"
+						action="?/saveField"
 						class="row field-kind"
 						use:enhance={() =>
 							async ({ update }) =>
@@ -134,6 +134,14 @@
 								/>
 							</label>
 						{/if}
+						<label class="check">
+							<input
+								type="checkbox"
+								name="suggest"
+								checked={!data.withoutSuggestions.includes(c.value)}
+							/>
+							{t.fieldKinds.suggest}
+						</label>
 						<button class="small">{t.common.save}</button>
 					</form>
 				{/if}

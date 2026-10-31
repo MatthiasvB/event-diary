@@ -1,15 +1,15 @@
-import { kindOf, parseKind, storedValue } from '../fieldKinds.ts';
+import { kindOf, storedValue } from '../fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import type { Db } from './db.ts';
-import { chosenKinds } from './eventForm.ts';
+import { chosenNames } from './eventForm.ts';
 import { createEvent } from './events.ts';
 import { photoType } from './eventTypes.ts';
-import { learnKinds } from './fields.ts';
+import { learnChoices } from './fields.ts';
 import { FILE_ID, filesExist } from './files.ts';
 import { createObject, type ObjectInput } from './objects.ts';
 
-/** Stores kinds chosen for new property names right away. */
+/** Stores what is chosen for new property names right away. */
 export function parseObjectForm(
 	form: FormData,
 	db: Db
@@ -20,10 +20,10 @@ export function parseObjectForm(
 	const get = (k: string) => String(form.get(k) ?? '').trim();
 	const keys = form.getAll('attrKey').map((v) => String(v).trim());
 	const values = form.getAll('attrValue').map((v) => String(v).trim());
-	const chosen = form.getAll('attrKind').map((v) => parseKind(String(v)));
-	const kinds = learnKinds(
+	const chosen = form.getAll('attrChoice').map(String);
+	const kinds = learnChoices(
 		db,
-		chosenKinds(keys.map((key, i) => ({ key, kind: chosen[i], target: 'object' })))
+		chosenNames(keys.map((key, i) => ({ key, chosen: chosen[i], target: 'object' })))
 	);
 	const input = {
 		name: get('name'),

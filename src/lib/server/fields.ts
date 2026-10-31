@@ -1,4 +1,10 @@
-import { kindFrom, unitOf, type FieldKind, type FieldKinds } from '../fieldKinds.ts';
+import {
+	kindFrom,
+	unitOf,
+	type FieldKind,
+	type FieldKinds,
+	type NameChoice
+} from '../fieldKinds.ts';
 import type { FieldTarget } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 
@@ -62,15 +68,29 @@ export function setFieldKind(db: Db, name: string, kind: FieldKind) {
 	);
 }
 
-export type ChosenKind = { name: string; role: Role; kind: FieldKind };
+/** Names whose values are typed freely, without suggestions. */
+export function withoutSuggestions(db: Db): string[] {
+	const rows = db
+		.prepare('SELECT name FROM fields WHERE NOT suggest_values ORDER BY name')
+		.all() as { name: string }[];
+	return rows.map((r) => r.name);
+}
 
-/** A kind applies only to a name without a field yet. Call before saving the values. */
-export function learnKinds(db: Db, chosen: ChosenKind[]): FieldKinds {
+export function setSuggestValues(db: Db, name: string, suggest: boolean) {
+	db.prepare('UPDATE fields SET suggest_values = ? WHERE name = ?').run(suggest ? 1 : 0, name);
+}
+
+export type ChosenName = NameChoice & { name: string; role: Role };
+
+/** A choice applies only to a name without a field yet. Call before saving the values. */
+export function learnChoices(db: Db, chosen: ChosenName[]): FieldKinds {
 	const insert = db.prepare(
-		'INSERT INTO fields (name, role, kind, unit) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO NOTHING'
+		`INSERT INTO fields (name, role, kind, unit, suggest_values) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (name) DO NOTHING`
 	);
 	for (const c of chosen) {
-		if (c.name && c.kind.kind !== 'text') insert.run(c.name, c.role, c.kind.kind, unitOf(c.kind));
+		if (!c.name || (c.kind.kind === 'text' && c.suggest)) continue;
+		insert.run(c.name, c.role, c.kind.kind, unitOf(c.kind), c.suggest ? 1 : 0);
 	}
 	return getFieldKinds(db);
 }

@@ -9,6 +9,7 @@ const FIELDS = `
 		kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'date', 'number')),
 		unit TEXT CHECK (unit IS NULL OR (kind = 'number' AND unit != '')),
 		position INTEGER CHECK (position IS NULL OR role = 'property'),
+		suggest_values INTEGER NOT NULL DEFAULT 1 CHECK (suggest_values IN (0, 1)),
 		UNIQUE (id, role)
 	);
 
@@ -118,7 +119,7 @@ const OVERVIEW_COLUMNS = `
 `;
 
 export const DIARY_SCHEMA: Schema = {
-	version: 12,
+	version: 13,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -156,7 +157,12 @@ export const DIARY_SCHEMA: Schema = {
 
 	${OVERVIEW_COLUMNS}
 	`,
-	migrations: {}
+	migrations: {
+		13: `
+		ALTER TABLE fields ADD COLUMN
+			suggest_values INTEGER NOT NULL DEFAULT 1 CHECK (suggest_values IN (0, 1));
+		`
+	}
 };
 
 export function openDiary(file: string): Db {
