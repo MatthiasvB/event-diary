@@ -25,7 +25,7 @@ These need changes on the server, so they wait:
 ## Cleanup
 
 - **Database migrations:** every database is migrated on deploy. Once the server has been
-  deployed with this version, the steps to diary versions 6 to 12 and registry version 3 in
+  deployed with this version, the steps to diary versions 6 to 12 and registry versions 3 and 4 in
   `src/lib/server/diarySchema.ts` and `registry.ts` can go (keep `create`), together with
   the fixtures of those versions in `src/lib/server/testing/`.
 

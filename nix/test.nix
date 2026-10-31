@@ -270,8 +270,8 @@ in
         machine.succeed("systemctl stop event-diary.socket event-diary.service")
         machine.succeed(
             f"sqlite3 {data_dir}/db/diaries/alt.sqlite < ${../src/lib/server/testing/diary-v7.sql}",
-            f"sqlite3 {data_dir}/db/registry.sqlite \"INSERT INTO diaries (id, name, type) "
-            "VALUES ('alt', 'Alt', 'objects'); INSERT INTO members VALUES ('alt', 'alice', 'owner')\"",
+            f"sqlite3 {data_dir}/db/registry.sqlite \"INSERT INTO diaries (id, name, type, owner) "
+            "VALUES ('alt', 'Alt', 'objects', 'alice')\"",
             f"chown -R event-diary:event-diary {data_dir}/db",
         )
         machine.succeed("systemctl restart event-diary-migrate.service")

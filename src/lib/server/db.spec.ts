@@ -13,7 +13,7 @@ import { getFieldKinds, getPropertyOrder } from './fields.ts';
 import { migrateAll } from './migrate.ts';
 import { getOverviewColumns } from './overview.ts';
 import { attrHistory } from './objects.ts';
-import { diaryFile, openRegistry, REGISTRY_SCHEMA, registryFile } from './registry.ts';
+import { diaryFile, members, openRegistry, REGISTRY_SCHEMA, registryFile } from './registry.ts';
 
 // A diary at version 5.
 const DIARY_V5 = `
@@ -80,6 +80,7 @@ const REGISTRY_V2 = `
 		role TEXT NOT NULL, created_by TEXT NOT NULL, expires_at INTEGER NOT NULL
 	);
 	INSERT INTO diaries (id, name, type) VALUES ('orchideen', 'Orchideen', 'plants');
+	INSERT INTO members (diary_id, username, role) VALUES ('orchideen', 'alice', 'owner');
 	PRAGMA user_version = 2;
 `;
 
@@ -360,6 +361,26 @@ it('migrates the registry and every diary when the app starts, and keeps copies'
 it('opens only databases at the current version', () => {
 	const file = oldDatabase(path.join(dirs.dbDir, 'diary.sqlite'), DIARY_V5);
 	expect(() => openDiary(file)).toThrow(/this app needs/);
+});
+
+it('keeps one owner per diary in the registry at version 4', async () => {
+	const file = oldDatabase(
+		registryFile(dirs.dbDir),
+		REGISTRY_V2 +
+			`INSERT INTO members (diary_id, username, role)
+				VALUES ('orchideen', 'bob', 'owner'), ('orchideen', 'carol', 'viewer');
+			INSERT INTO invites (token_hash, diary_id, role, created_by, expires_at)
+				VALUES ('t', 'orchideen', 'editor', 'alice', 1);`
+	);
+	await migrateDb(file, REGISTRY_SCHEMA, dirs);
+	const reg = openRegistry(file);
+	expect(members(reg, 'orchideen')).toEqual([
+		{ username: 'alice', role: 'owner' },
+		{ username: 'bob', role: 'editor' },
+		{ username: 'carol', role: 'viewer' }
+	]);
+	expect(all(reg, 'SELECT token_hash FROM invites')).toEqual([{ token_hash: 't' }]);
+	reg.close();
 });
 
 it('refuses databases too old to be migrated', async () => {

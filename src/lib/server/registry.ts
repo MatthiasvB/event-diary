@@ -6,15 +6,17 @@ import { openDb, transaction, type Db, type Schema } from './db.ts';
 
 export const DIARY_TYPES = ['objects'] as const;
 export type DiaryType = (typeof DIARY_TYPES)[number];
-export type Role = 'owner' | 'editor' | 'viewer';
 export const SHARED_ROLES = ['editor', 'viewer'] as const;
 export type SharedRole = (typeof SHARED_ROLES)[number];
+export type Role = 'owner' | SharedRole;
 export type DiaryInfo = { id: string; name: string; type: DiaryType; role: Role };
 
 export const LOCAL_USER = 'local';
 
+const inList = (values: readonly string[]) => values.map((v) => `'${v}'`).join(', ');
+
 export const REGISTRY_SCHEMA: Schema = {
-	version: 3,
+	version: 4,
 	create: `
 	CREATE TABLE sessions (
 		token_hash TEXT PRIMARY KEY,
@@ -25,22 +27,31 @@ export const REGISTRY_SCHEMA: Schema = {
 	CREATE TABLE diaries (
 		id TEXT PRIMARY KEY,            -- also the URL segment and the database file name
 		name TEXT NOT NULL,
-		type TEXT NOT NULL,
+		type TEXT NOT NULL CHECK (type IN (${inList(DIARY_TYPES)})),
+		owner TEXT NOT NULL,
 		created_at TEXT NOT NULL DEFAULT (datetime('now'))
 	);
+	CREATE INDEX diaries_owner ON diaries(owner);
 
 	CREATE TABLE members (
 		diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
 		username TEXT NOT NULL,
-		role TEXT NOT NULL,
+		role TEXT NOT NULL CHECK (role IN (${inList(SHARED_ROLES)})),
 		PRIMARY KEY (diary_id, username)
 	);
 	CREATE INDEX members_user ON members(username);
 
+	-- The owner is no member: inviting them leaves them the owner.
+	CREATE TRIGGER members_not_owner BEFORE INSERT ON members
+	WHEN new.username = (SELECT owner FROM diaries WHERE id = new.diary_id)
+	BEGIN
+		SELECT RAISE(IGNORE);
+	END;
+
 	CREATE TABLE invites (
 		token_hash TEXT PRIMARY KEY,
 		diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
-		role TEXT NOT NULL,
+		role TEXT NOT NULL CHECK (role IN (${inList(SHARED_ROLES)})),
 		created_by TEXT NOT NULL,
 		expires_at INTEGER NOT NULL
 	);
@@ -48,6 +59,53 @@ export const REGISTRY_SCHEMA: Schema = {
 	migrations: {
 		3: `
 		UPDATE diaries SET type = 'objects' WHERE type = 'plants';
+		`,
+		4: `
+		CREATE TABLE diaries_new (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL CHECK (type IN ('objects')),
+			owner TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+		INSERT INTO diaries_new (id, name, type, owner, created_at)
+		SELECT d.id, d.name, d.type, (SELECT username FROM members
+			WHERE diary_id = d.id AND role = 'owner' ORDER BY username LIMIT 1), d.created_at
+		FROM diaries d;
+
+		-- Further owners, if any, become editors.
+		CREATE TABLE members_new (
+			diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
+			username TEXT NOT NULL,
+			role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
+			PRIMARY KEY (diary_id, username)
+		);
+		INSERT INTO members_new (diary_id, username, role)
+		SELECT m.diary_id, m.username, CASE WHEN m.role = 'owner' THEN 'editor' ELSE m.role END
+		FROM members m JOIN diaries_new d ON d.id = m.diary_id WHERE m.username != d.owner;
+
+		CREATE TABLE invites_new (
+			token_hash TEXT PRIMARY KEY,
+			diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
+			role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
+			created_by TEXT NOT NULL,
+			expires_at INTEGER NOT NULL
+		);
+		INSERT INTO invites_new SELECT * FROM invites WHERE role IN ('editor', 'viewer');
+
+		DROP TABLE invites;
+		DROP TABLE members;
+		DROP TABLE diaries;
+		ALTER TABLE diaries_new RENAME TO diaries;
+		ALTER TABLE members_new RENAME TO members;
+		ALTER TABLE invites_new RENAME TO invites;
+		CREATE INDEX diaries_owner ON diaries(owner);
+		CREATE INDEX members_user ON members(username);
+		CREATE TRIGGER members_not_owner BEFORE INSERT ON members
+		WHEN new.username = (SELECT owner FROM diaries WHERE id = new.diary_id)
+		BEGIN
+			SELECT RAISE(IGNORE);
+		END;
 		`
 	}
 };
@@ -75,22 +133,17 @@ export function diaryIds(reg: Db): string[] {
 	return (reg.prepare('SELECT id FROM diaries').all() as { id: string }[]).map((r) => r.id);
 }
 
+const ACCESS = `SELECT d.id, d.name, d.type,
+		CASE WHEN d.owner = ?1 THEN 'owner' ELSE m.role END AS role
+	FROM diaries d LEFT JOIN members m ON m.diary_id = d.id AND m.username = ?1
+	WHERE (d.owner = ?1 OR m.username IS NOT NULL)`;
+
 export function userDiaries(reg: Db, user: string): DiaryInfo[] {
-	return reg
-		.prepare(
-			`SELECT d.id, d.name, d.type, m.role FROM diaries d
-			JOIN members m ON m.diary_id = d.id WHERE m.username = ? ORDER BY d.name`
-		)
-		.all(user) as DiaryInfo[];
+	return reg.prepare(`${ACCESS} ORDER BY d.name`).all(user) as DiaryInfo[];
 }
 
 export function memberDiary(reg: Db, id: string, user: string): DiaryInfo | undefined {
-	return reg
-		.prepare(
-			`SELECT d.id, d.name, d.type, m.role FROM diaries d
-			JOIN members m ON m.diary_id = d.id WHERE d.id = ? AND m.username = ?`
-		)
-		.get(id, user) as DiaryInfo | undefined;
+	return reg.prepare(`${ACCESS} AND d.id = ?2`).get(user, id) as DiaryInfo | undefined;
 }
 
 // URL segments the app uses itself.
@@ -116,19 +169,13 @@ function newId(reg: Db, name: string): string {
 }
 
 export function createDiary(reg: Db, name: string, type: DiaryType, owner: string): string {
-	reg.exec('BEGIN IMMEDIATE');
-	try {
+	return transaction(reg, () => {
 		const id = newId(reg, name);
-		reg.prepare('INSERT INTO diaries (id, name, type) VALUES (?, ?, ?)').run(id, name, type);
 		reg
-			.prepare("INSERT INTO members (diary_id, username, role) VALUES (?, ?, 'owner')")
-			.run(id, owner);
-		reg.exec('COMMIT');
+			.prepare('INSERT INTO diaries (id, name, type, owner) VALUES (?, ?, ?, ?)')
+			.run(id, name, type, owner);
 		return id;
-	} catch (e) {
-		reg.exec('ROLLBACK');
-		throw e;
-	}
+	});
 }
 
 export function renameDiary(reg: Db, id: string, name: string) {
@@ -146,22 +193,20 @@ export type Member = { username: string; role: Role };
 export function members(reg: Db, id: string): Member[] {
 	return reg
 		.prepare(
-			`SELECT username, role FROM members WHERE diary_id = ?
-			ORDER BY role = 'owner' DESC, username`
+			`SELECT owner AS username, 'owner' AS role FROM diaries WHERE id = ?1
+			UNION ALL SELECT * FROM (SELECT username, role FROM members WHERE diary_id = ?1 ORDER BY username)`
 		)
 		.all(id) as Member[];
 }
 
 export function setRole(reg: Db, id: string, username: string, role: SharedRole) {
 	reg
-		.prepare("UPDATE members SET role = ? WHERE diary_id = ? AND username = ? AND role != 'owner'")
+		.prepare('UPDATE members SET role = ? WHERE diary_id = ? AND username = ?')
 		.run(role, id, username);
 }
 
 export function removeMember(reg: Db, id: string, username: string) {
-	reg
-		.prepare("DELETE FROM members WHERE diary_id = ? AND username = ? AND role != 'owner'")
-		.run(id, username);
+	reg.prepare('DELETE FROM members WHERE diary_id = ? AND username = ?').run(id, username);
 }
 
 const INVITE_DAYS = 7;
