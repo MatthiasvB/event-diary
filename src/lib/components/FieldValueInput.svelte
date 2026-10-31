@@ -26,7 +26,7 @@
 		<div class="grow">
 			<TextInput bind:value inputmode="decimal" {placeholder} aria-label={label} />
 		</div>
-		{#if kind.unit}<span class="unit">{kind.unit}</span>{/if}
+		{#if kind.kind === 'number' && kind.unit}<span class="unit">{kind.unit}</span>{/if}
 	</div>
 {:else}
 	<Combobox bind:value {candidates} {placeholder} {label} />

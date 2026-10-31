@@ -180,7 +180,7 @@ describe('the forms', () => {
 		d.object('A', { properties: { Topfgröße: '12,5' }, kinds: { Topfgröße: number } });
 		d.object('B', {
 			properties: { Topfgröße: '9' },
-			kinds: { Topfgröße: { kind: 'date', unit: '' } }
+			kinds: { Topfgröße: { kind: 'date' } }
 		});
 		d.record({
 			objects: ['A'],

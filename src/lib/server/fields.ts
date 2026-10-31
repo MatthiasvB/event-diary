@@ -1,4 +1,4 @@
-import { FIELD_KINDS, type FieldKind, type FieldKinds } from '../fieldKinds.ts';
+import { kindFrom, unitOf, type FieldKind, type FieldKinds } from '../fieldKinds.ts';
 import type { FieldTarget } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 
@@ -7,8 +7,6 @@ type FieldRow = { id: number; role: Role };
 
 export const roleOf = (target: FieldTarget): Role => (target === 'object' ? 'property' : 'detail');
 export const targetOf = (role: Role): FieldTarget => (role === 'property' ? 'object' : 'event');
-
-const unitOf = (kind: FieldKind) => (kind.kind === 'number' && kind.unit.trim()) || null;
 
 /**
  * Creates the field if it is new. A detail asked for as a property becomes one, and a
@@ -53,11 +51,10 @@ export function getFieldKinds(db: Db): FieldKinds {
 		kind: FieldKind['kind'];
 		unit: string | null;
 	}[];
-	return Object.fromEntries(rows.map((r) => [r.name, { kind: r.kind, unit: r.unit ?? '' }]));
+	return Object.fromEntries(rows.map((r) => [r.name, kindFrom(r.kind, r.unit ?? '')]));
 }
 
 export function setFieldKind(db: Db, name: string, kind: FieldKind) {
-	if (!FIELD_KINDS.includes(kind.kind)) throw new Error(`Unknown field kind: ${kind.kind}`);
 	db.prepare('UPDATE fields SET kind = ?, unit = ? WHERE name = ?').run(
 		kind.kind,
 		unitOf(kind),

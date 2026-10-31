@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { rename, vocabulary, type ValueKind } from '#lib/server/vocab.ts';
 import { setFieldKind } from '#lib/server/fields.ts';
-import { FIELD_KINDS } from '#lib/fieldKinds.ts';
+import { FIELD_KINDS, kindFrom } from '#lib/fieldKinds.ts';
 import { nearDuplicates, type Candidate } from '#lib/suggest.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -59,7 +59,7 @@ export const actions: Actions = {
 		const key = String(form.get('key') ?? '');
 		const kind = FIELD_KINDS.find((k) => k === form.get('kind'));
 		if (!key || !kind) return fail(400);
-		setFieldKind(db(), key, { kind, unit: String(form.get('unit') ?? '') });
+		setFieldKind(db(), key, kindFrom(kind, String(form.get('unit') ?? '')));
 		return { message: t.fieldKinds.saved(key) };
 	},
 	rename: async ({ request }) => {

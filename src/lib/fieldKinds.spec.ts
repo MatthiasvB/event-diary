@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { displayValue, parseNumber, storedValue, TEXT, type FieldKind } from './fieldKinds.ts';
 
 const cm: FieldKind = { kind: 'number', unit: 'cm' };
-const date: FieldKind = { kind: 'date', unit: '' };
+const date: FieldKind = { kind: 'date' };
 
 describe('field kinds', () => {
 	it('reads numbers with comma or dot', () => {

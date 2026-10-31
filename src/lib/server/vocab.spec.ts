@@ -509,11 +509,11 @@ describe('field kinds', () => {
 	it('stay with a field name when it is renamed, and plain text is not stored', () => {
 		object(1, { Hoehe: '12', Notiz: 'x', Breite: '2026-01-01' });
 		setFieldKind(db, 'Hoehe', { kind: 'number', unit: 'cm' });
-		setFieldKind(db, 'Notiz', { kind: 'text', unit: 'x' });
+		setFieldKind(db, 'Notiz', { kind: 'text' });
 		rename(db, { kind: 'key' }, 'Hoehe', 'Höhe');
 		expect(getFieldKinds(db)).toEqual({ Höhe: { kind: 'number', unit: 'cm' } });
 
-		setFieldKind(db, 'Breite', { kind: 'date', unit: 'ignored' });
+		setFieldKind(db, 'Breite', { kind: 'date' });
 		rename(db, { kind: 'key' }, 'Breite', 'Höhe');
 		expect(getFieldKinds(db)).toEqual({ Höhe: { kind: 'number', unit: 'cm' } });
 	});
@@ -523,23 +523,23 @@ describe('kinds chosen for new names', () => {
 	it('apply only to names that are neither used nor typed yet', () => {
 		object(1, { Standort: 'Küche', 'Erworben am': '2025-01-01' });
 		ensureType(db, 'Umtopfen', { fields: [{ key: 'Substrat', target: 'event' }] });
-		setFieldKind(db, 'Erworben am', { kind: 'date', unit: '' });
+		setFieldKind(db, 'Erworben am', { kind: 'date' });
 
 		const kinds = learnKinds(
 			db,
 			(
 				[
 					['Höhe', { kind: 'number', unit: 'cm' }],
-					['Standort', { kind: 'date', unit: '' }],
+					['Standort', { kind: 'date' }],
 					['Substrat', { kind: 'number', unit: 'l' }],
-					['Erworben am', { kind: 'number', unit: '' }],
-					['Notiz', { kind: 'text', unit: '' }]
+					['Erworben am', { kind: 'number', unit: null }],
+					['Notiz', { kind: 'text' }]
 				] as const
 			).map(([name, kind]) => ({ name, role: 'detail', kind }))
 		);
 
 		expect(kinds).toEqual({
-			'Erworben am': { kind: 'date', unit: '' },
+			'Erworben am': { kind: 'date' },
 			Höhe: { kind: 'number', unit: 'cm' }
 		});
 		expect(getFieldKinds(db)).toEqual(kinds);

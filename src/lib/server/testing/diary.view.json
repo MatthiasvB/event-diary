@@ -630,8 +630,7 @@
 	],
 	"kinds": {
 		"Erworben am": {
-			"kind": "date",
-			"unit": ""
+			"kind": "date"
 		},
 		"Menge": {
 			"kind": "number",

@@ -3,7 +3,14 @@
 	import { page } from '$app/state';
 	import FieldValueInput from './FieldValueInput.svelte';
 	import TextInput from './TextInput.svelte';
-	import { FIELD_KINDS, TEXT, type FieldKindName, type FieldKinds } from '#lib/fieldKinds.ts';
+	import {
+		FIELD_KINDS,
+		kindFrom,
+		TEXT,
+		unitOf,
+		type FieldKindName,
+		type FieldKinds
+	} from '#lib/fieldKinds.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import { isFirstChange, replaced, unsaved } from '#lib/domain/propertyHistory.ts';
@@ -115,7 +122,7 @@
 		return isNewName(f.key) ? (f.kind ?? TEXT) : undefined;
 	}
 	function setKind(f: FieldEntry, kind: string) {
-		f.kind = { kind: kind as FieldKindName, unit: f.kind?.unit ?? '' };
+		f.kind = kindFrom(kind as FieldKindName, (f.kind && unitOf(f.kind)) ?? '');
 	}
 
 	function add() {
@@ -158,7 +165,8 @@
 							{t.fieldKinds.unit}
 							<TextInput
 								bind:value={
-									() => field.kind?.unit ?? '', (v) => (field.kind = { kind: 'number', unit: v })
+									() => (field.kind && unitOf(field.kind)) ?? '',
+									(v) => (field.kind = { kind: 'number', unit: v || null })
 								}
 								placeholder={t.fieldKinds.unitPlaceholder}
 							/>

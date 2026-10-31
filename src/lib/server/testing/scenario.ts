@@ -14,7 +14,7 @@ export function buildScenario(d: Diary) {
 				Topfgröße: '12'
 			},
 			kinds: {
-				'Erworben am': { kind: 'date', unit: '' },
+				'Erworben am': { kind: 'date' },
 				Topfgröße: { kind: 'number', unit: 'cm' }
 			}
 		},

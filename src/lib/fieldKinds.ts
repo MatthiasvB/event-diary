@@ -3,11 +3,19 @@ import { locale } from './i18n.ts';
 
 export const FIELD_KINDS = ['text', 'date', 'number'] as const;
 export type FieldKindName = (typeof FIELD_KINDS)[number];
-/** `unit` only applies to numbers, e.g. "cm" or "€". */
-export type FieldKind = { kind: FieldKindName; unit: string };
+/** `unit` is e.g. "cm" or "€". */
+export type FieldKind =
+	{ kind: 'text' } | { kind: 'date' } | { kind: 'number'; unit: string | null };
 export type FieldKinds = Record<string, FieldKind>;
 
-export const TEXT: FieldKind = { kind: 'text', unit: '' };
+export const TEXT: FieldKind = { kind: 'text' };
+
+/** From a form: the kind's name and the unit typed for it. */
+export function kindFrom(name: FieldKindName, unit: string): FieldKind {
+	return name === 'number' ? { kind: name, unit: unit.trim() || null } : { kind: name };
+}
+
+export const unitOf = (kind: FieldKind) => (kind.kind === 'number' ? kind.unit : null);
 
 export const FIELD_KINDS_DATA = 'diary:field-kinds';
 
@@ -23,10 +31,10 @@ export function parseKind(value: unknown): FieldKind | undefined {
 			return undefined;
 		}
 	}
-	const v = value as Partial<FieldKind> | null;
+	const v = value as { kind?: unknown; unit?: unknown } | null;
 	const kind = FIELD_KINDS.find((k) => k === v?.kind);
 	if (!kind) return undefined;
-	return { kind, unit: kind === 'number' && typeof v?.unit === 'string' ? v.unit.trim() : '' };
+	return kindFrom(kind, typeof v?.unit === 'string' ? v.unit : '');
 }
 
 export function parseNumber(value: string): number | null {

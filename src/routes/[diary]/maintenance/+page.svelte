@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	import Combobox from '#lib/components/Combobox.svelte';
 	import TextInput from '#lib/components/TextInput.svelte';
-	import { FIELD_KINDS, kindOf } from '#lib/fieldKinds.ts';
+	import { FIELD_KINDS, kindOf, unitOf } from '#lib/fieldKinds.ts';
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
 
@@ -83,8 +83,8 @@
 						>{c.value}
 						{#if data.kind === 'key' && kindOfKey(c.value).kind !== 'text'}
 							<span class="badge"
-								>{t.fieldKinds.names[kindOfKey(c.value).kind]}{kindOfKey(c.value).unit
-									? ` (${kindOfKey(c.value).unit})`
+								>{t.fieldKinds.names[kindOfKey(c.value).kind]}{unitOf(kindOfKey(c.value))
+									? ` (${unitOf(kindOfKey(c.value))})`
 									: ''}</span
 							>
 						{/if}</span
@@ -129,7 +129,7 @@
 								{t.fieldKinds.unit}
 								<TextInput
 									name="unit"
-									value={kind.unit}
+									value={unitOf(kind) ?? ''}
 									placeholder={t.fieldKinds.unitPlaceholder}
 								/>
 							</label>
