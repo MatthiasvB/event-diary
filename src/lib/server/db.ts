@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { normalize } from '../suggest.ts';
 export type Db = DatabaseSync;
 
-export type DataDirs = { dbDir: string; photosDir: string; preMigrationDir: string };
+export type DataDirs = { dbDir: string; preMigrationDir: string };
 
 /** A function fixes data where SQL alone can't. */
 export type Migration = string | ((db: Db, dirs: DataDirs) => void | Promise<void>);

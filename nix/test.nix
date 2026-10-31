@@ -266,16 +266,15 @@ in
         machine.succeed(f"test ! -e {data_dir}/db/diaries/testtagebuch.sqlite")
         assert status(f"-H 'Cookie: session={cookie}' {base}{diary}") == "404"
 
-    with subtest("old databases are migrated before the app starts"):
+    with subtest("a diary of the oldest kept version is migrated before the app starts"):
         machine.succeed("systemctl stop event-diary.socket event-diary.service")
         machine.succeed(
-            f"sqlite3 {data_dir}/db/diaries/alt.sqlite < ${../src/lib/server/testing/diary-v7.sql}",
+            f"sqlite3 {data_dir}/db/diaries/alt.sqlite < ${../src/lib/server/testing/diary-v12.sql}",
             f"sqlite3 {data_dir}/db/registry.sqlite \"INSERT INTO diaries (id, name, type, owner) "
             "VALUES ('alt', 'Alt', 'objects', 'alice')\"",
             f"chown -R event-diary:event-diary {data_dir}/db",
         )
         machine.succeed("systemctl restart event-diary-migrate.service")
-        machine.succeed(f"test -s {data_dir}/pre-migration/diaries/alt.v7.sqlite")
         machine.succeed("systemctl start event-diary.socket")
         assert "Phalaenopsis weiß" in get("/alt", cookie), "the app opens only migrated diaries"
   '';

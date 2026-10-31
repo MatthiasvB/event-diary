@@ -34,7 +34,6 @@ describe.each(FIXTURES)('the scenario kept as %s', (fixture) => {
 			old.close();
 			await migrateDb(file, DIARY_SCHEMA, {
 				dbDir: path.dirname(file),
-				photosDir: path.join(dir, 'photos'),
 				preMigrationDir: path.join(dir, 'pre-migration')
 			});
 			expect(view(openDiary(file))).toEqual(view(built()));

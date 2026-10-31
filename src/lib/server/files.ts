@@ -95,16 +95,6 @@ export async function imageSize(file: string): Promise<{ width: number; height: 
 	}
 }
 
-export async function measureOldImages(db: Db, photosDir: string) {
-	const rows = db
-		.prepare("SELECT id, file FROM files WHERE width IS NULL AND mime LIKE 'image/%'")
-		.all() as { id: string; file: string }[];
-	for (const r of rows) {
-		const { width, height } = await imageSize(path.join(photosDir, r.file));
-		db.prepare('UPDATE files SET width = ?, height = ? WHERE id = ?').run(width, height, r.id);
-	}
-}
-
 export function filesExist(db: Db, ids: string[]): boolean {
 	const exists = db.prepare('SELECT 1 FROM files WHERE id = ?');
 	return ids.every((id) => exists.get(id));

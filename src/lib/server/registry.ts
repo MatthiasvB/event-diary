@@ -56,58 +56,7 @@ export const REGISTRY_SCHEMA: Schema = {
 		expires_at INTEGER NOT NULL
 	);
 	`,
-	migrations: {
-		3: `
-		UPDATE diaries SET type = 'objects' WHERE type = 'plants';
-		`,
-		4: `
-		CREATE TABLE diaries_new (
-			id TEXT PRIMARY KEY,
-			name TEXT NOT NULL,
-			type TEXT NOT NULL CHECK (type IN ('objects')),
-			owner TEXT NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now'))
-		);
-		INSERT INTO diaries_new (id, name, type, owner, created_at)
-		SELECT d.id, d.name, d.type, (SELECT username FROM members
-			WHERE diary_id = d.id AND role = 'owner' ORDER BY username LIMIT 1), d.created_at
-		FROM diaries d;
-
-		-- Further owners, if any, become editors.
-		CREATE TABLE members_new (
-			diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
-			username TEXT NOT NULL,
-			role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
-			PRIMARY KEY (diary_id, username)
-		);
-		INSERT INTO members_new (diary_id, username, role)
-		SELECT m.diary_id, m.username, CASE WHEN m.role = 'owner' THEN 'editor' ELSE m.role END
-		FROM members m JOIN diaries_new d ON d.id = m.diary_id WHERE m.username != d.owner;
-
-		CREATE TABLE invites_new (
-			token_hash TEXT PRIMARY KEY,
-			diary_id TEXT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
-			role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
-			created_by TEXT NOT NULL,
-			expires_at INTEGER NOT NULL
-		);
-		INSERT INTO invites_new SELECT * FROM invites WHERE role IN ('editor', 'viewer');
-
-		DROP TABLE invites;
-		DROP TABLE members;
-		DROP TABLE diaries;
-		ALTER TABLE diaries_new RENAME TO diaries;
-		ALTER TABLE members_new RENAME TO members;
-		ALTER TABLE invites_new RENAME TO invites;
-		CREATE INDEX diaries_owner ON diaries(owner);
-		CREATE INDEX members_user ON members(username);
-		CREATE TRIGGER members_not_owner BEFORE INSERT ON members
-		WHEN new.username = (SELECT owner FROM diaries WHERE id = new.diary_id)
-		BEGIN
-			SELECT RAISE(IGNORE);
-		END;
-		`
-	}
+	migrations: {}
 };
 
 export function openRegistry(file: string): Db {
