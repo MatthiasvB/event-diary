@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import type { Crop } from '#lib/domain/crop.ts';
 	import { isoDate } from '#lib/format.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
 	import { fileKind, isMedia } from '#lib/files.ts';
 	import { t } from '#lib/i18n.ts';
+	import { offerCrop } from '#lib/offerCrop.svelte.ts';
+	import { pickedFiles, uncropped, type Upload } from '#lib/upload.ts';
+	import { croppedPreview } from './crop.ts';
 
 	type Props = {
-		files: File[];
+		files: Upload[];
 		onexifdate?: (date: string) => void;
 		prominent?: boolean;
 		documents?: boolean;
@@ -17,14 +21,13 @@
 	// Plain cache of object URLs, not reactive state.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const urls = new Map<File, string>();
-	function preview(file: File) {
-		let url = urls.get(file);
-		if (!url) {
-			url = URL.createObjectURL(file);
-			urls.set(file, url);
-		}
+	function remember(file: File, url: string) {
+		urls.set(file, url);
 		return url;
 	}
+	const preview = (file: File) => urls.get(file) ?? remember(file, URL.createObjectURL(file));
+	const cropped = async (file: File, crop: Crop) =>
+		urls.get(file) ?? remember(file, await croppedPreview(file, crop));
 	onDestroy(() => urls.forEach((u) => URL.revokeObjectURL(u)));
 
 	async function captureDate(list: File[]) {
@@ -42,22 +45,23 @@
 		if (dates.length) onexifdate?.(dates.sort()[0]);
 	}
 
-	function add(e: Event) {
-		const input = e.currentTarget as HTMLInputElement;
-		const added = [...(input.files ?? [])];
-		input.value = '';
-		addFiles(added);
+	const add = (e: Event) => addFiles(pickedFiles(e));
+	const addFiles = (added: File[]) => addUploads(added.map(uncropped));
+
+	async function addPhoto(e: Event) {
+		const [photo] = pickedFiles(e);
+		if (photo) addUploads([await offerCrop(photo)]);
 	}
 
-	function addFiles(added: File[]) {
+	function addUploads(added: Upload[]) {
 		if (!added.length) return;
 		files = [...files, ...added];
-		captureDate(added);
+		captureDate(added.map((u) => u.file));
 	}
 
 	// Files passed in from outside (camera shortcut) also offer their date.
 	onMount(() => {
-		if (files.length) captureDate(files);
+		if (files.length) captureDate(files.map((u) => u.file));
 	});
 </script>
 
@@ -69,7 +73,7 @@
 				accept="image/*"
 				capture="environment"
 				class="visually-hidden"
-				onchange={add}
+				onchange={addPhoto}
 			/>
 			📷 {t.events.camera}
 		</label>
@@ -87,9 +91,11 @@
 	<p class="drop-hint muted small">{documents ? t.files.dropHint : t.photos.dropHint}</p>
 	{#if files.length}
 		<ul class="thumbs">
-			{#each files as file (file)}
+			{#each files as { file, crop } (file)}
 				<li>
-					{#if kind(file) === 'image'}
+					{#if kind(file) === 'image' && crop}
+						{#await cropped(file, crop) then src}<img {src} alt={file.name} />{/await}
+					{:else if kind(file) === 'image'}
 						<img
 							src={preview(file)}
 							alt={file.name}
@@ -106,7 +112,7 @@
 						type="button"
 						class="remove"
 						aria-label={t.events.removePhoto}
-						onclick={() => (files = files.filter((f) => f !== file))}>×</button
+						onclick={() => (files = files.filter((u) => u.file !== file))}>×</button
 					>
 				</li>
 			{/each}

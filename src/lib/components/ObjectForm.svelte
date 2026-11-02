@@ -6,7 +6,7 @@
 	import FileInput from './FileInput.svelte';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
-	import { uploadFiles } from '#lib/upload.ts';
+	import { uploadFiles, type Upload } from '#lib/upload.ts';
 	import { entry, type FieldEntry, type Vocabulary } from '#lib/types.ts';
 
 	type Props = {
@@ -23,7 +23,7 @@
 	let fields = $state<FieldEntry[]>(
 		untrack(() => attrs.map((a) => entry('object', a.key, a.value)))
 	);
-	let files = $state<File[]>([]);
+	let files = $state<Upload[]>([]);
 	let photoDate = $state('');
 	let uploaded = $state<number | null>(null);
 	let uploadError = $state('');

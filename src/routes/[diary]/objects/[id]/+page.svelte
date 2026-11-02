@@ -10,7 +10,8 @@
 	import { t } from '#lib/i18n.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
 	import { isMedia } from '#lib/files.ts';
-	import { openPhotoEvent, startPhotoEvent } from '#lib/pending.svelte.ts';
+	import { openPhotoEvent, startCameraEvent, startPhotoEvent } from '#lib/pending.svelte.ts';
+	import { uncropped } from '#lib/upload.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -39,7 +40,8 @@
 
 <div
 	class="drop-zone page"
-	{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, object.id), isMedia)}
+	{@attach canEdit() &&
+		dropFiles((files) => openPhotoEvent(files.map(uncropped), object.id), isMedia)}
 >
 	<header class="head">
 		{#if object.coverPhotoId}
@@ -88,7 +90,7 @@
 							accept="image/*"
 							capture="environment"
 							class="visually-hidden"
-							onchange={(e) => startPhotoEvent(e, object.id)}
+							onchange={(e) => startCameraEvent(e, object.id)}
 						/>
 						📷 {t.objects.takePhoto}
 					</label>

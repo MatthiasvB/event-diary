@@ -11,7 +11,7 @@
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { isMedia, type EventFile } from '#lib/files.ts';
-	import { uploadFiles } from '#lib/upload.ts';
+	import { uploadFiles, type Upload } from '#lib/upload.ts';
 	import {
 		entry,
 		type EventType,
@@ -39,7 +39,7 @@
 		histories: Record<number, Record<string, PropertyValue[]>>;
 		initial: EventFormInitial;
 		eventId?: number;
-		files?: File[];
+		files?: Upload[];
 		edit?: boolean;
 		/** Opened for one object of a shared event: that object, and all of the event's. */
 		part?: { objectId: number; objectIds: number[] } | null;

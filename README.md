@@ -34,6 +34,9 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   arrived, so you can flip through quickly even on a slow connection.
 - **Foto** (camera in the navigation): photo first, then the object, then save. The photo's
   capture date is offered as the event date.
+- **Cropping**: a photo just taken with the camera can be cropped before it is used. The
+  server cuts it with `vips` on upload and keeps its EXIF data. Photos picked from the
+  gallery, shared or dropped are left as they are.
 - **Sharing photos into the app** (Android): installed via Chrome (or another
   Chromium-based browser), the app appears in the system share sheet for photos and
   videos. Shared files open the event form in photo mode. Firefox for Android and iOS don't support
@@ -98,7 +101,8 @@ nix flake check      # package build incl. tests, NixOS VM test
 ```
 
 Stack: SvelteKit 3 with `adapter-node`, Svelte 5, SQLite through Node's built-in
-`node:sqlite`, and `vipsthumbnail` for thumbnails (handles HEIC and EXIF orientation).
+`node:sqlite`, `vipsthumbnail` for thumbnails (handles HEIC and EXIF orientation), and
+Cropper.js for the crop dialog.
 There are no native Node modules. The PAM check is a small Rust helper in
 [pam-helper/](pam-helper/).
 

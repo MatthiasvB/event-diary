@@ -8,6 +8,7 @@
 	import { t } from '#lib/i18n.ts';
 	import { showValue } from '#lib/fieldValues.ts';
 	import { openPhotoEvent } from '#lib/pending.svelte.ts';
+	import { uncropped } from '#lib/upload.ts';
 	import { normalize } from '#lib/suggest.ts';
 	import { OBJECT_ORDERS, sortObjects, type ObjectOrder } from './objectOrder.ts';
 	import type { Snapshot } from './$types';
@@ -136,7 +137,8 @@
 			<a
 				class="card object"
 				href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(p.id) })}
-				{@attach canEdit() && dropFiles((files) => openPhotoEvent(files, p.id), isMedia)}
+				{@attach canEdit() &&
+					dropFiles((files) => openPhotoEvent(files.map(uncropped), p.id), isMedia)}
 			>
 				{#if p.coverPhotoId}
 					<img src={photoUrl(p.coverPhotoId, 's')} alt="" loading="lazy" />

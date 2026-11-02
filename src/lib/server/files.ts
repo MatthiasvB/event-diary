@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { promisify } from 'node:util';
 import exifr from 'exifr';
+import { storedRegion, type Crop } from '../domain/crop.ts';
 import { fileKind } from '../files.ts';
 import { config } from './config.ts';
 import type { Db } from './db.ts';
@@ -52,7 +53,8 @@ export async function saveFile(
 	db: Db,
 	data: ReadableStream<Uint8Array>,
 	originalName: string,
-	type: string
+	type: string,
+	crop: Crop | null
 ): Promise<string> {
 	const ext = /\.([a-z0-9]{1,10})$/i.exec(originalName)?.[1].toLowerCase() ?? '';
 	const mime = (type || MIME_BY_EXT[ext] || 'application/octet-stream').toLowerCase();
@@ -61,10 +63,15 @@ export async function saveFile(
 	const target = path.join(config.photosDir, name);
 	fs.mkdirSync(config.photosDir, { recursive: true });
 	try {
-		await pipeline(
-			Readable.fromWeb(data as NodeReadableStream),
-			fs.createWriteStream(target, { flags: 'wx', mode: 0o640 })
-		);
+		if (crop) {
+			const upload = `${target}.upload`;
+			try {
+				await receive(data, upload);
+				await cropImage(upload, target, crop);
+			} finally {
+				fs.rmSync(upload, { force: true });
+			}
+		} else await receive(data, target);
 	} catch (e) {
 		fs.rmSync(target, { force: true });
 		throw e;
@@ -79,12 +86,37 @@ export async function saveFile(
 	return id;
 }
 
+const receive = (data: ReadableStream<Uint8Array>, file: string) =>
+	pipeline(
+		Readable.fromWeb(data as NodeReadableStream),
+		fs.createWriteStream(file, { flags: 'wx', mode: 0o640 })
+	);
+
+async function storedSize(file: string) {
+	const header = async (field: string) =>
+		Number((await run(config.vipsheader, ['-f', field, file])).stdout.trim());
+	return { width: await header('width'), height: await header('height') };
+}
+
+/** Keeps the EXIF data, so the capture time and the orientation stay as they were. */
+async function cropImage(source: string, target: string, crop: Crop) {
+	const orientation = (await exifr.orientation(source).catch(() => undefined)) ?? 1;
+	const region = storedRegion(crop, await storedSize(source), orientation);
+	const quality = /\.(jpe?g|webp|heic|heif|avif)$/.test(target) ? '[Q=92]' : '';
+	const { left, top, width, height } = region;
+	await run(config.vips, [
+		'crop',
+		source,
+		target + quality,
+		...[left, top, width, height].map(String)
+	]);
+	fs.chmodSync(target, 0o640);
+}
+
 /** With EXIF rotation applied, as in the thumbnails. 0 × 0 if it can't be read. */
 export async function imageSize(file: string): Promise<{ width: number; height: number }> {
 	try {
-		const header = async (field: string) =>
-			Number((await run(config.vipsheader, ['-f', field, file])).stdout.trim());
-		const [width, height] = [await header('width'), await header('height')];
+		const { width, height } = await storedSize(file);
 		const orientation = await exifr.orientation(file).catch(() => undefined);
 		// Orientations 5 to 8 turn the image by 90°.
 		const turned = typeof orientation === 'number' && orientation >= 5;

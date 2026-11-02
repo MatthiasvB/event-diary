@@ -5,7 +5,9 @@
 	import { t } from '#lib/i18n.ts';
 	import { canEdit } from '#lib/paths.ts';
 	import { handleShortcut, shortcutLabel } from '#lib/shortcuts.ts';
-	import { startPhotoEvent } from '#lib/pending.svelte.ts';
+	import { startCameraEvent } from '#lib/pending.svelte.ts';
+	import { cropping } from '#lib/offerCrop.svelte.ts';
+	import CropDialog from '#lib/components/CropDialog.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -93,7 +95,7 @@
 						accept="image/*"
 						capture="environment"
 						class="visually-hidden"
-						onchange={(e) => startPhotoEvent(e)}
+						onchange={(e) => startCameraEvent(e)}
 					/>
 					<svg viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M4 8h3l2-3h6l2 3h3v11H4z" />
@@ -109,6 +111,10 @@
 <main class="content">
 	{@render children()}
 </main>
+
+{#if cropping.request}
+	<CropDialog request={cropping.request} />
+{/if}
 
 <style>
 	.content {

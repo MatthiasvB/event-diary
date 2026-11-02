@@ -11,6 +11,9 @@ function bytes(value: string): number {
 	return unit ? Number(value.slice(0, -1)) * unit : Number(value);
 }
 
+const vipsTool = (name: string) =>
+	env.VIPSTHUMBNAIL ? path.join(path.dirname(env.VIPSTHUMBNAIL), name) : name;
+
 export const config = {
 	appName: env.APP_NAME || 'Ereignistagebuch',
 
@@ -22,9 +25,8 @@ export const config = {
 	cacheDir: path.resolve(env.CACHE_DIR ?? path.join(dataDir, 'cache')),
 
 	vipsthumbnail: env.VIPSTHUMBNAIL || 'vipsthumbnail',
-	vipsheader: env.VIPSTHUMBNAIL
-		? path.join(path.dirname(env.VIPSTHUMBNAIL), 'vipsheader')
-		: 'vipsheader',
+	vipsheader: vipsTool('vipsheader'),
+	vips: vipsTool('vips'),
 	maxUploadBytes: bytes(env.BODY_SIZE_LIMIT || '512K'),
 
 	auth: {

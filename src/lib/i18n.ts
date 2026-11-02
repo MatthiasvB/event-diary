@@ -233,7 +233,10 @@ export const t = {
 		willMerge: (to: string) => `„${to}“ existiert bereits – die Werte werden zusammengeführt.`
 	},
 	photos: {
-		dropHint: 'oder Fotos hierher ziehen'
+		dropHint: 'oder Fotos hierher ziehen',
+		cropTitle: 'Foto zuschneiden',
+		crop: 'Zuschneiden',
+		keepWhole: 'Ganzes Foto'
 	},
 	fieldKinds: {
 		kind: 'Art der Werte',

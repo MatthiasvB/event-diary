@@ -4,6 +4,7 @@
 	import { t } from '#lib/i18n.ts';
 	import { pendingPhotos } from '#lib/pending.svelte.ts';
 	import { takeSharedPhotos } from '#lib/share.ts';
+	import { uncropped } from '#lib/upload.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -15,7 +16,7 @@
 
 	onMount(async () => {
 		if (shared) {
-			files = [...files, ...(await takeSharedPhotos())];
+			files = [...files, ...(await takeSharedPhotos()).map(uncropped)];
 			ready = true;
 		}
 	});

@@ -52,7 +52,7 @@ buildNpmPackage {
   nativeBuildInputs = [ makeWrapper ];
 
   doCheck = true;
-  # The tests measure images with vipsheader.
+  # The tests measure and crop images with vips.
   nativeCheckInputs = [ vips ];
   checkPhase = ''
     runHook preCheck
