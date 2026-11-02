@@ -96,6 +96,8 @@ export const t = {
 		empty: 'Keine Objekte gefunden.',
 		searchPlaceholder: 'Name oder Eigenschaft',
 		addFilter: 'Nach Eigenschaft filtern',
+		order: 'Sortierung',
+		orders: { name: 'Nach Name', recent: 'Zuletzt aktiv' },
 		nameRequired: 'Bitte einen Namen angeben.',
 		cover: 'Als Titelbild',
 		saveAndNext: 'Speichern & weitere',

@@ -14,7 +14,8 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   own URL: `/<diary>/…`. New diaries are created on that list. _Mehr → Alle Tagebücher_
   leads back to it.
 - **Objekte** (start page of a diary): cards with cover photo, name and "last …" columns
-  (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any property.
+  (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any property, and
+  sort by name or by most recent activity (the date of the latest event).
   The columns are chosen under _Mehr → Einstellungen_.
 - **Erfassen (+)**: the main flow. Choose object(s), type or choose the event type, add
   fields, a note, photos, videos and other files, then save. Choosing a type fills in its

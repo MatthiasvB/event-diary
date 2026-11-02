@@ -9,6 +9,7 @@
 	import { showValue } from '#lib/fieldValues.ts';
 	import { openPhotoEvent } from '#lib/pending.svelte.ts';
 	import { normalize } from '#lib/suggest.ts';
+	import { OBJECT_ORDERS, sortObjects, type ObjectOrder } from './objectOrder.ts';
 	import type { Snapshot } from './$types';
 	import type { PageProps } from './$types';
 
@@ -18,6 +19,7 @@
 	let query = $state('');
 	let active = $state<ActiveFilter>('active');
 	let attrFilters = $state<{ key: string; value: string }[]>([]);
+	let order = $state<ObjectOrder>('name');
 	let newKey = $state('');
 
 	// Keep filters when navigating back from an object, but not the search: it was for
@@ -25,9 +27,10 @@
 	export const snapshot: Snapshot<{
 		active: ActiveFilter;
 		attrFilters: typeof attrFilters;
+		order: ObjectOrder;
 	}> = {
-		capture: () => ({ active, attrFilters: $state.snapshot(attrFilters) }),
-		restore: (s) => ({ active, attrFilters } = s)
+		capture: () => ({ active, attrFilters: $state.snapshot(attrFilters), order }),
+		restore: (s) => ({ active, attrFilters, order } = s)
 	};
 
 	const keys = $derived([...new Set(data.objects.flatMap((p) => Object.keys(p.attrs)))].sort());
@@ -38,12 +41,13 @@
 
 	const shown = $derived.by(() => {
 		const q = normalize(query);
-		return data.objects.filter(
+		const matching = data.objects.filter(
 			(p) =>
 				(active === 'all' || p.active === (active === 'active')) &&
 				attrFilters.every((f) => !f.value || p.attrs[f.key] === f.value) &&
 				(!q || normalize([p.name, p.notes, ...Object.values(p.attrs)].join(' ')).includes(q))
 		);
+		return sortObjects(matching, order);
 	});
 
 	const summary = ({ count, last }: (typeof data.objects)[number]['stats']) =>
@@ -90,6 +94,9 @@
 				>
 			{/each}
 		</div>
+		<select bind:value={order} aria-label={t.objects.order}>
+			{#each OBJECT_ORDERS as o (o)}<option value={o}>{t.objects.orders[o]}</option>{/each}
+		</select>
 		{#if keys.length}
 			<select
 				class="grow"
