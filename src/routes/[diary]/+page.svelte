@@ -94,9 +94,13 @@
 				>
 			{/each}
 		</div>
-		<select bind:value={order} aria-label={t.objects.order}>
-			{#each OBJECT_ORDERS as o (o)}<option value={o}>{t.objects.orders[o]}</option>{/each}
-		</select>
+		<div class="segmented" role="group" aria-label={t.objects.order}>
+			{#each OBJECT_ORDERS as o (o)}
+				<button type="button" aria-pressed={order === o} onclick={() => (order = o)}
+					>{t.objects.orders[o]}</button
+				>
+			{/each}
+		</div>
 		{#if keys.length}
 			<select
 				class="grow"
