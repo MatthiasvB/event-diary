@@ -3,6 +3,7 @@
 		{
 			"name": "Cattleya",
 			"active": true,
+			"listed": true,
 			"notes": "",
 			"cover": null,
 			"coverRatio": null,
@@ -136,6 +137,7 @@
 		{
 			"name": "Dendrobium",
 			"active": false,
+			"listed": true,
 			"notes": "Geschenk",
 			"cover": null,
 			"coverRatio": null,
@@ -238,6 +240,7 @@
 		{
 			"name": "Haus",
 			"active": true,
+			"listed": true,
 			"notes": "",
 			"cover": null,
 			"coverRatio": null,
@@ -274,6 +277,7 @@
 		{
 			"name": "Phalaenopsis weiß",
 			"active": true,
+			"listed": true,
 			"notes": "",
 			"cover": "bluete.jpg",
 			"coverRatio": 1.3333333333333333,

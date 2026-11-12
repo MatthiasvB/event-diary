@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { canEdit, diaryId, photoUrl } from '#lib/paths.ts';
 	import { onMount } from 'svelte';
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import AttrHistory from '#lib/components/AttrHistory.svelte';
 	import EventCard from '#lib/components/EventCard.svelte';
 	import Gallery from '#lib/components/Gallery.svelte';
+	import ObjectPicker from '#lib/components/ObjectPicker.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
-	import { showValue } from '#lib/fieldValues.ts';
+	import { objectName, showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
 	import { isMedia } from '#lib/files.ts';
@@ -14,10 +16,14 @@
 	import { uncropped } from '#lib/upload.ts';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	const object = $derived(data.object);
 	let gallery = $state<Gallery>();
 	let coverHint = $state(false);
+	let adding = $state(false);
+	let toAdd = $state<number[]>([]);
+	const objectHref = (id: number) =>
+		resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(id) });
 
 	let standalone = $state(false);
 	onMount(() => {
@@ -124,7 +130,15 @@
 					{@const current = history[history.length - 1]}
 					<dt>{key}</dt>
 					<dd>
-						{showValue(key, current.value)}
+						{#if data.paths[key]?.length}
+							{#each data.paths[key] as id, i (id)}
+								{#if i}<span class="muted separator">›</span>{/if}<a href={objectHref(id)}
+									>{objectName(id)}</a
+								>
+							{/each}
+						{:else}
+							{showValue(key, current.value)}
+						{/if}
 						{#if current.since}<span class="muted small"
 								>{t.objects.since} {formatDate(current.since)}</span
 							>{/if}
@@ -142,6 +156,55 @@
 					</dd>
 				{/each}
 			</dl>
+		</section>
+	{/if}
+
+	{#if data.associated.length || (canEdit() && data.associations.length)}
+		<section class="stack associated">
+			<h2>{t.associations.here}</h2>
+			{#each data.associated as { key, ids } (key)}
+				<div>
+					<h3 class="muted small">{key}</h3>
+					<ul class="links">
+						{#each ids as id (id)}<li><a href={objectHref(id)}>{objectName(id)}</a></li>{/each}
+					</ul>
+				</div>
+			{/each}
+			{#if canEdit() && data.associations.length}
+				{#if adding}
+					<form
+						method="POST"
+						action="?/associate"
+						class="stack"
+						use:enhance={() =>
+							async ({ result, update }) => {
+								await update();
+								if (result.type === 'success') {
+									adding = false;
+									toAdd = [];
+								}
+							}}
+					>
+						<label>
+							{t.associations.association}
+							<select name="key">
+								{#each data.associations as key (key)}<option value={key}>{key}</option>{/each}
+							</select>
+						</label>
+						<ObjectPicker objects={data.objects} bind:selected={toAdd} />
+						{#each toAdd as id (id)}<input type="hidden" name="object" value={id} />{/each}
+						{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
+						<div class="row">
+							<button class="primary" disabled={!toAdd.length}>{t.common.save}</button>
+							<button type="button" onclick={() => (adding = false)}>{t.common.cancel}</button>
+						</div>
+					</form>
+				{:else}
+					<div>
+						<button type="button" onclick={() => (adding = true)}>+ {t.associations.add}</button>
+					</div>
+				{/if}
+			{/if}
 		</section>
 	{/if}
 
@@ -202,6 +265,20 @@
 </div>
 
 <style>
+	.associated {
+		gap: 0.6rem;
+	}
+	.associated h3 {
+		margin: 0 0 0.2rem;
+		font-weight: normal;
+	}
+	.links {
+		margin: 0;
+		padding-left: 1.2rem;
+	}
+	.separator {
+		margin: 0 0.35em;
+	}
 	.head {
 		display: flex;
 		flex-direction: column;

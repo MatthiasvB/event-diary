@@ -2,7 +2,8 @@ import type { Candidate } from '../suggest.ts';
 import type { FieldTarget, ValueCandidate, Vocabulary } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { listTypes } from './eventTypes.ts';
-import { propertyKeys, useField, type Role } from './fields.ts';
+import { kindOf } from '../fieldKinds.ts';
+import { getFieldKinds, propertyKeys, setFieldKind, useField, type Role } from './fields.ts';
 
 type UsageRow = {
 	key: string;
@@ -30,11 +31,11 @@ export function vocabulary(db: Db): Vocabulary {
 		.all() as UsageRow[];
 	const objectRows = db
 		.prepare(
-			`SELECT f.name AS key, a.value, e.type_id, count(*) AS n,
-				max(coalesce(e.date, a.since)) AS last
+			`SELECT f.name AS key, coalesce(a.value, CAST(a.target_id AS TEXT)) AS value, e.type_id,
+				count(*) AS n, max(coalesce(e.date, a.since)) AS last
 			FROM property_values a JOIN fields f ON f.id = a.field_id
 			LEFT JOIN events e ON e.id = a.event_id
-			GROUP BY f.id, a.value, e.type_id`
+			GROUP BY f.id, a.value, a.target_id, e.type_id`
 		)
 		.all() as UsageRow[];
 
@@ -130,6 +131,11 @@ function renameKey(db: Db, from: string, to: string): number {
 	const role: Role = source.role === 'property' ? 'property' : existing.role;
 	const target = useField(db, to, role);
 	useField(db, from, role);
+	const kinds = getFieldKinds(db);
+	const kind = kindOf(kinds, to);
+	if ((kindOf(kinds, from).kind === 'object') !== (kind.kind === 'object')) {
+		setFieldKind(db, from, kind);
+	}
 
 	// An event that has both keeps both values, joined.
 	const both = db

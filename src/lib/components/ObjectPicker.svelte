@@ -21,7 +21,7 @@
 	const filterValues = $derived(
 		filterKey
 			? [...new Set(objects.map((p) => p.attrs[filterKey]).filter(Boolean))].sort((a, b) =>
-					a.localeCompare(b, 'de')
+					showValue(filterKey, a).localeCompare(showValue(filterKey, b), 'de')
 				)
 			: []
 	);
@@ -32,7 +32,10 @@
 			(p) =>
 				(!onlyActive || p.active) &&
 				(!filterKey || !filterValue || p.attrs[filterKey] === filterValue) &&
-				(!q || normalize(`${p.name} ${Object.values(p.attrs).join(' ')}`).includes(q))
+				(!q ||
+					normalize(
+						[p.name, ...Object.entries(p.attrs).map(([k, v]) => showValue(k, v))].join(' ')
+					).includes(q))
 		);
 	});
 

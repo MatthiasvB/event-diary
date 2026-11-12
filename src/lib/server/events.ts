@@ -11,7 +11,14 @@ import { transaction, type Db } from './db.ts';
 import { roleOf, useField } from './fields.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
-import { attrHistory, forgetInitialValue, pinCover, setInitialValue } from './objects.ts';
+import {
+	attrHistory,
+	forgetInitialValue,
+	insertValue,
+	pinCover,
+	referrers,
+	setInitialValue
+} from './objects.ts';
 
 type Row = {
 	id: number;
@@ -172,9 +179,6 @@ function writeDetails(db: Db, eventId: number, objectIds: number[], input: Event
 	const detail = db.prepare(
 		'INSERT OR REPLACE INTO event_details (event_id, field_id, value) VALUES (?, ?, ?)'
 	);
-	const change = db.prepare(
-		'INSERT INTO property_values (object_id, field_id, value, event_id) VALUES (?, ?, ?, ?)'
-	);
 	for (const f of input.fields) {
 		if (!f.key || !f.value) continue;
 		const field = useField(db, f.key, roleOf(f.target));
@@ -184,7 +188,7 @@ function writeDetails(db: Db, eventId: number, objectIds: number[], input: Event
 		}
 		const initial = f.target === 'object' ? f.initial : KEEP;
 		for (const objectId of objectIds) {
-			change.run(objectId, field.id, f.value, eventId);
+			insertValue(db, { objectId, fieldId: field.id, value: f.value, eventId });
 			if (initial.kind === 'keep') continue;
 			const history = attrHistory(db, objectId)[f.key] ?? [];
 			if (!isFirstChange(replaced(history, unsaved(input.date), eventId))) continue;
@@ -326,9 +330,15 @@ export function deleteEvent(db: Db, id: number, only: number | null = null) {
 
 export const objectImpact = (db: Db, id: number) => impact(db, ofObject(id));
 
-/** Events it shares with other objects stay for those. */
-export function deleteObject(db: Db, id: number) {
+/**
+ * Events it shares with other objects stay for those. Refused while the values of other
+ * objects point to it, now or in their history.
+ */
+export function deleteObject(db: Db, id: number): { deleted: true } | { referencedBy: string[] } {
+	const referencedBy = referrers(db, id);
+	if (referencedBy.length) return { referencedBy };
 	deleteEvents(db, ofObject(id), () => db.prepare('DELETE FROM objects WHERE id = ?').run(id));
+	return { deleted: true };
 }
 
 export const typeImpact = (db: Db, id: number) => impact(db, ofType(id));

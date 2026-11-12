@@ -116,7 +116,22 @@ export const t = {
 		fromGallery: 'Aus Galerie',
 		photos: 'Fotos & Videos',
 		key: 'Eigenschaft',
-		value: 'Wert'
+		value: 'Wert',
+		listed: 'Auf der Startseite zeigen',
+		listedHint:
+			'Sonst nur über Verknüpfungen, die Auswahl und „Mehr“ erreichbar, z. B. für einen Schrank oder das Auto.',
+		unlisted: 'Nicht auf der Startseite',
+		stillReferenced: (names: string[]) =>
+			`Kann nicht gelöscht werden: ${names.map((n) => `„${n}“`).join(', ')} ${names.length === 1 ? 'ist' : 'sind'} damit verknüpft, jetzt oder früher. Setze es lieber auf inaktiv.`
+	},
+	associations: {
+		cycle: 'Das ergäbe einen Kreis: Ein Objekt kann nicht in etwas sein, das selbst darin ist.',
+		here: 'Hier verknüpft',
+		add: 'Hinzufügen',
+		association: 'Verknüpfung',
+		choose: 'Objekte wählen',
+		newObject: (name: string) => `„${name}“ neu anlegen`,
+		pick: 'Objekt wählen'
 	},
 	events: {
 		title: 'Ereignisse',
@@ -240,7 +255,7 @@ export const t = {
 	},
 	fieldKinds: {
 		kind: 'Art der Werte',
-		names: { text: 'Text', date: 'Datum', number: 'Zahl' },
+		names: { text: 'Text', date: 'Datum', number: 'Zahl', object: 'Objekt' },
 		unit: 'Einheit',
 		unitPlaceholder: 'z. B. cm',
 		suggest: 'Werte vorschlagen',

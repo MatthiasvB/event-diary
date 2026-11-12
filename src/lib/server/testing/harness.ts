@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { fieldsFor } from '../../domain/eventFields.ts';
+import { formatTarget, targetName } from '../../domain/associations.ts';
 import { isFirstChange } from '../../domain/propertyHistory.ts';
 import { TEXT, type FieldKind, type NameChoice } from '../../fieldKinds.ts';
 import type { DiaryEvent, ValueCandidate } from '../../types.ts';
@@ -24,15 +25,8 @@ import {
 	sortProperties,
 	withoutSuggestions
 } from '../fields.ts';
-import { parseObjectForm, saveNewObject } from '../objectForm.ts';
-import {
-	attrHistory,
-	forgetInitialValue,
-	listObjects,
-	setCover,
-	setInitialValue,
-	updateObject
-} from '../objects.ts';
+import { associateWith, saveEditedObject, saveInitialValue, saveNewObject } from '../objectForm.ts';
+import { attrHistory, forgetInitialValue, listObjects, objectNames, setCover } from '../objects.ts';
 import { getOverviewColumns, objectStats, setOverviewColumns } from '../overview.ts';
 import { parseTypeForm } from '../typeForm.ts';
 import { rename, vocabulary, type ValueKind } from '../vocab.ts';
@@ -62,6 +56,7 @@ export type ObjectEntry = {
 	kinds?: Record<string, FieldKind>;
 	withoutSuggestions?: string[];
 	active?: boolean;
+	listed?: boolean;
 	notes?: string;
 };
 
@@ -105,6 +100,11 @@ export class Diary {
 			{ id: number } | undefined;
 		if (!row) throw new Error(`No object ${name}`);
 		return row.id;
+	}
+
+	/** What an association's input holds for the object. */
+	ref(name: string): string {
+		return formatTarget({ id: this.objectId(name) });
 	}
 
 	typeId(label: string): number {
@@ -154,14 +154,15 @@ export class Diary {
 	}
 
 	editObject(name: string, entry: ObjectEntry & { name?: string }) {
-		const id = this.objectId(name);
-		const { input, error } = parseObjectForm(this.objectForm(entry.name ?? name, entry), this.db);
-		if (error) throw new Error(error);
-		updateObject(this.db, { ...input, id }, this.today);
+		const form = this.objectForm(entry.name ?? name, entry);
+		const refused = saveEditedObject(form, this.db, this.objectId(name), this.today);
+		if (refused) throw new Error(refused.error);
 	}
 
 	record(entry: EventEntry): number {
-		return saveNewEvent(this.db, this.eventForm(entry, null));
+		const saved = saveNewEvent(this.db, this.eventForm(entry, null));
+		if ('error' in saved) throw new Error(saved.error);
+		return saved.id;
 	}
 
 	/** Like the form: "apply to all" selects all the event's objects. */
@@ -169,7 +170,8 @@ export class Diary {
 		const shared = event.objects.length > 1;
 		const objects = entry.applyToBatch ? event.objects.map((o) => o.name) : entry.objects;
 		const only = shared && !entry.applyToBatch ? objectId : null;
-		saveEditedEvent(this.db, event.id, this.eventForm({ ...entry, objects }, only));
+		const refused = saveEditedEvent(this.db, event.id, this.eventForm({ ...entry, objects }, only));
+		if (refused) throw new Error(refused.error);
 	}
 
 	deleteEvent(id: number) {
@@ -177,11 +179,20 @@ export class Diary {
 	}
 
 	delete(object: string) {
-		deleteObject(this.db, this.objectId(object));
+		const result = deleteObject(this.db, this.objectId(object));
+		if ('referencedBy' in result) throw new Error(`Still in use: ${result.referencedBy}`);
+	}
+
+	/** As the holder's page adds objects to it. */
+	associate(holder: string, key: string, objects: string[]) {
+		const ids = objects.map((name) => this.objectId(name));
+		const refused = associateWith(this.db, this.objectId(holder), key, ids, this.today);
+		if (refused) throw new Error(refused.error);
 	}
 
 	setInitial(object: string, key: string, value: string) {
-		setInitialValue(this.db, this.objectId(object), key, value);
+		const refused = saveInitialValue(this.db, this.objectId(object), key, value);
+		if (refused) throw new Error(refused.error);
 	}
 
 	forgetInitial(object: string, key: string) {
@@ -249,6 +260,7 @@ export class Diary {
 		const form = new FormData();
 		form.set('name', name);
 		if (entry.active ?? true) form.set('active', 'on');
+		if (entry.listed ?? true) form.set('listed', 'on');
 		form.set('notes', entry.notes ?? '');
 		for (const [key, value] of Object.entries(entry.properties ?? {})) {
 			form.append('attrKey', key);
@@ -322,6 +334,10 @@ export function view(db: Db) {
 			}[]
 		).map((f) => [f.id, f.original_name])
 	);
+	const kinds = getFieldKinds(db);
+	const names = objectNames(db);
+	const shown = (key: string, value: string) =>
+		kinds[key]?.kind === 'object' ? (targetName(value, (id) => names[id]) ?? value) : value;
 	const events = listEvents(db, { limit: 1_000_000 });
 	const ref = (id: number | null) => {
 		const event = events.find((e) => e.id === id);
@@ -339,16 +355,16 @@ export function view(db: Db) {
 			.filter((f) => f.target === 'object')
 			.map((f) => ({
 				key: f.key,
-				value: f.value,
-				before: f.replaced?.value ?? null,
+				value: shown(f.key, f.value),
+				before: f.replaced ? shown(f.key, f.replaced.value) : null,
 				first: isFirstChange(f.replaced)
 			})),
 		files: e.files.map((f) => f.name)
 	});
-	const candidates = (list: ValueCandidate[]) =>
+	const candidates = (list: ValueCandidate[], key = '') =>
 		list
 			.map((c) => ({
-				value: c.value,
+				value: shown(key, c.value),
 				count: c.count,
 				last: c.last,
 				byType: Object.fromEntries(
@@ -362,7 +378,6 @@ export function view(db: Db) {
 	const stats = objectStats(db, columns);
 	const photoType = findPhotoType(db);
 	const vocab = vocabulary(db);
-	const kinds = getFieldKinds(db);
 	const categories = [
 		...new Set(types.flatMap((ty) => (ty.category === null ? [] : [ty.category])))
 	].sort();
@@ -373,6 +388,7 @@ export function view(db: Db) {
 			return {
 				name: o.name,
 				active: o.active,
+				listed: o.listed,
 				notes: o.notes,
 				cover: o.coverPhotoId && (files.get(o.coverPhotoId) ?? null),
 				coverRatio: o.coverRatio,
@@ -381,7 +397,11 @@ export function view(db: Db) {
 				properties: Object.fromEntries(
 					sortProperties(db, Object.keys(history)).map((key) => [
 						key,
-						history[key].map((h) => ({ value: h.value, since: h.since, by: ref(h.eventId) }))
+						history[key].map((h) => ({
+							value: shown(key, h.value),
+							since: h.since,
+							by: ref(h.eventId)
+						}))
 					])
 				),
 				timeline: events
@@ -421,7 +441,7 @@ export function view(db: Db) {
 			values: Object.fromEntries(
 				Object.entries(vocab.values)
 					.sort(([a], [b]) => a.localeCompare(b))
-					.map(([key, list]) => [key, candidates(list)])
+					.map(([key, list]) => [key, candidates(list, key)])
 			)
 		},
 		storedFiles: [...files.values()].sort()
@@ -435,10 +455,16 @@ export function dump(db: Db): string {
 	const schema = db
 		.prepare('SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY rowid')
 		.all() as { type: string; name: string; sql: string }[];
+	// Generated columns are left out. SQLite fills them in.
+	const stored = (table: string) =>
+		(db.prepare(`PRAGMA table_xinfo(${table})`).all() as { name: string; hidden: number }[])
+			.filter((c) => c.hidden === 0)
+			.map((c) => c.name)
+			.join(', ');
 	const rows = schema
 		.filter((s) => s.type === 'table')
 		.flatMap(({ name }) =>
-			(db.prepare(`SELECT * FROM ${name}`).all() as Record<string, unknown>[]).map(
+			(db.prepare(`SELECT ${stored(name)} FROM ${name}`).all() as Record<string, unknown>[]).map(
 				(r) =>
 					`INSERT INTO ${name} (${Object.keys(r).join(', ')}) VALUES (${Object.values(r).map(quote).join(', ')});`
 			)

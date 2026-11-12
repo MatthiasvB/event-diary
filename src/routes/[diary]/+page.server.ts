@@ -10,6 +10,8 @@ export const load: PageServerLoad = () => {
 	const empty = { count: 0, last: null, columns: columns.map(() => null) };
 	return {
 		columns: columns.map((c) => c.label),
-		objects: listObjects(d).map((p) => ({ ...p, stats: stats.get(p.id) ?? empty }))
+		objects: listObjects(d)
+			.filter((p) => p.listed)
+			.map((p) => ({ ...p, stats: stats.get(p.id) ?? empty }))
 	};
 };

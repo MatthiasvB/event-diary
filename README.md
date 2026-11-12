@@ -16,7 +16,9 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
 - **Objekte** (start page of a diary): cards with cover photo, name and "last …" columns
   (e.g. "Gedüngt: vor 12 Tagen"). Search, filter by active state or by any property, and
   sort by name or by most recent activity (the date of the latest event).
-  The columns are chosen under _Mehr → Einstellungen_.
+  The columns are chosen under _Mehr → Einstellungen_. Objects with _Auf der Startseite
+  zeigen_ unchecked are left out. They are listed under _Mehr_ instead, e.g. a cupboard or
+  the car that only holds other things.
 - **Erfassen (+)**: the main flow. Choose object(s), type or choose the event type, add
   fields, a note, photos, videos and other files, then save. Choosing a type fills in its
   usual fields and shows its hint. Several objects at once create one event for all of them
@@ -85,6 +87,18 @@ an event type, or added on an object. The earlier event details of that name the
 changes of their objects' property. A property stays one, even when no object has a value
 for it any more. Only the first recorded change of a property can set the value before
 it (or mark it as not recorded). For later ones, the value before is the previous change's.
+
+**Associations** link objects. A property of the kind _Objekt_ (chosen for a new name, or
+under _Daten pflegen_) has another object as its value, e.g. _In: Fernbedienung_ or
+_Standort: Ostfenster_. It keeps a history like any property, and an event can change it
+for several objects at once. The object page shows where an association leads
+(_Fernbedienung › Auto_) and lists, under _Hier verknüpft_, the objects that point to it.
+Objects can be added there from the holder's side too. Typing a name that doesn't exist yet
+creates the object, unlisted. Following an association never leads back to where it
+started, so an object can't be in something that is inside it. An object others point to,
+now or in their history, can't be deleted. Turning a text property into an association
+makes each value an object: the one of that name, or a new unlisted one. Associations have
+no defaults on event types.
 
 Event types learn which fields they are used with. On the event type page you can edit
 them and set default values. Without a default, the value from the last use is suggested.

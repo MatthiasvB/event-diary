@@ -119,6 +119,27 @@ it('leaves current databases alone when the app starts, and refuses ones too old
 	await expect(migrateAll(dirs)).rejects.toThrow(/too old/);
 });
 
+it('makes room for associations in a diary of version 13, keeping every value', async () => {
+	const fixture = path.join(import.meta.dirname, 'testing', 'diary-v13.sql');
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diaries', 'x.sqlite'),
+		fs.readFileSync(fixture, 'utf8')
+	);
+	const values = (db: Db) => all(db, 'SELECT id, object_id, field_id, value FROM property_values');
+	const old = new DatabaseSync(file);
+	const before = values(old);
+	old.close();
+
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	expect(values(db)).toEqual(before);
+	expect(all(db, 'SELECT DISTINCT listed FROM objects')).toEqual([{ listed: 1 }]);
+	const pointAt = `INSERT INTO property_values (object_id, field_id, target_id)
+		SELECT 1, id, 2 FROM fields WHERE role = 'property' LIMIT 1`;
+	expect(() => transaction(db, () => db.exec(pointAt))).toThrow(/FOREIGN KEY/);
+	db.close();
+});
+
 function diaryWithEvent() {
 	const db = openDiary(':memory:');
 	db.exec(`

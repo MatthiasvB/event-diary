@@ -25,6 +25,21 @@
 	<a class="card" href={resolve('/?choose=1')}>{t.more.switchDiary}</a>
 </nav>
 
+{#if data.unlisted.length}
+	<section>
+		<h2>{t.objects.unlisted}</h2>
+		<ul class="links">
+			{#each data.unlisted as o (o.id)}
+				<li>
+					<a href={resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(o.id) })}
+						>{o.name}</a
+					>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
+
 <section class="desktop-only">
 	<h2>{t.shortcuts.title}</h2>
 	<dl class="attrs">
@@ -46,6 +61,10 @@
 <style>
 	.menu {
 		gap: 0.5rem;
+	}
+	.links {
+		margin: 0;
+		padding-left: 1.2rem;
 	}
 	kbd {
 		padding: 0.05rem 0.4rem;

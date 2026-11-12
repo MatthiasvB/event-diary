@@ -12,11 +12,12 @@ export const load: PageServerLoad = ({ url }) => {
 	const d = db();
 	const vocab = vocabulary(d);
 	const keys = [...vocab.keys.object].sort((a, b) => b.count - a.count).slice(0, 8);
-	// "Save & next" carries over the dates (e.g. "Erworben am") of the object just created.
+	// "Save & next" carries over the dates (e.g. "Erworben am") and associations (e.g. "In") of
+	// the object just created.
 	const created = getObject(d, Number(url.searchParams.get('created')));
 	const kinds = getFieldKinds(d);
 	const carried = Object.entries(created ? (currentAttrs(d).get(created.id) ?? {}) : {}).filter(
-		([key]) => kindOf(kinds, key).kind === 'date'
+		([key]) => ['date', 'object'].includes(kindOf(kinds, key).kind)
 	);
 	const attrs = new Map(
 		sortProperties(
@@ -29,6 +30,7 @@ export const load: PageServerLoad = ({ url }) => {
 		object: {
 			name: '',
 			active: true,
+			listed: true,
 			notes: ''
 		},
 		attrs: [...attrs].map(([key, value]) => ({ key, value })),

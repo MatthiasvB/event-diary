@@ -10,7 +10,7 @@
 	import { entry, type FieldEntry, type Vocabulary } from '#lib/types.ts';
 
 	type Props = {
-		object: { name: string; active: boolean; notes: string };
+		object: { name: string; active: boolean; listed: boolean; notes: string };
 		attrs: { key: string; value: string }[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
 		isNew?: boolean;
@@ -63,6 +63,12 @@
 	<label class="check"
 		><input name="active" type="checkbox" checked={object.active} /> {t.objects.active}</label
 	>
+	<div class="stack listed">
+		<label class="check"
+			><input name="listed" type="checkbox" checked={object.listed} /> {t.objects.listed}</label
+		>
+		<p class="muted small">{t.objects.listedHint}</p>
+	</div>
 
 	<fieldset>
 		<legend>{t.objects.attributes}</legend>
@@ -112,5 +118,11 @@
 	}
 	fieldset p {
 		margin: 0 0 0.5rem;
+	}
+	.listed {
+		gap: 0.2rem;
+	}
+	.listed p {
+		margin: 0;
 	}
 </style>

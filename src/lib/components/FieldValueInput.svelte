@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Combobox from './Combobox.svelte';
 	import DateInput from './DateInput.svelte';
+	import ObjectValueInput from './ObjectValueInput.svelte';
 	import TextInput from './TextInput.svelte';
 	import { fieldKind, suggestsValues } from '#lib/fieldValues.ts';
 	import type { FieldKind } from '#lib/fieldKinds.ts';
@@ -31,6 +32,8 @@
 
 {#if kind.kind === 'date'}
 	<DateInput bind:value {label} />
+{:else if kind.kind === 'object'}
+	<ObjectValueInput bind:value {candidates} {placeholder} {label} />
 {:else if kind.kind === 'number'}
 	<div class="number">
 		<div class="grow">

@@ -1,17 +1,24 @@
 import { openDb, type Db, type Schema } from './db.ts';
 
-// See docs/adr/0001-fields.md for the role columns.
-const FIELDS = `
-	CREATE TABLE fields (
+// See docs/adr/0001-fields.md for the role columns, and docs/adr/0006-associations.md for
+// value_type.
+const FIELDS_TABLE = (name: string) => `
+	CREATE TABLE ${name} (
 		id INTEGER PRIMARY KEY,
 		name TEXT NOT NULL UNIQUE CHECK (name != ''),
 		role TEXT NOT NULL CHECK (role IN ('detail', 'property')),
-		kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'date', 'number')),
+		kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'date', 'number', 'object')),
 		unit TEXT CHECK (unit IS NULL OR (kind = 'number' AND unit != '')),
 		position INTEGER CHECK (position IS NULL OR role = 'property'),
 		suggest_values INTEGER NOT NULL DEFAULT 1 CHECK (suggest_values IN (0, 1)),
-		UNIQUE (id, role)
-	);
+		value_type TEXT GENERATED ALWAYS AS (iif(kind = 'object', 'object', 'text')) STORED,
+		CHECK (kind != 'object' OR role = 'property'),
+		UNIQUE (id, role),
+		UNIQUE (id, role, value_type)
+	);`;
+
+const FIELDS = `
+	${FIELDS_TABLE('fields')}
 
 	CREATE TABLE event_type_fields (
 		type_id INTEGER NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
@@ -58,21 +65,61 @@ const EVENTS = `
 	END;
 `;
 
-const PROPERTY_VALUES = `
-	CREATE TABLE property_values (
+export const ASSOCIATION_CYCLE = 'association cycle';
+export const ASSOCIATION_TO_ITSELF = 'association_to_itself';
+
+// An association's value is the object it points to, in target_id.
+const PROPERTY_VALUES_TABLE = (name: string) => `
+	CREATE TABLE ${name} (
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL REFERENCES objects(id) ON DELETE CASCADE,
 		field_id INTEGER NOT NULL,
 		role TEXT NOT NULL DEFAULT 'property' CHECK (role = 'property'),
-		value TEXT NOT NULL,
+		value TEXT,
+		target_id INTEGER REFERENCES objects(id),
+		value_type TEXT GENERATED ALWAYS AS (iif(target_id IS NULL, 'text', 'object')) STORED,
 		since TEXT,
 		event_id INTEGER,
+		CHECK ((value IS NULL) != (target_id IS NULL)),
+		CONSTRAINT ${ASSOCIATION_TO_ITSELF} CHECK (target_id != object_id),
 		CHECK (event_id IS NULL OR since IS NULL),
-		FOREIGN KEY (field_id, role) REFERENCES fields(id, role) DEFERRABLE INITIALLY DEFERRED,
+		FOREIGN KEY (field_id, role, value_type) REFERENCES fields(id, role, value_type)
+			DEFERRABLE INITIALLY DEFERRED,
 		FOREIGN KEY (event_id, object_id) REFERENCES event_objects(event_id, object_id)
 			ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED
-	);
+	);`;
+
+// Following an association from the changed object must not lead back to it. Only the
+// current values count, the last of each object in the order of their dates.
+const noCycleFrom = (row: 'NEW' | 'OLD') => `
+	SELECT RAISE(ABORT, '${ASSOCIATION_CYCLE}') WHERE EXISTS (
+		WITH RECURSIVE current (object_id, target_id) AS (
+			SELECT a.object_id, a.target_id FROM property_values a
+			WHERE a.field_id = ${row}.field_id AND a.id = (
+				SELECT b.id FROM property_values b LEFT JOIN events e ON e.id = b.event_id
+				WHERE b.object_id = a.object_id AND b.field_id = a.field_id
+				ORDER BY coalesce(e.date, b.since, '') DESC, b.id DESC LIMIT 1)
+		), reached (id) AS (
+			SELECT target_id FROM current WHERE object_id = ${row}.object_id
+			UNION SELECT c.target_id FROM current c JOIN reached r ON c.object_id = r.id
+		)
+		SELECT 1 FROM reached WHERE id = ${row}.object_id
+	);`;
+
+const PROPERTY_VALUES_INDEXES_AND_TRIGGERS = `
 	CREATE INDEX property_values_object ON property_values(object_id, field_id);
+	CREATE INDEX property_values_target ON property_values(target_id);
+	CREATE TRIGGER association_insert AFTER INSERT ON property_values
+	WHEN NEW.target_id IS NOT NULL BEGIN ${noCycleFrom('NEW')} END;
+	CREATE TRIGGER association_update AFTER UPDATE OF target_id ON property_values
+	WHEN NEW.target_id IS NOT NULL BEGIN ${noCycleFrom('NEW')} END;
+	CREATE TRIGGER association_delete AFTER DELETE ON property_values
+	WHEN OLD.target_id IS NOT NULL BEGIN ${noCycleFrom('OLD')} END;
+`;
+
+const PROPERTY_VALUES = `
+	${PROPERTY_VALUES_TABLE('property_values')}
+	${PROPERTY_VALUES_INDEXES_AND_TRIGGERS}
 `;
 
 const EVENT_TYPES = `
@@ -119,7 +166,7 @@ const OVERVIEW_COLUMNS = `
 `;
 
 export const DIARY_SCHEMA: Schema = {
-	version: 13,
+	version: 14,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -138,7 +185,8 @@ export const DIARY_SCHEMA: Schema = {
 		active INTEGER NOT NULL DEFAULT 1,
 		notes TEXT NOT NULL DEFAULT '',
 		cover_photo_id TEXT REFERENCES files(id) ON DELETE SET NULL,
-		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		created_at TEXT NOT NULL DEFAULT (datetime('now')),
+		listed INTEGER NOT NULL DEFAULT 1 CHECK (listed IN (0, 1))
 	);
 
 	${EVENT_TYPES}
@@ -161,6 +209,22 @@ export const DIARY_SCHEMA: Schema = {
 		13: `
 		ALTER TABLE fields ADD COLUMN
 			suggest_values INTEGER NOT NULL DEFAULT 1 CHECK (suggest_values IN (0, 1));
+		`,
+		14: `
+		ALTER TABLE objects ADD COLUMN listed INTEGER NOT NULL DEFAULT 1 CHECK (listed IN (0, 1));
+
+		${FIELDS_TABLE('fields_14')}
+		INSERT INTO fields_14 (id, name, role, kind, unit, position, suggest_values)
+		SELECT id, name, role, kind, unit, position, suggest_values FROM fields;
+		DROP TABLE fields;
+		ALTER TABLE fields_14 RENAME TO fields;
+
+		${PROPERTY_VALUES_TABLE('property_values_14')}
+		INSERT INTO property_values_14 (id, object_id, field_id, role, value, since, event_id)
+		SELECT id, object_id, field_id, role, value, since, event_id FROM property_values;
+		DROP TABLE property_values;
+		ALTER TABLE property_values_14 RENAME TO property_values;
+		${PROPERTY_VALUES_INDEXES_AND_TRIGGERS}
 		`
 	}
 };

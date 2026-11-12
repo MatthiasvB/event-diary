@@ -43,6 +43,7 @@ function object(id: number, attrs: Record<string, string> = {}) {
 	const created = createObject(db, {
 		name: `Objekt ${id}`,
 		active: true,
+		listed: true,
 		notes: '',
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value }))
 	});
@@ -344,6 +345,7 @@ describe('changes of properties', () => {
 				id: 2,
 				name: 'Objekt 2',
 				active: true,
+				listed: true,
 				notes: '',
 				attrs: [
 					{ key: 'Standort', value: 'Küche' },

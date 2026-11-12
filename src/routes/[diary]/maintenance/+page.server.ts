@@ -2,8 +2,8 @@ import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { transaction } from '#lib/server/db.ts';
 import { rename, vocabulary, type ValueKind } from '#lib/server/vocab.ts';
-import { setFieldKind, setSuggestValues } from '#lib/server/fields.ts';
-import { FIELD_KINDS, kindFrom } from '#lib/fieldKinds.ts';
+import { getFieldKinds, setFieldKind, setSuggestValues } from '#lib/server/fields.ts';
+import { FIELD_KINDS, kindFrom, kindOf } from '#lib/fieldKinds.ts';
 import { nearDuplicates, type Candidate } from '#lib/suggest.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -41,7 +41,8 @@ export const load: PageServerLoad = ({ url }) => {
 		// Renaming applies in every category that has the name.
 		candidates = merged([vocab.types.map((ty) => ({ value: ty.name, count: ty.count }))]);
 	else if (kind?.kind === 'key') candidates = allKeys;
-	else if (kind?.kind === 'value')
+	// An association's values are objects, renamed on their own pages.
+	else if (kind?.kind === 'value' && kindOf(getFieldKinds(db()), kind.key).kind !== 'object')
 		candidates = (vocab.values[kind.key] ?? []).map(({ value, count }) => ({ value, count }));
 	candidates.sort((a, b) => a.value.localeCompare(b.value, 'de'));
 

@@ -20,7 +20,9 @@ export function parseTypeForm(form: FormData, db: Db): Omit<EventType, 'id' | 'n
 			key,
 			target:
 				properties.has(key) || targets[i] === 'object' ? ('object' as const) : ('event' as const),
-			...(values[i] ? { default: storedValue(values[i], kindOf(kinds, key)) } : {})
+			...(values[i] && kindOf(kinds, key).kind !== 'object'
+				? { default: storedValue(values[i], kindOf(kinds, key)) }
+				: {})
 		}))
 		.filter((f) => f.key);
 	return {

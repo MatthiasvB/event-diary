@@ -37,8 +37,10 @@
 	const keys = $derived([...new Set(data.objects.flatMap((p) => Object.keys(p.attrs)))].sort());
 	const valuesOf = (key: string) =>
 		[...new Set(data.objects.map((p) => p.attrs[key]).filter(Boolean))].sort((a, b) =>
-			a.localeCompare(b, 'de')
+			showValue(key, a).localeCompare(showValue(key, b), 'de')
 		);
+	const shownAttrs = (attrs: Record<string, string>) =>
+		Object.entries(attrs).map(([key, value]) => showValue(key, value));
 
 	const shown = $derived.by(() => {
 		const q = normalize(query);
@@ -46,7 +48,7 @@
 			(p) =>
 				(active === 'all' || p.active === (active === 'active')) &&
 				attrFilters.every((f) => !f.value || p.attrs[f.key] === f.value) &&
-				(!q || normalize([p.name, p.notes, ...Object.values(p.attrs)].join(' ')).includes(q))
+				(!q || normalize([p.name, p.notes, ...shownAttrs(p.attrs)].join(' ')).includes(q))
 		);
 		return sortObjects(matching, order);
 	});

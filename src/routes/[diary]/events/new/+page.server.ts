@@ -63,7 +63,8 @@ export const actions: Actions = {
 		const error = validate(d, payload);
 		if (error) return fail(400, { error });
 
-		saveNewEvent(d, payload);
+		const saved = saveNewEvent(d, payload);
+		if ('error' in saved) return fail(400, saved);
 		if (payload.objectIds.length === 1)
 			redirect(303, `/${params.diary}/objects/${payload.objectIds[0]}`);
 		redirect(303, `/${params.diary}/events?saved=1`);

@@ -25,8 +25,12 @@
 		return leave;
 	}}
 >
-	<p class="muted small">{t.objects.deleteHint}</p>
-	<div><button class="danger">{t.common.delete}</button></div>
+	{#if data.referrers.length}
+		<p class="muted small">{t.objects.stillReferenced(data.referrers)}</p>
+	{:else}
+		<p class="muted small">{t.objects.deleteHint}</p>
+		<div><button class="danger">{t.common.delete}</button></div>
+	{/if}
 </form>
 
 <style>

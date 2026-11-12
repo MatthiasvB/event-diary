@@ -53,7 +53,8 @@ export const actions: Actions = {
 		const message = validate(d, payload);
 		if (message) return fail(400, { error: message });
 
-		saveEditedEvent(d, event.id, payload);
+		const refused = saveEditedEvent(d, event.id, payload);
+		if (refused) return fail(400, refused);
 		redirect(303, `/${params.diary}/objects/${payload.objectIds[0]}`);
 	},
 	delete: async ({ request, params }) => {

@@ -1,3 +1,4 @@
+import { formatTarget } from '../domain/associations.ts';
 import { kindOf, storedValue } from '../fieldKinds.ts';
 import { isValidDate } from '../format.ts';
 import { t } from '../i18n.ts';
@@ -5,9 +6,18 @@ import type { Db } from './db.ts';
 import { chosenNames } from './eventForm.ts';
 import { createEvent } from './events.ts';
 import { photoType } from './eventTypes.ts';
-import { learnChoices } from './fields.ts';
+import { getFieldKinds, learnChoices } from './fields.ts';
 import { FILE_ID, filesExist } from './files.ts';
-import { createObject, type ObjectInput } from './objects.ts';
+import {
+	createObject,
+	getObject,
+	resolveTargets,
+	setInitialValue,
+	setProperty,
+	updateObject,
+	type ObjectInput
+} from './objects.ts';
+import { savedUnlessRefused, type Refusal } from './refusals.ts';
 
 /** Stores what is chosen for new property names right away. */
 export function parseObjectForm(
@@ -28,6 +38,7 @@ export function parseObjectForm(
 	const input = {
 		name: get('name'),
 		active: form.get('active') === 'on',
+		listed: form.get('listed') === 'on',
 		notes: get('notes'),
 		attrs: keys
 			.map((key, i) => ({ key, value: storedValue(values[i] ?? '', kindOf(kinds, key)) }))
@@ -37,11 +48,7 @@ export function parseObjectForm(
 }
 
 /** Photos sent along become a photo event, on their capture date if known. */
-export function saveNewObject(
-	form: FormData,
-	db: Db,
-	today: string
-): { id: number } | { error: string } {
+export function saveNewObject(form: FormData, db: Db, today: string): { id: number } | Refusal {
 	const { input, error } = parseObjectForm(form, db);
 	if (error) return { error };
 	const fileIds = form
@@ -49,16 +56,68 @@ export function saveNewObject(
 		.map(String)
 		.filter((id) => FILE_ID.test(id));
 	if (!filesExist(db, fileIds)) return { error: t.files.missing };
-	const id = createObject(db, input);
-	if (fileIds.length) {
-		const photoDate = String(form.get('photoDate') ?? '');
-		createEvent(db, [id], {
-			typeId: photoType(db).id,
-			date: isValidDate(photoDate) ? photoDate : today,
-			note: '',
-			fields: [],
-			fileIds
-		});
-	}
-	return { id };
+	return savedUnlessRefused(db, () => {
+		const attrs = resolveTargets(db, getFieldKinds(db), input.attrs);
+		const id = createObject(db, { ...input, attrs });
+		if (fileIds.length) {
+			const photoDate = String(form.get('photoDate') ?? '');
+			createEvent(db, [id], {
+				typeId: photoType(db).id,
+				date: isValidDate(photoDate) ? photoDate : today,
+				note: '',
+				fields: [],
+				fileIds
+			});
+		}
+		return { id };
+	});
+}
+
+export function saveEditedObject(
+	form: FormData,
+	db: Db,
+	id: number,
+	today: string
+): Refusal | null {
+	const { input, error } = parseObjectForm(form, db);
+	if (error) return { error };
+	return savedUnlessRefused(db, () => {
+		const attrs = resolveTargets(db, getFieldKinds(db), input.attrs);
+		updateObject(db, { ...input, id, attrs }, today);
+		return null;
+	});
+}
+
+/** Points each object's `key` to the holder, as an edit on the object would. */
+export function associateWith(
+	db: Db,
+	holderId: number,
+	key: string,
+	objectIds: number[],
+	today: string
+): Refusal | null {
+	if (kindOf(getFieldKinds(db), key).kind !== 'object') return { error: t.errors.generic };
+	return savedUnlessRefused(db, () => {
+		for (const id of objectIds.filter((id) => getObject(db, id))) {
+			setProperty(db, id, key, formatTarget({ id: holderId }), today);
+		}
+		return null;
+	});
+}
+
+/** The value before an object's first change of `key`, as entered. */
+export function saveInitialValue(
+	db: Db,
+	objectId: number,
+	key: string,
+	entered: string
+): Refusal | null {
+	return savedUnlessRefused(db, () => {
+		const kinds = getFieldKinds(db);
+		const [initial] = resolveTargets(db, kinds, [
+			{ key, value: storedValue(entered, kindOf(kinds, key)) }
+		]);
+		if (initial?.value) setInitialValue(db, objectId, key, initial.value);
+		return null;
+	});
 }

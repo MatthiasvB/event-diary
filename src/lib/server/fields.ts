@@ -60,12 +60,52 @@ export function getFieldKinds(db: Db): FieldKinds {
 	return Object.fromEntries(rows.map((r) => [r.name, kindFrom(r.kind, r.unit ?? '')]));
 }
 
+/**
+ * An association's values become objects: the one of that name, or a new unlisted one when
+ * there is none or more than one. Back as text, they become the objects' names.
+ */
 export function setFieldKind(db: Db, name: string, kind: FieldKind) {
-	db.prepare('UPDATE fields SET kind = ?, unit = ? WHERE name = ?').run(
-		kind.kind,
-		unitOf(kind),
-		name
+	transaction(db, () => {
+		const field = db.prepare('SELECT id, kind FROM fields WHERE name = ?').get(name) as
+			{ id: number; kind: FieldKind['kind'] } | undefined;
+		if (!field) return;
+		if (kind.kind === 'object' && field.kind !== 'object') {
+			useField(db, name, 'property');
+			valuesToObjects(db, field.id);
+		} else if (kind.kind !== 'object' && field.kind === 'object') {
+			db.prepare(
+				`UPDATE property_values SET value = (SELECT name FROM objects WHERE id = target_id),
+				target_id = NULL WHERE field_id = ?`
+			).run(field.id);
+		}
+		db.prepare('UPDATE fields SET kind = ?, unit = ? WHERE id = ?').run(
+			kind.kind,
+			unitOf(kind),
+			field.id
+		);
+	});
+}
+
+function valuesToObjects(db: Db, fieldId: number) {
+	const values = db
+		.prepare('SELECT DISTINCT value FROM property_values WHERE field_id = ? AND value IS NOT NULL')
+		.all(fieldId) as { value: string }[];
+	const point = db.prepare(
+		'UPDATE property_values SET value = NULL, target_id = ? WHERE field_id = ? AND value = ?'
 	);
+	for (const { value } of values) {
+		const [named, ...alike] = db.prepare('SELECT id FROM objects WHERE name = ?').all(value) as {
+			id: number;
+		}[];
+		const target =
+			named && !alike.length
+				? named
+				: (db
+						.prepare('INSERT INTO objects (name, listed) VALUES (?, 0) RETURNING id')
+						.get(value) as { id: number });
+		point.run(target.id, fieldId, value);
+	}
+	db.prepare('UPDATE event_type_fields SET default_value = NULL WHERE field_id = ?').run(fieldId);
 }
 
 /** Names whose values are typed freely, without suggestions. */
@@ -90,7 +130,8 @@ export function learnChoices(db: Db, chosen: ChosenName[]): FieldKinds {
 	);
 	for (const c of chosen) {
 		if (!c.name || (c.kind.kind === 'text' && c.suggest)) continue;
-		insert.run(c.name, c.role, c.kind.kind, unitOf(c.kind), c.suggest ? 1 : 0);
+		const role = c.kind.kind === 'object' ? 'property' : c.role;
+		insert.run(c.name, role, c.kind.kind, unitOf(c.kind), c.suggest ? 1 : 0);
 	}
 	return getFieldKinds(db);
 }

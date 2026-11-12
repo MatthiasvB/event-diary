@@ -1,3 +1,5 @@
+import { formatTarget, parseTarget } from '../domain/associations.ts';
+import type { FieldKinds } from '../fieldKinds.ts';
 import type { DiaryObject, PropertyValue } from '../types.ts';
 import { transaction, type Db } from './db.ts';
 import { useField } from './fields.ts';
@@ -6,6 +8,7 @@ type Row = {
 	id: number;
 	name: string;
 	active: number;
+	listed: number;
 	notes: string;
 	cover_photo_id: string | null;
 	cover_width: number | null;
@@ -16,6 +19,7 @@ const fromRow = (r: Row): DiaryObject => ({
 	id: r.id,
 	name: r.name,
 	active: !!r.active,
+	listed: !!r.listed,
 	notes: r.notes,
 	coverPhotoId: r.cover_photo_id,
 	coverRatio: r.cover_width && r.cover_height ? r.cover_width / r.cover_height : null
@@ -44,7 +48,7 @@ const FIRST_PHOTO = `(
 // pinCover fixes the cover. The fallback only applies once the pinned photo is deleted.
 const SELECT_OBJECT = `
 	SELECT x.*, f.width AS cover_width, f.height AS cover_height FROM (
-		SELECT o.id, o.name, o.active, o.notes,
+		SELECT o.id, o.name, o.active, o.listed, o.notes,
 			coalesce(o.cover_photo_id, ${FIRST_PHOTO}) AS cover_photo_id
 		FROM objects o
 	) x LEFT JOIN files f ON f.id = x.cover_photo_id`;
@@ -55,11 +59,39 @@ export function pinCover(db: Db, objectId: number) {
 	).run(objectId);
 }
 
-const ATTRS = `SELECT a.id, a.object_id, f.name AS key, a.value,
+const ATTRS = `SELECT a.id, a.object_id, f.name AS key,
+		coalesce(a.value, CAST(a.target_id AS TEXT)) AS value,
 		coalesce(e.date, a.since) AS since, a.event_id
 	FROM property_values a JOIN fields f ON f.id = a.field_id
 	LEFT JOIN events e ON e.id = a.event_id`;
 const HISTORY_ORDER = "coalesce(e.date, a.since, ''), a.id";
+
+// The value as entered: an association's is the id of the object it points to.
+const SPLIT_VALUE = `iif(f.kind = 'object', NULL, :value),
+	iif(f.kind = 'object', CAST(:value AS INTEGER), NULL)`;
+
+export function insertValue(
+	db: Db,
+	row: { objectId: number; fieldId: number; value: string; since?: string; eventId?: number }
+) {
+	db.prepare(
+		`INSERT INTO property_values (object_id, field_id, value, target_id, since, event_id)
+		SELECT :object, f.id, ${SPLIT_VALUE}, :since, :event FROM fields f WHERE f.id = :field`
+	).run({
+		object: row.objectId,
+		field: row.fieldId,
+		value: row.value,
+		since: row.since ?? null,
+		event: row.eventId ?? null
+	});
+}
+
+function updateValue(db: Db, id: number, value: string) {
+	db.prepare(
+		`UPDATE property_values AS a SET (value, target_id) = (${SPLIT_VALUE})
+		FROM fields f WHERE f.id = a.field_id AND a.id = :id`
+	).run({ id, value });
+}
 
 export function listObjects(db: Db): (DiaryObject & { attrs: Record<string, string> })[] {
 	const objects = (db.prepare(`${SELECT_OBJECT} ORDER BY x.name`).all() as Row[]).map(fromRow);
@@ -76,6 +108,11 @@ export function currentAttrs(db: Db): Map<number, Record<string, string>> {
 		result.set(r.object_id, attrs);
 	}
 	return result;
+}
+
+export function objectNames(db: Db): Record<number, string> {
+	const rows = db.prepare('SELECT id, name FROM objects').all() as { id: number; name: string }[];
+	return Object.fromEntries(rows.map((r) => [r.id, r.name]));
 }
 
 export function getObject(db: Db, id: number): DiaryObject | undefined {
@@ -96,6 +133,7 @@ export type ObjectInput = {
 	id: number;
 	name: string;
 	active: boolean;
+	listed: boolean;
 	notes: string;
 	attrs: { key: string; value: string }[];
 };
@@ -104,14 +142,16 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 	return transaction(db, () => {
 		const id = Number(
 			db
-				.prepare('INSERT INTO objects (name, active, notes) VALUES (?, ?, ?)')
-				.run(input.name, input.active ? 1 : 0, input.notes).lastInsertRowid
-		);
-		const insert = db.prepare(
-			'INSERT INTO property_values (object_id, field_id, value) VALUES (?, ?, ?)'
+				.prepare('INSERT INTO objects (name, active, listed, notes) VALUES (?, ?, ?, ?)')
+				.run(input.name, input.active ? 1 : 0, input.listed ? 1 : 0, input.notes).lastInsertRowid
 		);
 		for (const a of input.attrs) {
-			if (a.value) insert.run(id, useField(db, a.key, 'property').id, a.value);
+			if (a.value)
+				insertValue(db, {
+					objectId: id,
+					fieldId: useField(db, a.key, 'property').id,
+					value: a.value
+				});
 		}
 		return id;
 	});
@@ -123,33 +163,70 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
  */
 export function updateObject(db: Db, input: ObjectInput, today: string) {
 	transaction(db, () => {
-		db.prepare('UPDATE objects SET name = ?, active = ?, notes = ? WHERE id = ?').run(
+		db.prepare('UPDATE objects SET name = ?, active = ?, listed = ?, notes = ? WHERE id = ?').run(
 			input.name,
 			input.active ? 1 : 0,
+			input.listed ? 1 : 0,
 			input.notes,
 			input.id
 		);
+		const wanted = new Map(input.attrs.map((a) => [a.key, a.value]));
+		for (const key of Object.keys(attrHistory(db, input.id)))
+			if (!wanted.has(key)) wanted.set(key, '');
+		for (const [key, value] of wanted) setProperty(db, input.id, key, value, today);
+	});
+}
+
+/** As `updateObject` does for each of its attributes. An empty value removes the current one. */
+export function setProperty(db: Db, objectId: number, key: string, value: string, today: string) {
+	transaction(db, () => {
 		// A name that was an event detail brings its values from past events along first, so
 		// the value entered here applies from today on (unless it is the same).
-		for (const a of input.attrs) if (a.value) useField(db, a.key, 'property');
-		const history = attrHistory(db, input.id);
-		const wanted = new Map(input.attrs.map((a) => [a.key, a.value]));
-		for (const key of Object.keys(history)) if (!wanted.has(key)) wanted.set(key, '');
-
-		for (const [key, value] of wanted) {
-			const current = history[key]?.at(-1);
-			if (current?.value === value) continue;
-			if (current && !current.eventId) {
-				if (value)
-					db.prepare('UPDATE property_values SET value = ? WHERE id = ?').run(value, current.id);
-				else db.prepare('DELETE FROM property_values WHERE id = ?').run(current.id);
-			} else if (value) {
-				db.prepare(
-					'INSERT INTO property_values (object_id, field_id, value, since) VALUES (?, ?, ?, ?)'
-				).run(input.id, useField(db, key, 'property').id, value, current ? today : null);
-			}
+		if (value) useField(db, key, 'property');
+		const current = attrHistory(db, objectId)[key]?.at(-1);
+		if (current?.value === value) return;
+		if (current && !current.eventId) {
+			if (value) updateValue(db, current.id, value);
+			else db.prepare('DELETE FROM property_values WHERE id = ?').run(current.id);
+		} else if (value) {
+			const fieldId = useField(db, key, 'property').id;
+			insertValue(db, { objectId, fieldId, value, ...(current && { since: today }) });
 		}
 	});
+}
+
+/**
+ * An association's value names an object to create, or one that may be gone by now. Values
+ * that point nowhere are left out.
+ */
+export function resolveTargets<T extends { key: string; value: string }>(
+	db: Db,
+	kinds: FieldKinds,
+	entries: T[]
+): T[] {
+	return entries.flatMap((e) => {
+		if (kinds[e.key]?.kind !== 'object' || !e.value) return [e];
+		const target = parseTarget(e.value);
+		if (!target) return [];
+		if ('name' in target) {
+			const { id } = db
+				.prepare('INSERT INTO objects (name, listed) VALUES (?, 0) RETURNING id')
+				.get(target.name) as { id: number };
+			return [{ ...e, value: formatTarget({ id }) }];
+		}
+		return db.prepare('SELECT 1 FROM objects WHERE id = ?').get(target.id) ? [e] : [];
+	});
+}
+
+/** The names of the objects whose values, now or before, point to this one. */
+export function referrers(db: Db, id: number): string[] {
+	const rows = db
+		.prepare(
+			`SELECT DISTINCT o.name FROM property_values a JOIN objects o ON o.id = a.object_id
+			WHERE a.target_id = ? ORDER BY o.name`
+		)
+		.all(id) as { name: string }[];
+	return rows.map((r) => r.name);
 }
 
 const INITIAL = `object_id = ? AND field_id = (SELECT id FROM fields WHERE name = ?)
@@ -160,16 +237,11 @@ export function forgetInitialValue(db: Db, objectId: number, key: string) {
 }
 
 export function setInitialValue(db: Db, objectId: number, key: string, value: string) {
-	const updated = db
-		.prepare(`UPDATE property_values SET value = ? WHERE ${INITIAL}`)
-		.run(value, objectId, key);
-	if (!updated.changes) {
-		db.prepare('INSERT INTO property_values (object_id, field_id, value) VALUES (?, ?, ?)').run(
-			objectId,
-			useField(db, key, 'property').id,
-			value
-		);
-	}
+	const initial = db
+		.prepare(`SELECT id FROM property_values WHERE ${INITIAL}`)
+		.get(objectId, key) as { id: number } | undefined;
+	if (initial) updateValue(db, initial.id, value);
+	else insertValue(db, { objectId, fieldId: useField(db, key, 'property').id, value });
 }
 
 export function allHistories(db: Db): Record<number, Record<string, PropertyValue[]>> {

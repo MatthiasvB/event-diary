@@ -1,11 +1,14 @@
 import { formatDate, isValidDate } from './format.ts';
 import { locale } from './i18n.ts';
 
-export const FIELD_KINDS = ['text', 'date', 'number'] as const;
+export const FIELD_KINDS = ['text', 'date', 'number', 'object'] as const;
 export type FieldKindName = (typeof FIELD_KINDS)[number];
-/** `unit` is e.g. "cm" or "€". */
+/** `unit` is e.g. "cm" or "€". An `object` value is another object of the diary. */
 export type FieldKind =
-	{ kind: 'text' } | { kind: 'date' } | { kind: 'number'; unit: string | null };
+	| { kind: 'text' }
+	| { kind: 'date' }
+	| { kind: 'number'; unit: string | null }
+	| { kind: 'object' };
 export type FieldKinds = Record<string, FieldKind>;
 
 export const TEXT: FieldKind = { kind: 'text' };
@@ -64,7 +67,12 @@ export function storedValue(value: string, kind: FieldKind): string {
 	return n === null ? value : String(n);
 }
 
-export function displayValue(value: string, kind: FieldKind): string {
+export function displayValue(
+	value: string,
+	kind: FieldKind,
+	objectName: (value: string) => string | undefined
+): string {
+	if (kind.kind === 'object') return objectName(value) ?? value;
 	if (kind.kind === 'number') {
 		const n = parseNumber(value);
 		if (n !== null) return n.toLocaleString(locale) + (kind.unit ? ` ${kind.unit}` : '');

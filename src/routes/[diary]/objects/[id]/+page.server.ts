@@ -6,14 +6,17 @@ import { FILE_ID, getFile } from '#lib/server/files.ts';
 import { fileKind } from '#lib/files.ts';
 import {
 	attrHistory,
+	currentAttrs,
 	forgetInitialValue,
 	getObject,
-	setCover,
-	setInitialValue
+	listObjects,
+	setCover
 } from '#lib/server/objects.ts';
+import { associateWith, saveInitialValue } from '#lib/server/objectForm.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { getFieldKinds, sortProperties } from '#lib/server/fields.ts';
-import { kindOf, storedValue } from '#lib/fieldKinds.ts';
+import { pathOf, pointingTo } from '#lib/domain/associations.ts';
+import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -29,9 +32,19 @@ export const load: PageServerLoad = ({ params }) => {
 	const columns = getOverviewColumns(d);
 	const stats = objectStats(d, columns).get(object.id);
 	const history = attrHistory(d, object.id);
+	const kinds = getFieldKinds(d);
+	const associations = sortProperties(
+		d,
+		Object.keys(kinds).filter((key) => kinds[key].kind === 'object')
+	);
+	const current = currentAttrs(d);
 	return {
 		object,
 		history,
+		associations,
+		paths: Object.fromEntries(associations.map((key) => [key, pathOf(object.id, key, current)])),
+		associated: pointingTo(object.id, associations, current),
+		objects: listObjects(d).filter((o) => o.id !== object.id),
 		attrKeys: sortProperties(d, Object.keys(history)),
 		events: listEvents(d, { objectId: object.id, limit: 5000 }),
 		lastDates: columns.map((c, i) => ({ label: c.label, date: stats?.columns[i] ?? null })),
@@ -56,15 +69,19 @@ export const actions: Actions = {
 		if (!key) return fail(400);
 		forgetInitialValue(db(), objectOr404(params.id).id, key);
 	},
+	associate: async ({ request, params }) => {
+		const form = await request.formData();
+		const key = String(form.get('key') ?? '');
+		const ids = form.getAll('object').map(Number).filter(Number.isInteger);
+		const refused = associateWith(db(), objectOr404(params.id).id, key, ids, today());
+		if (refused) return fail(400, refused);
+	},
 	setInitial: async ({ request, params }) => {
 		const form = await request.formData();
 		const key = String(form.get('key') ?? '');
-		const d = db();
-		const value = storedValue(
-			String(form.get('value') ?? '').trim(),
-			kindOf(getFieldKinds(d), key)
-		);
+		const value = String(form.get('value') ?? '').trim();
 		if (!key || !value) return fail(400);
-		setInitialValue(d, objectOr404(params.id).id, key, value);
+		const refused = saveInitialValue(db(), objectOr404(params.id).id, key, value);
+		if (refused) return fail(400, refused);
 	}
 };

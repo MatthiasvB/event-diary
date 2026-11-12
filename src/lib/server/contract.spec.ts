@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { formatTarget } from '../domain/associations.ts';
 import { t } from '../i18n.ts';
 import { openDiary } from './diarySchema.ts';
 import { Diary, view, type EventEntry } from './testing/harness.ts';
@@ -341,5 +342,126 @@ describe('a new object with photos', () => {
 		expect(timeline('A').map((e) => [e.event, e.files])).toEqual([
 			[`2026-02-03 ${t.events.photoTypeCategory}/${t.events.photoType}`, ['a.jpg', 'b.jpg']]
 		]);
+	});
+});
+
+describe('associations', () => {
+	const IN = { In: { kind: 'object' } } as const;
+
+	it('point to objects with a history, by the names they have now', () => {
+		d.object('Auto', { listed: false });
+		d.object('Schrank');
+		d.object('Fernbedienung', { properties: { In: d.ref('Schrank') }, kinds: IN });
+		d.record({
+			objects: ['Fernbedienung'],
+			type: 'Mitgenommen',
+			date: '2026-05-01',
+			changes: { In: d.ref('Auto') }
+		});
+		d.editObject('Auto', { name: 'Kombi', listed: false });
+
+		expect(history('Fernbedienung', 'In')).toEqual([
+			{ value: 'Schrank', since: null, by: null },
+			{ value: 'Kombi', since: '2026-05-01', by: '2026-05-01 Mitgenommen' }
+		]);
+		expect(timeline('Fernbedienung')[0].changes).toEqual([
+			{ key: 'In', value: 'Kombi', before: 'Schrank', first: true }
+		]);
+		expect(d.show('Kombi').listed).toBe(false);
+	});
+
+	it('create an object named in the form, which stays off the start page', () => {
+		d.object('Akku', { properties: { In: formatTarget({ name: 'Ladegerät' }) }, kinds: IN });
+		expect(history('Akku', 'In')).toEqual([{ value: 'Ladegerät', since: null, by: null }]);
+		expect(d.show('Ladegerät').listed).toBe(false);
+	});
+
+	it('make a property of a new name, even when sent as a detail', () => {
+		d.object('Auto');
+		d.object('A');
+		d.record({
+			objects: ['A'],
+			type: 'Ausflug',
+			date: '2026-05-01',
+			details: { Mit: d.ref('Auto') },
+			kinds: { Mit: { kind: 'object' } }
+		});
+		expect(timeline('A')[0].changes).toEqual([
+			{ key: 'Mit', value: 'Auto', before: null, first: true }
+		]);
+	});
+
+	it('refuse a loop, also through several objects, and save nothing of it', () => {
+		d.object('Schrank');
+		d.object('Kiste', { properties: { In: d.ref('Schrank') }, kinds: IN });
+		d.object('Akku', { properties: { In: d.ref('Kiste') } });
+
+		expect(() => d.editObject('Schrank', { properties: { In: d.ref('Akku') } })).toThrow(
+			t.associations.cycle
+		);
+		expect(() => d.editObject('Schrank', { properties: { In: d.ref('Schrank') } })).toThrow(
+			t.associations.cycle
+		);
+		const move = { objects: ['Schrank'], type: 'Umzug', date: '2026-05-01' };
+		expect(() =>
+			d.record({ ...move, changes: { In: formatTarget({ name: 'Keller' }) } })
+		).not.toThrow();
+		expect(() => d.record({ ...move, changes: { In: d.ref('Kiste') } })).toThrow(
+			t.associations.cycle
+		);
+		expect(timeline('Schrank').map((e) => e.changes)).toEqual([
+			[{ key: 'In', value: 'Keller', before: null, first: true }]
+		]);
+	});
+
+	it('can be added from the holder, for several objects at once', () => {
+		d.object('Schrank');
+		d.object('Regal', { properties: { In: d.ref('Schrank') }, kinds: IN });
+		d.object('A');
+		d.object('B');
+		d.record({
+			objects: ['B'],
+			type: 'Umzug',
+			date: '2026-05-01',
+			changes: { In: d.ref('Schrank') }
+		});
+
+		d.associate('Regal', 'In', ['A', 'B']);
+		expect(history('A', 'In')).toEqual([{ value: 'Regal', since: null, by: null }]);
+		expect(history('B', 'In')).toEqual([
+			{ value: 'Schrank', since: '2026-05-01', by: '2026-05-01 Umzug' },
+			{ value: 'Regal', since: '2026-10-30', by: null }
+		]);
+		expect(() => d.associate('A', 'In', ['Schrank'])).toThrow(t.associations.cycle);
+		expect(() => d.associate('Regal', 'Farbe', ['B'])).toThrow(t.errors.generic);
+	});
+
+	it('keep an object from being deleted while anything points to it', () => {
+		d.object('Schrank');
+		d.object('Kiste', { properties: { In: d.ref('Schrank') }, kinds: IN });
+		expect(() => d.delete('Schrank')).toThrow(/Kiste/);
+		d.delete('Kiste');
+		d.delete('Schrank');
+		expect(view(d.db).objects).toEqual([]);
+	});
+
+	it('come from a text property, whose values become objects, and back', () => {
+		d.object('Fensterbank');
+		d.object('A', { properties: { Standort: 'Fensterbank' } });
+		d.object('B', { properties: { Standort: 'Regal' } });
+
+		d.kind('Standort', { kind: 'object' });
+		expect(view(d.db).objects.map((o) => [o.name, o.listed])).toEqual([
+			['A', true],
+			['B', true],
+			['Fensterbank', true],
+			['Regal', false]
+		]);
+		d.editObject('Fensterbank', { name: 'Ostfenster' });
+		expect(history('A', 'Standort')).toEqual([{ value: 'Ostfenster', since: null, by: null }]);
+
+		d.kind('Standort', { kind: 'text' });
+		expect(history('A', 'Standort')).toEqual([{ value: 'Ostfenster', since: null, by: null }]);
+		expect(view(d.db).kinds).toEqual({});
 	});
 });

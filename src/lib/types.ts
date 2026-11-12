@@ -47,6 +47,8 @@ export type DiaryObject = {
 	id: number;
 	name: string;
 	active: boolean;
+	/** Shown on the start page. */
+	listed: boolean;
 	notes: string;
 	coverPhotoId: string | null;
 	/** Width / height. */

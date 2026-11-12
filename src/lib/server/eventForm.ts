@@ -5,8 +5,10 @@ import { KEEP, type FieldEntry, type InitialChoice } from '../types.ts';
 import type { Db } from './db.ts';
 import { createEvent, updateEvent } from './events.ts';
 import { ensureType } from './eventTypes.ts';
-import { learnChoices, propertyKeys, type ChosenName } from './fields.ts';
+import { getFieldKinds, learnChoices, propertyKeys, type ChosenName } from './fields.ts';
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
+import { resolveTargets } from './objects.ts';
+import { savedUnlessRefused, type Refusal } from './refusals.ts';
 
 export type EventPayload = {
 	objectIds: number[];
@@ -83,13 +85,33 @@ function resolveType(db: Db, p: EventPayload) {
 	return ensureType(db, p.typeName, { category: p.category, milestone: p.milestone });
 }
 
-export function saveNewEvent(db: Db, p: EventPayload): number {
-	const type = resolveType(db, p);
-	return createEvent(db, p.objectIds, { ...p, typeId: type.id, fileIds: p.files });
+/** Values of associations that name a new object create it. */
+function resolveFields(db: Db, fields: FieldEntry[]): FieldEntry[] {
+	const kinds = getFieldKinds(db);
+	return resolveTargets(db, kinds, fields).map((f) => {
+		if (f.target !== 'object' || f.initial.kind !== 'set') return f;
+		const [initial] = resolveTargets(db, kinds, [{ key: f.key, value: f.initial.value }]);
+		return { ...f, initial: initial ? { kind: 'set', value: initial.value } : KEEP };
+	});
 }
 
-export function saveEditedEvent(db: Db, id: number, p: EventPayload) {
-	const type = resolveType(db, p);
-	const orphans = updateEvent(db, id, { ...p, typeId: type.id, fileIds: p.files }, p.only);
+export function saveNewEvent(db: Db, p: EventPayload): { id: number } | Refusal {
+	return savedUnlessRefused(db, () => {
+		const type = resolveType(db, p);
+		const fields = resolveFields(db, p.fields);
+		return {
+			id: createEvent(db, p.objectIds, { ...p, fields, typeId: type.id, fileIds: p.files })
+		};
+	});
+}
+
+export function saveEditedEvent(db: Db, id: number, p: EventPayload): Refusal | null {
+	const orphans = savedUnlessRefused(db, () => {
+		const type = resolveType(db, p);
+		const fields = resolveFields(db, p.fields);
+		return updateEvent(db, id, { ...p, fields, typeId: type.id, fileIds: p.files }, p.only);
+	});
+	if ('error' in orphans) return orphans;
 	deleteFiles(db, orphans);
+	return null;
 }
