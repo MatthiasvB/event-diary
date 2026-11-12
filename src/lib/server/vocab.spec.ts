@@ -44,7 +44,7 @@ function object(id: number, attrs: Record<string, string> = {}) {
 		name: `Objekt ${id}`,
 		active: true,
 		listed: true,
-		stock: null,
+		stock: false,
 		notes: '',
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value }))
 	});
@@ -357,7 +357,7 @@ describe('changes of properties', () => {
 				name: 'Objekt 2',
 				active: true,
 				listed: true,
-				stock: null,
+				stock: false,
 				notes: '',
 				attrs: [
 					{ key: 'Standort', value: 'Küche' },

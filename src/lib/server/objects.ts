@@ -1,17 +1,15 @@
 import { formatTarget, parseTarget } from '../domain/associations.ts';
 import type { FieldKinds } from '../fieldKinds.ts';
 import type { DiaryObject, PropertyValue } from '../types.ts';
-import { t } from '../i18n.ts';
 import { transaction, type Db } from './db.ts';
 import { useField } from './fields.ts';
-import { Refused } from './refusals.ts';
 
 type Row = {
 	id: number;
 	name: string;
 	active: number;
 	listed: number;
-	stock_along: string | null;
+	stock: number;
 	notes: string;
 	cover_photo_id: string | null;
 	cover_width: number | null;
@@ -23,7 +21,7 @@ const fromRow = (r: Row): DiaryObject => ({
 	name: r.name,
 	active: !!r.active,
 	listed: !!r.listed,
-	stock: r.stock_along === null ? null : { along: r.stock_along },
+	stock: !!r.stock,
 	notes: r.notes,
 	coverPhotoId: r.cover_photo_id,
 	coverRatio: r.cover_width && r.cover_height ? r.cover_width / r.cover_height : null
@@ -53,7 +51,7 @@ const FIRST_PHOTO = `(
 const SELECT_OBJECT = `
 	SELECT x.*, f.width AS cover_width, f.height AS cover_height FROM (
 		SELECT o.id, o.name, o.active, o.listed, o.notes,
-			(SELECT name FROM fields WHERE id = o.stock_field_id) AS stock_along,
+			o.stock,
 			coalesce(o.cover_photo_id, ${FIRST_PHOTO}) AS cover_photo_id
 		FROM objects o
 	) x LEFT JOIN files f ON f.id = x.cover_photo_id`;
@@ -143,37 +141,24 @@ export type ObjectInput = {
 	name: string;
 	active: boolean;
 	listed: boolean;
-	stock: { along: string } | null;
+	stock: boolean;
 	notes: string;
 	attrs: { key: string; value: string }[];
 };
-
-/** The association a stock's units are spread along. A new name becomes one. */
-function stockField(db: Db, stock: { along: string } | null): number | null {
-	if (!stock) return null;
-	const field = db
-		.prepare(
-			`INSERT INTO fields (name, role, kind) VALUES (?, 'property', 'object')
-			ON CONFLICT (name) DO UPDATE SET name = excluded.name RETURNING id, kind`
-		)
-		.get(stock.along) as { id: number; kind: string };
-	if (field.kind !== 'object') throw new Refused(t.units.notAnAssociation(stock.along));
-	return field.id;
-}
 
 export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 	return transaction(db, () => {
 		const id = Number(
 			db
 				.prepare(
-					`INSERT INTO objects (name, active, listed, stock_field_id, notes)
+					`INSERT INTO objects (name, active, listed, stock, notes)
 					VALUES (?, ?, ?, ?, ?)`
 				)
 				.run(
 					input.name,
 					input.active ? 1 : 0,
 					input.listed ? 1 : 0,
-					stockField(db, input.stock),
+					input.stock ? 1 : 0,
 					input.notes
 				).lastInsertRowid
 		);
@@ -196,13 +181,13 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 export function updateObject(db: Db, input: ObjectInput, today: string) {
 	transaction(db, () => {
 		db.prepare(
-			`UPDATE objects SET name = ?, active = ?, listed = ?, stock_field_id = ?, notes = ?
+			`UPDATE objects SET name = ?, active = ?, listed = ?, stock = ?, notes = ?
 			WHERE id = ?`
 		).run(
 			input.name,
 			input.active ? 1 : 0,
 			input.listed ? 1 : 0,
-			stockField(db, input.stock),
+			input.stock ? 1 : 0,
 			input.notes,
 			input.id
 		);

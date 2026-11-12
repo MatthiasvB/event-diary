@@ -31,6 +31,8 @@ import { getOverviewColumns, objectStats, setOverviewColumns } from '../overview
 import { parseTypeForm } from '../typeForm.ts';
 import { removeMove, saveMove } from '../unitForm.ts';
 import { allHoldings, movesOf } from '../units.ts';
+import { unitsHeldBy } from '../objectOptions.ts';
+import type { MoveRow } from '../../domain/unitLedger.ts';
 import { rename, vocabulary, type ValueKind } from '../vocab.ts';
 
 /** A plain value keeps the value before the change as it is. `before: null` means not recorded. */
@@ -54,10 +56,16 @@ export type EventEntry = {
 	files?: string[];
 };
 
-/** Units of a stock, by the names of the objects. `null` is new units, or used up. */
-export type UnitsEntry = { stock: string; quantity: number } & (
-	{ from: string; to: string | null } | { from: null; to: string }
-);
+/** Units of a stock, by the names of the objects they come from and go to. */
+export type UnitsEntry = {
+	stock: string;
+	quantity: number;
+	from: 'new' | typeof UNASSIGNED | string;
+	to: 'gone' | typeof UNASSIGNED | string;
+};
+
+/** How the view and entries name units not assigned to an object. */
+export const UNASSIGNED = '(unassigned)';
 
 export type ObjectEntry = {
 	properties?: Record<string, string>;
@@ -65,8 +73,8 @@ export type ObjectEntry = {
 	withoutSuggestions?: string[];
 	active?: boolean;
 	listed?: boolean;
-	/** The association its units are spread along. */
-	stock?: string;
+	/** A counted stock, with its count when it is new. */
+	stock?: { count?: number };
 	notes?: string;
 };
 
@@ -192,11 +200,7 @@ export class Diary {
 	/** As a stock's page moves units, without an event. */
 	moveUnits(entry: UnitsEntry & { date?: string }) {
 		const form = new FormData();
-		const move = this.moveRow(entry);
-		form.set('stock', String(move.stock));
-		form.set('quantity', String(move.quantity));
-		form.set('from', move.from === null ? '' : String(move.from));
-		form.set('to', move.to ?? '');
+		form.set('move', JSON.stringify(this.moveRow(entry)));
 		form.set('date', entry.date ?? '');
 		const refused = saveMove(form, this.db);
 		if (refused) throw new Error(refused.error);
@@ -283,6 +287,16 @@ export class Diary {
 		return rename(this.db, what, from, to);
 	}
 
+	/** What the item's page lists as the units in it, by stock. */
+	unitsAt(name: string) {
+		return Object.fromEntries(
+			unitsHeldBy(this.db, this.objectId(name)).map((u) => [
+				u.stock.name,
+				{ own: u.own, total: u.total }
+			])
+		);
+	}
+
 	show(name: string): ObjectView {
 		const object = view(this.db).objects.find((o) => o.name === name);
 		if (!object) throw new Error(`No object ${name}`);
@@ -294,9 +308,9 @@ export class Diary {
 		form.set('name', name);
 		if (entry.active ?? true) form.set('active', 'on');
 		if (entry.listed ?? true) form.set('listed', 'on');
-		if (entry.stock !== undefined) {
+		if (entry.stock) {
 			form.set('stock', 'on');
-			form.set('stockAlong', entry.stock);
+			form.set('count', String(entry.stock.count ?? ''));
 		}
 		form.set('notes', entry.notes ?? '');
 		for (const [key, value] of Object.entries(entry.properties ?? {})) {
@@ -307,12 +321,13 @@ export class Diary {
 		return form;
 	}
 
-	private moveRow(entry: UnitsEntry) {
+	private moveRow({ stock, quantity, from, to }: UnitsEntry): MoveRow {
+		const place = (name: string) => (name === UNASSIGNED ? null : this.objectId(name));
 		return {
-			stock: this.objectId(entry.stock),
-			quantity: entry.quantity,
-			from: entry.from === null ? null : this.objectId(entry.from),
-			to: entry.to === null ? null : this.ref(entry.to)
+			stock: this.objectId(stock),
+			quantity,
+			from: from === 'new' ? 'new' : place(from),
+			to: to === 'gone' ? 'gone' : to === UNASSIGNED ? null : { item: this.ref(to) }
 		};
 	}
 
@@ -424,15 +439,14 @@ export function view(db: Db) {
 	const columns = getOverviewColumns(db);
 	const stats = objectStats(db, columns);
 	const held = allHoldings(db);
-	const stockOf = (o: { id: number; stock: { along: string } | null }) =>
-		o.stock && {
-			along: o.stock.along,
-			holders: Object.fromEntries(
-				[...(held.get(o.id) ?? [])]
-					.map(([id, count]) => [names[id] ?? `? ${id}`, count] as const)
-					.sort(([a], [b]) => a.localeCompare(b))
-			)
-		};
+	const stockOf = (o: { id: number; stock: boolean }) =>
+		o.stock
+			? Object.fromEntries(
+					[...(held.get(o.id) ?? [])]
+						.map(([id, count]) => [id === null ? UNASSIGNED : (names[id] ?? `? ${id}`), count])
+						.sort(([a], [b]) => String(a).localeCompare(String(b)))
+				)
+			: null;
 	const photoType = findPhotoType(db);
 	const vocab = vocabulary(db);
 	const categories = [

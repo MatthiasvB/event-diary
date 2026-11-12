@@ -1,6 +1,8 @@
+import { unitsInside } from '../domain/unitLedger.ts';
 import type { StockOption } from '../unitMoves.ts';
 import type { Db } from './db.ts';
-import { listObjects } from './objects.ts';
+import { associationKeys } from './fields.ts';
+import { currentAttrs, listObjects } from './objects.ts';
 import { allHoldings } from './units.ts';
 
 export function objectOptions(db: Db) {
@@ -15,12 +17,24 @@ export function stockOptions(db: Db): StockOption[] {
 					{
 						id: o.id,
 						name: o.name,
-						along: o.stock.along,
-						holders: [...(held.get(o.id) ?? [])]
-							.map(([id, count]) => ({ id, count }))
-							.sort((a, b) => b.count - a.count)
+						places: [...(held.get(o.id) ?? [])]
+							.map(([place, count]) => ({ place, count }))
+							.sort(
+								(a, b) => Number(a.place !== null) - Number(b.place !== null) || b.count - a.count
+							)
 					}
 				]
 			: []
 	);
+}
+
+/** The units of each stock the item holds, itself and through the objects in it. */
+export function unitsHeldBy(db: Db, id: number) {
+	const held = allHoldings(db);
+	const keys = associationKeys(db);
+	const current = currentAttrs(db);
+	return stockOptions(db).flatMap((s) => {
+		const inside = unitsInside(id, held.get(s.id) ?? new Map(), keys, current);
+		return inside.total ? [{ stock: { id: s.id, name: s.name }, ...inside }] : [];
+	});
 }

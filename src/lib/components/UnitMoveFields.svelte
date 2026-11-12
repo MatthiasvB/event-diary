@@ -2,7 +2,8 @@
 	import ObjectValueInput from './ObjectValueInput.svelte';
 	import { itemName } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
-	import { newRow, type MoveRow, type StockOption } from '#lib/unitMoves.ts';
+	import type { MoveRow, Place } from '#lib/domain/unitLedger.ts';
+	import { newRow, type StockOption } from '#lib/unitMoves.ts';
 
 	type Props = {
 		move: MoveRow;
@@ -15,10 +16,11 @@
 
 	const uid = $props.id();
 	const stock = $derived(stocks.find((s) => s.id === move.stock));
-	const holders = $derived(stock?.holders.filter((h) => h.id !== fixedTo) ?? []);
+	const sources = $derived(stock?.places.filter((p) => p.place !== fixedTo) ?? []);
+	const placeName = (place: Place) => (place === null ? t.units.unassigned : itemName(place));
 
 	function chooseStockId(id: number) {
-		const fresh = newRow(stocks, { stock: id, to: fixedTo });
+		const fresh = newRow(stocks, { stock: id, to: move.to });
 		move = { ...move, stock: fresh.stock, from: fresh.from };
 	}
 </script>
@@ -64,16 +66,16 @@
 			<button
 				type="button"
 				class="small"
-				aria-pressed={move.from === null}
-				disabled={move.to === null}
-				onclick={() => (move.from = null)}>{t.units.added}</button
+				aria-pressed={move.from === 'new'}
+				disabled={move.to === 'gone'}
+				onclick={() => (move.from = 'new')}>{t.units.new}</button
 			>
-			{#each holders as h (h.id)}
+			{#each sources as { place, count } (place)}
 				<button
 					type="button"
 					class="small"
-					aria-pressed={move.from === h.id}
-					onclick={() => (move.from = h.id)}>{itemName(h.id)} · {h.count}</button
+					aria-pressed={move.from === place}
+					onclick={() => (move.from = place)}>{placeName(place)} · {count}</button
 				>
 			{/each}
 		</div>
@@ -82,22 +84,28 @@
 	{#if fixedTo === undefined}
 		<div class="stack tight">
 			<span class="muted small">{t.units.to}</span>
-			<div class="row">
-				{#if move.to !== null}
-					<div class="grow">
-						<ObjectValueInput
-							bind:value={() => move.to ?? '', (v) => (move.to = v)}
-							candidates={[]}
-							label={t.units.to}
-						/>
-					</div>
-				{/if}
+			<ObjectValueInput
+				bind:value={
+					() => (move.to !== null && move.to !== 'gone' ? move.to.item : ''),
+					(item) => (move.to = { item })
+				}
+				candidates={[]}
+				label={t.units.to}
+			/>
+			<div class="row wrap">
 				<button
 					type="button"
 					class="small"
 					aria-pressed={move.to === null}
 					disabled={move.from === null}
-					onclick={() => (move.to = move.to === null ? '' : null)}>{t.units.usedUp}</button
+					onclick={() => (move.to = null)}>{t.units.unassigned}</button
+				>
+				<button
+					type="button"
+					class="small"
+					aria-pressed={move.to === 'gone'}
+					disabled={move.from === 'new'}
+					onclick={() => (move.to = 'gone')}>{t.units.usedUp}</button
 				>
 			</div>
 		</div>

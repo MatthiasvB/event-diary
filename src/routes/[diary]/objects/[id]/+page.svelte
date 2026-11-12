@@ -9,7 +9,8 @@
 	import MoveUnits from '#lib/components/MoveUnits.svelte';
 	import ObjectPicker from '#lib/components/ObjectPicker.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
-	import type { UnitNode } from '#lib/domain/unitLedger.ts';
+	import type { MoveRow, Place } from '#lib/domain/unitLedger.ts';
+	import { itemRow, newRow } from '#lib/unitMoves.ts';
 	import { itemName, showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
@@ -22,16 +23,17 @@
 	const object = $derived(data.object);
 	let gallery = $state<Gallery>();
 	let coverHint = $state(false);
-	let adding = $state<'items' | 'units' | null>(null);
+	let adding = $state(false);
+	let moving = $state<MoveRow | null>(null);
 	let toAdd = $state<number[]>([]);
 	const objectHref = (id: number) =>
 		resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(id) });
 	const eventHref = (id: number) =>
 		resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(id) });
 	const held = $derived(data.units.kind === 'item' ? data.units.held : []);
-	const associatedKeys = $derived([
-		...new Set([...data.associated.map((a) => a.key), ...held.map((h) => h.along)])
-	]);
+	const placeName = (place: Place) => (place === null ? t.units.unassigned : itemName(place));
+	const startMove = (preset: Parameters<typeof newRow>[1]) =>
+		(moving = newRow(data.stocks, preset));
 
 	let standalone = $state(false);
 	onMount(() => {
@@ -168,29 +170,55 @@
 	{/if}
 
 	{#if data.units.kind === 'stock'}
-		{@const { tree, moves } = data.units}
-		{@const total = tree.reduce((n, node) => n + node.total, 0)}
+		{@const { places, moves } = data.units}
+		{@const total = places.reduce((n, p) => n + p.count, 0)}
 		<section class="stack units">
 			<h2>{t.units.total} <span class="muted small">{t.units.count(total)}</span></h2>
-			{#if tree.length}
-				<div>
-					<h3 class="muted small">{t.units.where} · {object.stock?.along}</h3>
-					{@render unitTree(tree)}
-				</div>
+			{#if places.length}
+				<ul class="links">
+					{#each places as { place, count, paths } (place)}
+						<li>
+							{#if place === null}{t.units.unassigned}{:else}<a href={objectHref(place)}
+									>{itemName(place)}</a
+								>{/if}
+							{#each paths as path, i (i)}<span class="muted small"
+									><span class="separator">›</span>{path
+										.map((id) => itemName(id))
+										.join(' › ')}</span
+								>{/each}
+							<strong>{count}</strong>
+						</li>
+					{/each}
+				</ul>
 			{:else}
 				<p class="muted">{t.units.none}</p>
 			{/if}
 			{#if canEdit()}
-				{#if adding === 'units'}
+				{#if moving}
 					<MoveUnits
 						stocks={data.stocks}
-						fixed={{ stock: object.id }}
+						start={moving}
+						chooseStock={false}
 						error={form?.error}
-						onclose={() => (adding = null)}
+						onclose={() => (moving = null)}
 					/>
 				{:else}
-					<div>
-						<button type="button" onclick={() => (adding = 'units')}>{t.units.move}</button>
+					<div class="row">
+						<button
+							type="button"
+							onclick={() => startMove({ stock: object.id, from: 'new', to: null })}
+							>{t.units.add}</button
+						>
+						{#if total}
+							<button type="button" onclick={() => startMove({ stock: object.id, to: 'gone' })}
+								>{t.units.use}</button
+							>
+							<button
+								type="button"
+								onclick={() => startMove({ stock: object.id, to: { item: '' } })}
+								>{t.units.assign}</button
+							>
+						{/if}
 					</div>
 				{/if}
 			{/if}
@@ -201,8 +229,8 @@
 						{#each moves as m (m.id)}
 							<li>
 								<span class="muted small">{m.date ? formatDate(m.date) : t.objects.initial}</span>
-								{m.quantity} · {m.from === null ? t.units.added : itemName(m.from)} →
-								{m.to === null ? t.units.usedUp : itemName(m.to)}
+								{m.quantity} · {m.kind === 'add' ? t.units.new : placeName(m.from)} →
+								{m.kind === 'remove' ? t.units.usedUp : placeName(m.to)}
 								{#if m.event}
 									<a class="small" href={eventHref(m.event.id)}
 										>{t.units.withEvent(m.event.typeName)}</a
@@ -220,7 +248,7 @@
 										}}
 									>
 										<input type="hidden" name="id" value={m.id} />
-										<button class="small link">{t.units.remove}</button>
+										<button class="small link">{t.units.removeMove}</button>
 									</form>
 								{/if}
 							</li>
@@ -229,16 +257,22 @@
 				</details>
 			{/if}
 		</section>
-	{:else if associatedKeys.length || (canEdit() && data.associations.length)}
+	{:else if data.associated.length || held.length || (canEdit() && (data.associations.length || data.stocks.length))}
 		<section class="stack associated">
 			<h2>{t.associations.here}</h2>
-			{#each associatedKeys as key (key)}
-				{@const ids = data.associated.find((a) => a.key === key)?.ids ?? []}
+			{#each data.associated as { key, ids } (key)}
 				<div>
 					<h3 class="muted small">{key}</h3>
 					<ul class="links">
 						{#each ids as id (id)}<li><a href={objectHref(id)}>{itemName(id)}</a></li>{/each}
-						{#each held.filter((h) => h.along === key) as h (h.stock.id)}
+					</ul>
+				</div>
+			{/each}
+			{#if held.length}
+				<div>
+					<h3 class="muted small">{t.units.here}</h3>
+					<ul class="links">
+						{#each held as h (h.stock.id)}
 							<li>
 								<a href={objectHref(h.stock.id)}>{t.units.of(h.total, h.stock.name)}</a>
 								{#if h.own !== h.total}<span class="muted small">{t.units.own(h.own)}</span>{/if}
@@ -246,16 +280,18 @@
 						{/each}
 					</ul>
 				</div>
-			{/each}
-			{#if canEdit() && data.associations.length}
-				{#if adding === 'units'}
+			{/if}
+			{#if canEdit()}
+				{#if moving}
 					<MoveUnits
 						stocks={data.stocks}
-						fixed={{ to: object.id }}
+						start={moving}
+						chooseStock
+						fixedTo={object.id}
 						error={form?.error}
-						onclose={() => (adding = null)}
+						onclose={() => (moving = null)}
 					/>
-				{:else if adding === 'items'}
+				{:else if adding}
 					<form
 						method="POST"
 						action="?/associate"
@@ -264,7 +300,7 @@
 							async ({ result, update }) => {
 								await update();
 								if (result.type === 'success') {
-									adding = null;
+									adding = false;
 									toAdd = [];
 								}
 							}}
@@ -280,14 +316,18 @@
 						{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 						<div class="row">
 							<button class="primary" disabled={!toAdd.length}>{t.common.save}</button>
-							<button type="button" onclick={() => (adding = null)}>{t.common.cancel}</button>
+							<button type="button" onclick={() => (adding = false)}>{t.common.cancel}</button>
 						</div>
 					</form>
 				{:else}
 					<div class="row">
-						<button type="button" onclick={() => (adding = 'items')}>+ {t.associations.add}</button>
+						{#if data.associations.length}
+							<button type="button" onclick={() => (adding = true)}>+ {t.associations.add}</button>
+						{/if}
 						{#if data.stocks.length}
-							<button type="button" onclick={() => (adding = 'units')}>+ {t.units.moveHere}</button>
+							<button type="button" onclick={() => startMove({ to: itemRow(object.id) })}
+								>{t.units.moveHere}</button
+							>
 						{/if}
 					</div>
 				{/if}
@@ -351,28 +391,9 @@
 	</section>
 </div>
 
-{#snippet unitTree(nodes: UnitNode[])}
-	<ul class="links">
-		{#each nodes as node (node.id)}
-			<li>
-				<a href={objectHref(node.id)}>{itemName(node.id)}</a>
-				<strong>{node.total}</strong>
-				{#if node.children.length && node.own}<span class="muted small"
-						>{t.units.own(node.own)}</span
-					>{/if}
-				{#if node.children.length}{@render unitTree(node.children)}{/if}
-			</li>
-		{/each}
-	</ul>
-{/snippet}
-
 <style>
 	.units {
 		gap: 0.6rem;
-	}
-	.units h3 {
-		margin: 0 0 0.2rem;
-		font-weight: normal;
 	}
 	.moves {
 		margin: 0.4rem 0 0;

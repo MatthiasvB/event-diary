@@ -129,7 +129,8 @@
 			{#each event.moves as m, i (i)}
 				<li>
 					<span class="muted">{t.units.of(m.quantity, m.stock.name)}:</span>
-					{m.from?.name ?? t.units.added} → {m.to?.name ?? t.units.usedUp}
+					{m.kind === 'add' ? t.units.new : (m.from?.name ?? t.units.unassigned)} →
+					{m.kind === 'remove' ? t.units.usedUp : (m.to?.name ?? t.units.unassigned)}
 				</li>
 			{/each}
 		</ul>

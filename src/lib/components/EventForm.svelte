@@ -13,7 +13,8 @@
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { isMedia, type EventFile } from '#lib/files.ts';
 	import { uploadFiles, type Upload } from '#lib/upload.ts';
-	import { newRow, type MoveRow, type StockOption } from '#lib/unitMoves.ts';
+	import type { MoveRow } from '#lib/domain/unitLedger.ts';
+	import { itemRow, newRow, type StockOption } from '#lib/unitMoves.ts';
 	import {
 		entry,
 		type EventType,
@@ -157,13 +158,15 @@
 
 	const movesShown = $derived(stocks.length > 0 && !(part && !applyToBatch));
 
+	/** An event of the stock itself adds units, one of a single item puts units into it. */
 	function addMove() {
 		const isStock = (id: number) => stocks.some((s) => s.id === id);
+		const stock = objectIds.find(isStock);
 		const [only] = objectIds.length === 1 ? objectIds : [];
-		const move = newRow(stocks, {
-			stock: objectIds.find(isStock),
-			to: only !== undefined && !isStock(only) ? only : undefined
-		});
+		const move =
+			only === undefined || only === stock
+				? newRow(stocks, { stock, from: 'new', to: null })
+				: newRow(stocks, { stock, to: itemRow(only) });
 		moves.push({ id: nextRow++, move });
 	}
 
@@ -311,7 +314,7 @@
 
 	{#if movesShown}
 		<fieldset class="stack">
-			<legend>{t.units.move}</legend>
+			<legend>{t.units.total}</legend>
 			{#each moves as row, i (row.id)}
 				<div class="move stack">
 					<UnitMoveFields bind:move={moves[i].move} {stocks} />
@@ -319,12 +322,12 @@
 						<button
 							type="button"
 							class="small"
-							onclick={() => (moves = moves.filter((m) => m !== row))}>{t.units.remove}</button
+							onclick={() => (moves = moves.filter((m) => m !== row))}>{t.units.removeMove}</button
 						>
 					</div>
 				</div>
 			{/each}
-			<div><button type="button" class="small" onclick={addMove}>+ {t.units.move}</button></div>
+			<div><button type="button" class="small" onclick={addMove}>{t.units.addRow}</button></div>
 		</fieldset>
 	{/if}
 

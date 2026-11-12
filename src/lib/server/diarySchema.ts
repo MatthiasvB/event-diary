@@ -126,7 +126,7 @@ const PROPERTY_VALUES = `
 	${PROPERTY_VALUES_INDEXES_AND_TRIGGERS}
 `;
 
-// See docs/adr/0007-stock.md.
+// See docs/adr/0007-stock.md and docs/adr/0008-unassigned-units.md.
 const OBJECTS_TABLE = (name: string) => `
 	CREATE TABLE ${name} (
 		id INTEGER PRIMARY KEY,
@@ -136,20 +136,17 @@ const OBJECTS_TABLE = (name: string) => `
 		cover_photo_id TEXT REFERENCES files(id) ON DELETE SET NULL,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		listed INTEGER NOT NULL DEFAULT 1 CHECK (listed IN (0, 1)),
-		stock_field_id INTEGER,
-		stock INTEGER GENERATED ALWAYS AS (stock_field_id IS NOT NULL) STORED,
-		stock_field_role TEXT GENERATED ALWAYS AS ('property') STORED,
-		stock_field_type TEXT GENERATED ALWAYS AS ('object') STORED,
-		UNIQUE (id, stock),
-		FOREIGN KEY (stock_field_id, stock_field_role, stock_field_type)
-			REFERENCES fields(id, role, value_type) DEFERRABLE INITIALLY DEFERRED
+		stock INTEGER NOT NULL DEFAULT 0 CHECK (stock IN (0, 1)),
+		UNIQUE (id, stock)
 	);`;
 
-// A move without event and date is where units were from the start, like an initial value.
-const UNIT_MOVES = `
-	CREATE TABLE unit_moves (
+// A NULL place is units of the stock not assigned to any object. A move without event and
+// date counts from the start, like an initial value.
+const UNIT_MOVES_TABLE = (name: string) => `
+	CREATE TABLE ${name} (
 		id INTEGER PRIMARY KEY,
 		object_id INTEGER NOT NULL,
+		kind TEXT NOT NULL CHECK (kind IN ('add', 'remove', 'move')),
 		quantity INTEGER NOT NULL CHECK (quantity > 0),
 		from_id INTEGER,
 		to_id INTEGER,
@@ -157,12 +154,17 @@ const UNIT_MOVES = `
 		event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
 		stock INTEGER GENERATED ALWAYS AS (1) STORED,
 		holder_stock INTEGER GENERATED ALWAYS AS (0) STORED,
-		CHECK (from_id IS NOT to_id),
+		CHECK (CASE kind
+			WHEN 'add' THEN from_id IS NULL
+			WHEN 'remove' THEN to_id IS NULL
+			ELSE from_id IS NOT to_id END),
 		CHECK (event_id IS NULL OR since IS NULL),
 		FOREIGN KEY (object_id, stock) REFERENCES objects(id, stock) ON DELETE CASCADE,
 		FOREIGN KEY (from_id, holder_stock) REFERENCES objects(id, stock),
 		FOREIGN KEY (to_id, holder_stock) REFERENCES objects(id, stock)
-	);
+	);`;
+
+const UNIT_MOVES_INDEXES = `
 	CREATE INDEX unit_moves_object ON unit_moves(object_id);
 	CREATE INDEX unit_moves_from ON unit_moves(from_id);
 	CREATE INDEX unit_moves_to ON unit_moves(to_id);
@@ -213,7 +215,7 @@ const OVERVIEW_COLUMNS = `
 `;
 
 export const DIARY_SCHEMA: Schema = {
-	version: 15,
+	version: 16,
 	create: `
 	CREATE TABLE files (
 		id TEXT PRIMARY KEY,
@@ -234,7 +236,8 @@ export const DIARY_SCHEMA: Schema = {
 
 	${FIELDS}
 	${PROPERTY_VALUES}
-	${UNIT_MOVES}
+	${UNIT_MOVES_TABLE('unit_moves')}
+	${UNIT_MOVES_INDEXES}
 
 	CREATE TABLE event_files (
 		event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -284,7 +287,22 @@ export const DIARY_SCHEMA: Schema = {
 		${PROPERTY_VALUES_INDEXES_AND_TRIGGERS}
 		`,
 		15: `
-		${OBJECTS_TABLE('objects_15')}
+		CREATE TABLE objects_15 (
+			id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			active INTEGER NOT NULL DEFAULT 1,
+			notes TEXT NOT NULL DEFAULT '',
+			cover_photo_id TEXT REFERENCES files(id) ON DELETE SET NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			listed INTEGER NOT NULL DEFAULT 1 CHECK (listed IN (0, 1)),
+			stock_field_id INTEGER,
+			stock INTEGER GENERATED ALWAYS AS (stock_field_id IS NOT NULL) STORED,
+			stock_field_role TEXT GENERATED ALWAYS AS ('property') STORED,
+			stock_field_type TEXT GENERATED ALWAYS AS ('object') STORED,
+			UNIQUE (id, stock),
+			FOREIGN KEY (stock_field_id, stock_field_role, stock_field_type)
+				REFERENCES fields(id, role, value_type) DEFERRABLE INITIALLY DEFERRED
+		);
 		INSERT INTO objects_15 (id, name, active, notes, cover_photo_id, created_at, listed)
 		SELECT id, name, active, notes, cover_photo_id, created_at, listed FROM objects;
 		DROP TABLE objects;
@@ -298,7 +316,40 @@ export const DIARY_SCHEMA: Schema = {
 		ALTER TABLE property_values_15 RENAME TO property_values;
 		${PROPERTY_VALUES_INDEXES_AND_TRIGGERS}
 
-		${UNIT_MOVES}
+		CREATE TABLE unit_moves (
+			id INTEGER PRIMARY KEY,
+			object_id INTEGER NOT NULL,
+			quantity INTEGER NOT NULL CHECK (quantity > 0),
+			from_id INTEGER,
+			to_id INTEGER,
+			since TEXT,
+			event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+			stock INTEGER GENERATED ALWAYS AS (1) STORED,
+			holder_stock INTEGER GENERATED ALWAYS AS (0) STORED,
+			CHECK (from_id IS NOT to_id),
+			CHECK (event_id IS NULL OR since IS NULL),
+			FOREIGN KEY (object_id, stock) REFERENCES objects(id, stock) ON DELETE CASCADE,
+			FOREIGN KEY (from_id, holder_stock) REFERENCES objects(id, stock),
+			FOREIGN KEY (to_id, holder_stock) REFERENCES objects(id, stock)
+		);
+		${UNIT_MOVES_INDEXES}
+		`,
+		16: `
+		${OBJECTS_TABLE('objects_16')}
+		INSERT INTO objects_16 (id, name, active, notes, cover_photo_id, created_at, listed, stock)
+		SELECT id, name, active, notes, cover_photo_id, created_at, listed, stock FROM objects;
+		DROP TABLE objects;
+		ALTER TABLE objects_16 RENAME TO objects;
+
+		${UNIT_MOVES_TABLE('unit_moves_16')}
+		INSERT INTO unit_moves_16 (id, object_id, kind, quantity, from_id, to_id, since, event_id)
+		SELECT id, object_id,
+			CASE WHEN from_id IS NULL THEN 'add' WHEN to_id IS NULL THEN 'remove' ELSE 'move' END,
+			quantity, from_id, to_id, since, event_id
+		FROM unit_moves;
+		DROP TABLE unit_moves;
+		ALTER TABLE unit_moves_16 RENAME TO unit_moves;
+		${UNIT_MOVES_INDEXES}
 		`
 	}
 };

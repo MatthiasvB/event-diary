@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { saveNewObject } from '#lib/server/objectForm.ts';
 import { currentAttrs, getObject } from '#lib/server/objects.ts';
-import { associationKeys, getFieldKinds, sortProperties } from '#lib/server/fields.ts';
+import { getFieldKinds, sortProperties } from '#lib/server/fields.ts';
 import { kindOf } from '#lib/fieldKinds.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
@@ -31,10 +31,9 @@ export const load: PageServerLoad = ({ url }) => {
 			name: '',
 			active: true,
 			listed: true,
-			stock: null,
+			stock: false,
 			notes: ''
 		},
-		associations: associationKeys(d),
 		attrs: [...attrs].map(([key, value]) => ({ key, value })),
 		vocab: { keys: vocab.keys, values: vocab.values },
 		created: created && { id: created.id, name: created.name }

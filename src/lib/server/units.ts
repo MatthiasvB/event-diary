@@ -1,10 +1,17 @@
-import { holdings, shortfall, sidesOf, type Sides, type UnitMove } from '../domain/unitLedger.ts';
+import {
+	holdings,
+	shortfall,
+	type Kinded,
+	type Place,
+	type UnitMove
+} from '../domain/unitLedger.ts';
 import type { EventObject, EventUnitMove, StockMove } from '../types.ts';
 import type { Db } from './db.ts';
 
-type MoveRow = {
+type StoredMove = {
 	id: number;
 	object_id: number;
+	kind: UnitMove['kind'];
 	quantity: number;
 	from_id: number | null;
 	to_id: number | null;
@@ -13,35 +20,35 @@ type MoveRow = {
 	type_name: string | null;
 };
 
-const MOVES = `SELECT m.id, m.object_id, m.quantity, m.from_id, m.to_id,
+const MOVES = `SELECT m.id, m.object_id, m.kind, m.quantity, m.from_id, m.to_id,
 		coalesce(e.date, m.since) AS date, m.event_id, t.name AS type_name
 	FROM unit_moves m LEFT JOIN events e ON e.id = m.event_id
 	LEFT JOIN event_types t ON t.id = e.type_id`;
 
-/** `unit_moves` refuses a move without either side. */
-function stored<T>(from: T | null, to: T | null): Sides<T> {
-	const sides = sidesOf(from, to);
-	if (!sides) throw new Error('A unit move without either side');
-	return sides;
+/** `unit_moves` keeps `from_id` empty for an addition and `to_id` for a removal. */
+function kinded<T>(kind: UnitMove['kind'], from: T | null, to: T | null): Kinded<T> {
+	if (kind === 'add') return { kind, to };
+	if (kind === 'remove') return { kind, from };
+	return { kind, from, to };
 }
 
-const fromRow = (r: MoveRow): UnitMove => ({
+const fromRow = (r: StoredMove): UnitMove => ({
 	id: r.id,
 	quantity: r.quantity,
 	date: r.date,
-	...stored(r.from_id, r.to_id)
+	...kinded(r.kind, r.from_id, r.to_id)
 });
 
 /** Every stock's moves. */
 export function allMoves(db: Db): Map<number, UnitMove[]> {
-	const rows = db.prepare(MOVES).all() as MoveRow[];
+	const rows = db.prepare(MOVES).all() as StoredMove[];
 	return new Map(
 		[...Map.groupBy(rows, (r) => r.object_id)].map(([id, moves]) => [id, moves.map(fromRow)])
 	);
 }
 
-/** Every stock's holders and their counts. */
-export function allHoldings(db: Db): Map<number, Map<number, number>> {
+/** Every stock's places and their counts. */
+export function allHoldings(db: Db): Map<number, Map<Place, number>> {
 	return new Map([...allMoves(db)].map(([id, moves]) => [id, holdings(moves)]));
 }
 
@@ -49,14 +56,14 @@ export function allHoldings(db: Db): Map<number, Map<number, number>> {
 export function movesOf(db: Db, stockId: number): StockMove[] {
 	const rows = db
 		.prepare(`${MOVES} WHERE m.object_id = ? ORDER BY coalesce(date, '') DESC, m.id DESC`)
-		.all(stockId) as MoveRow[];
+		.all(stockId) as StoredMove[];
 	return rows.map((r) => ({
 		...fromRow(r),
 		event: r.event_id === null ? null : { id: r.event_id, typeName: r.type_name ?? '' }
 	}));
 }
 
-export type NewMove = { quantity: number } & Sides<number>;
+export type NewMove = { quantity: number } & Kinded<number>;
 
 export function addMove(
 	db: Db,
@@ -65,13 +72,14 @@ export function addMove(
 	when: { since: string | null } | { eventId: number }
 ) {
 	db.prepare(
-		`INSERT INTO unit_moves (object_id, quantity, from_id, to_id, since, event_id)
-		VALUES (?, ?, ?, ?, ?, ?)`
+		`INSERT INTO unit_moves (object_id, kind, quantity, from_id, to_id, since, event_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`
 	).run(
 		stockId,
+		move.kind,
 		move.quantity,
-		move.from,
-		move.to,
+		move.kind === 'add' ? null : move.from,
+		move.kind === 'remove' ? null : move.to,
 		'since' in when ? when.since : null,
 		'eventId' in when ? when.eventId : null
 	);
@@ -88,7 +96,7 @@ export function deleteMove(db: Db, stockId: number, moveId: number) {
 export function eventMoves(db: Db, eventIds: number[]): Map<number, EventUnitMove[]> {
 	const rows = db
 		.prepare(
-			`SELECT m.event_id, m.quantity, s.id AS stock_id, s.name AS stock_name,
+			`SELECT m.event_id, m.kind, m.quantity, s.id AS stock_id, s.name AS stock_name,
 				f.id AS from_id, f.name AS from_name, t.id AS to_id, t.name AS to_name
 			FROM unit_moves m JOIN objects s ON s.id = m.object_id
 			LEFT JOIN objects f ON f.id = m.from_id LEFT JOIN objects t ON t.id = m.to_id
@@ -96,6 +104,7 @@ export function eventMoves(db: Db, eventIds: number[]): Map<number, EventUnitMov
 		)
 		.all(JSON.stringify(eventIds)) as {
 		event_id: number;
+		kind: UnitMove['kind'];
 		quantity: number;
 		stock_id: number;
 		stock_name: string;
@@ -112,22 +121,23 @@ export function eventMoves(db: Db, eventIds: number[]): Map<number, EventUnitMov
 			moves.map((r) => ({
 				stock: { id: r.stock_id, name: r.stock_name },
 				quantity: r.quantity,
-				...stored(object(r.from_id, r.from_name), object(r.to_id, r.to_name))
+				...kinded(r.kind, object(r.from_id, r.from_name), object(r.to_id, r.to_name))
 			}))
 		])
 	);
 }
 
-/** The first stock some object would hold fewer than none of. */
+/** The first stock some place would hold fewer than none of. A `null` place is unassigned. */
 export function firstShortfall(
 	db: Db
-): { stock: string; holder: string; date: string | null } | null {
+): { stock: string; place: string | null; date: string | null } | null {
 	const name = db.prepare('SELECT name FROM objects WHERE id = ?');
+	const nameOf = (id: number) => (name.get(id) as { name: string } | undefined)?.name ?? '';
 	for (const [stockId, moves] of allMoves(db)) {
 		const short = shortfall(moves);
 		if (!short) continue;
-		const nameOf = (id: number) => (name.get(id) as { name: string } | undefined)?.name ?? '';
-		return { stock: nameOf(stockId), holder: nameOf(short.holder), date: short.date };
+		const place = short.place === null ? null : nameOf(short.place);
+		return { stock: nameOf(stockId), place, date: short.date };
 	}
 	return null;
 }

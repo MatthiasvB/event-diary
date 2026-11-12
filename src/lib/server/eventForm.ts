@@ -9,7 +9,8 @@ import { getFieldKinds, learnChoices, propertyKeys, type ChosenName } from './fi
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 import { resolveTargets } from './objects.ts';
 import { savedUnlessRefused, type Refusal } from './refusals.ts';
-import { parseMove, resolveMoves, type MoveDraft } from './unitForm.ts';
+import { parseMove, type MoveDraft } from '../domain/unitLedger.ts';
+import { resolveMoves } from './unitForm.ts';
 
 export type EventPayload = {
 	objectIds: number[];
@@ -67,7 +68,7 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			if (!properties.has(key) && f?.target !== 'object') return [{ target: 'event', key, value }];
 			return [{ target: 'object', key, value, initial: parseInitial(f?.initial, kind) }];
 		}),
-		moves: list(raw.moves).flatMap((m) => parseMove(m ?? {}) ?? []),
+		moves: list(raw.moves).flatMap((m) => parseMove(m) ?? []),
 		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),
 		only: Number.isInteger(raw.only) && Number(raw.only) > 0 ? Number(raw.only) : null
 	};

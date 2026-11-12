@@ -17,7 +17,6 @@
 		object={data.object}
 		attrs={data.attrs}
 		vocab={data.vocab}
-		associations={data.associations}
 		stockLocked={data.stockLocked}
 		error={form?.error}
 	/>

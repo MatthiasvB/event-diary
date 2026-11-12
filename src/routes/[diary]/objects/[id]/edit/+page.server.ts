@@ -3,7 +3,7 @@ import { db } from '#lib/server/diary.ts';
 import { saveEditedObject } from '#lib/server/objectForm.ts';
 import { deleteObject, objectImpact } from '#lib/server/events.ts';
 import { currentAttrs, getObject, referrers } from '#lib/server/objects.ts';
-import { associationKeys, sortProperties } from '#lib/server/fields.ts';
+import { sortProperties } from '#lib/server/fields.ts';
 import { stockLocked } from '#lib/server/units.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
@@ -23,7 +23,6 @@ export const load: PageServerLoad = ({ params }) => {
 	const vocab = vocabulary(d);
 	return {
 		object,
-		associations: associationKeys(d),
 		stockLocked: stockLocked(d, object.id),
 		impact: objectImpact(d, object.id),
 		referrers: referrers(d, object.id),

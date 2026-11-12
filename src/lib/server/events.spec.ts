@@ -7,7 +7,7 @@ import { createObject } from './objects.ts';
 it('searches event type names and notes, ignoring case and umlauts', () => {
 	const db = openDiary(':memory:');
 	for (const name of ['A', 'B']) {
-		createObject(db, { name, active: true, listed: true, stock: null, notes: '', attrs: [] });
+		createObject(db, { name, active: true, listed: true, stock: false, notes: '', attrs: [] });
 	}
 	const log = ensureType(db, 'Log', { category: 'Sonstiges' });
 	const fertilize = ensureType(db, 'Düngen');

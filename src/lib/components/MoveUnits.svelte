@@ -5,18 +5,22 @@
 	import UnitMoveFields from './UnitMoveFields.svelte';
 	import { today } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
-	import { newRow, type StockOption } from '#lib/unitMoves.ts';
+	import type { MoveRow } from '#lib/domain/unitLedger.ts';
+	import type { StockOption } from '#lib/unitMoves.ts';
 
 	type Props = {
 		stocks: StockOption[];
-		/** Set by the page: the stock moved, or where its units go. */
-		fixed: { stock: number } | { to: number };
+		start: MoveRow;
+		/** On a stock's page, the stock is given. */
+		chooseStock: boolean;
+		/** On a holder's page, where the units go is given. */
+		fixedTo?: number;
 		error?: string;
 		onclose: () => void;
 	};
-	let { stocks, fixed, error, onclose }: Props = $props();
+	let { stocks, start, chooseStock, fixedTo, error, onclose }: Props = $props();
 
-	let move = $state(untrack(() => newRow(stocks, fixed)));
+	let move = $state(untrack(() => $state.snapshot(start)));
 	let date = $state(today());
 </script>
 
@@ -30,20 +34,12 @@
 			if (result.type === 'success') onclose();
 		}}
 >
-	<UnitMoveFields
-		bind:move
-		{stocks}
-		chooseStock={!('stock' in fixed)}
-		fixedTo={'to' in fixed ? fixed.to : undefined}
-	/>
+	<UnitMoveFields bind:move {stocks} {chooseStock} {fixedTo} />
 	<div class="stack tight">
 		<DateInput bind:value={date} name="date" label={t.units.date} />
 		<p class="muted small">{t.units.fromStart}</p>
 	</div>
-	<input type="hidden" name="stock" value={move.stock ?? ''} />
-	<input type="hidden" name="quantity" value={move.quantity} />
-	<input type="hidden" name="from" value={move.from ?? ''} />
-	<input type="hidden" name="to" value={move.to ?? ''} />
+	<input type="hidden" name="move" value={JSON.stringify(move)} />
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 	<div class="row">
 		<button class="primary">{t.common.save}</button>

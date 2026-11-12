@@ -18,7 +18,7 @@ import {
 	type ObjectInput
 } from './objects.ts';
 import { savedUnlessRefused, type Refusal } from './refusals.ts';
-import { stockLocked } from './units.ts';
+import { addMove, stockLocked } from './units.ts';
 
 /** Stores what is chosen for new property names right away. */
 export function parseObjectForm(
@@ -40,29 +40,30 @@ export function parseObjectForm(
 		name: get('name'),
 		active: form.get('active') === 'on',
 		listed: form.get('listed') === 'on',
-		stock: form.get('stock') === 'on' ? { along: get('stockAlong') } : null,
+		stock: form.get('stock') === 'on',
 		notes: get('notes'),
 		attrs: keys
 			.map((key, i) => ({ key, value: storedValue(values[i] ?? '', kindOf(kinds, key)) }))
 			.filter((a) => a.key)
 	};
-	const associated = input.attrs.some(
-		(a) => a.value && (kindOf(kinds, a.key).kind === 'object' || a.key === input.stock?.along)
-	);
+	const associated = input.attrs.some((a) => a.value && kindOf(kinds, a.key).kind === 'object');
 	const error = !input.name
 		? t.objects.nameRequired
-		: input.stock && !input.stock.along
-			? t.units.alongRequired
-			: input.stock && associated
-				? t.units.noAssociations
-				: null;
+		: input.stock && associated
+			? t.units.noAssociations
+			: null;
 	return { input, error };
 }
 
-/** Photos sent along become a photo event, on their capture date if known. */
+/**
+ * Photos sent along become a photo event, on their capture date if known. A stock's count
+ * is there from the start, not assigned to any object.
+ */
 export function saveNewObject(form: FormData, db: Db, today: string): { id: number } | Refusal {
 	const { input, error } = parseObjectForm(form, db);
 	if (error) return { error };
+	const count = input.stock ? Number(form.get('count') || 0) : 0;
+	if (!Number.isInteger(count) || count < 0) return { error: t.units.badCount };
 	const fileIds = form
 		.getAll('file')
 		.map(String)
@@ -71,6 +72,7 @@ export function saveNewObject(form: FormData, db: Db, today: string): { id: numb
 	return savedUnlessRefused(db, () => {
 		const attrs = resolveTargets(db, getFieldKinds(db), input.attrs);
 		const id = createObject(db, { ...input, attrs });
+		if (count) addMove(db, id, { kind: 'add', quantity: count, to: null }, { since: null });
 		if (fileIds.length) {
 			const photoDate = String(form.get('photoDate') ?? '');
 			createEvent(db, [id], {
@@ -94,7 +96,7 @@ export function saveEditedObject(
 ): Refusal | null {
 	const { input, error } = parseObjectForm(form, db);
 	if (error) return { error };
-	const switched = !getObject(db, id)?.stock !== !input.stock;
+	const switched = getObject(db, id)?.stock !== input.stock;
 	if (switched && stockLocked(db, id)) return { error: t.units.locked };
 	return savedUnlessRefused(db, () => {
 		const attrs = resolveTargets(db, getFieldKinds(db), input.attrs);
@@ -111,11 +113,14 @@ export function associateWith(
 	objectIds: number[],
 	today: string
 ): Refusal | null {
-	if (kindOf(getFieldKinds(db), key).kind !== 'object' || getObject(db, holderId)?.stock !== null) {
+	if (
+		kindOf(getFieldKinds(db), key).kind !== 'object' ||
+		getObject(db, holderId)?.stock !== false
+	) {
 		return { error: t.errors.generic };
 	}
 	return savedUnlessRefused(db, () => {
-		for (const id of objectIds.filter((id) => getObject(db, id)?.stock === null)) {
+		for (const id of objectIds.filter((id) => getObject(db, id)?.stock === false)) {
 			setProperty(db, id, key, formatTarget({ id: holderId }), today);
 		}
 		return null;

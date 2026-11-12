@@ -20,7 +20,7 @@ export function savedUnlessRefused<T>(db: Db, save: () => T): T | Refusal {
 			const short = firstShortfall(db);
 			if (short) {
 				const date = short.date === null ? null : formatDate(short.date);
-				throw new Refused(t.units.shortfall(short.stock, short.holder, date));
+				throw new Refused(t.units.shortfall(short.stock, short.place, date));
 			}
 			return saved;
 		});

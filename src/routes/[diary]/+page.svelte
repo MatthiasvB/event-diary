@@ -150,6 +150,7 @@
 				<div class="body">
 					<strong>{p.name}</strong>
 					{#if !p.active}<span class="badge">{t.objects.inactive}</span>{/if}
+					{#if p.stockCount !== null}<span class="badge">{t.units.count(p.stockCount)}</span>{/if}
 					<dl class="small">
 						{#each data.columns as label, i (label)}
 							{@const date = p.stats.columns[i]}

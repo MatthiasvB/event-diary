@@ -25,7 +25,6 @@
 		object={data.object}
 		attrs={data.attrs}
 		vocab={data.vocab}
-		associations={data.associations}
 		isNew
 		error={form?.error}
 	/>

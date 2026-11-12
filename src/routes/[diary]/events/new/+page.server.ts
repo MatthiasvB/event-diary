@@ -4,7 +4,8 @@ import { parseEventForm, saveNewEvent, validate } from '#lib/server/eventForm.ts
 import { getEvent, lastFieldsByType } from '#lib/server/events.ts';
 import { photoType } from '#lib/server/eventTypes.ts';
 import { objectOptions, stockOptions } from '#lib/server/objectOptions.ts';
-import { rowOf, type MoveRow } from '#lib/unitMoves.ts';
+import type { MoveRow } from '#lib/domain/unitLedger.ts';
+import { rowOf } from '#lib/unitMoves.ts';
 import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';

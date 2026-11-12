@@ -65,26 +65,31 @@ export function getFieldKinds(db: Db): FieldKinds {
 /**
  * An association's values become objects: the one of that name, or a new unlisted one when
  * there is none or more than one. Back as text, they become the objects' names. Refused
- * where a stock is in the way.
+ * while a stock has a value that would become an association.
  */
 export function setFieldKind(db: Db, name: string, kind: FieldKind) {
 	transaction(db, () => {
 		const field = db.prepare('SELECT id, kind FROM fields WHERE name = ?').get(name) as
 			{ id: number; kind: FieldKind['kind'] } | undefined;
 		if (!field) return;
-		const stocks = (sql: string) =>
-			(db.prepare(sql).all(field.id) as { name: string }[]).map((r) => r.name);
 		if (kind.kind === 'object' && field.kind !== 'object') {
-			const holding = stocks(
-				`SELECT DISTINCT o.name FROM property_values a JOIN objects o ON o.id = a.object_id
-				WHERE a.field_id = ? AND o.stock ORDER BY o.name`
-			);
-			if (holding.length) throw new Refused(t.units.stocksHaveValues(name, holding));
+			const stocks = db
+				.prepare(
+					`SELECT DISTINCT o.name FROM property_values a JOIN objects o ON o.id = a.object_id
+					WHERE a.field_id = ? AND o.stock ORDER BY o.name`
+				)
+				.all(field.id) as { name: string }[];
+			if (stocks.length) {
+				throw new Refused(
+					t.units.stocksHaveValues(
+						name,
+						stocks.map((s) => s.name)
+					)
+				);
+			}
 			useField(db, name, 'property');
 			valuesToObjects(db, field.id);
 		} else if (kind.kind !== 'object' && field.kind === 'object') {
-			const spread = stocks('SELECT name FROM objects WHERE stock_field_id = ? ORDER BY name');
-			if (spread.length) throw new Refused(t.units.spreadAlong(name, spread));
 			db.prepare(
 				`UPDATE property_values SET value = (SELECT name FROM objects WHERE id = target_id),
 				target_id = NULL WHERE field_id = ?`

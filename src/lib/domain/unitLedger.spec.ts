@@ -1,57 +1,74 @@
 import { describe, expect, it } from 'vitest';
 import type { CurrentValues } from './associations.ts';
-import { holdings, shortfall, unitsWithin, unitTree, type UnitMove } from './unitLedger.ts';
+import {
+	holdings,
+	parseMove,
+	shortfall,
+	unitsInside,
+	type Place,
+	type UnitMove
+} from './unitLedger.ts';
 
 const CUPBOARD = 1;
 const CHARGER = 2;
 const REMOTE = 3;
+const CAR = 4;
 
 let next = 1;
 const day = (date?: string) => ({ id: next++, date: date ?? null });
-const bought = (quantity: number, to: number, date?: string): UnitMove => ({
+const bought = (quantity: number, to: Place, date?: string): UnitMove => ({
 	...day(date),
 	quantity,
-	from: null,
+	kind: 'add',
 	to
 });
-const moved = (quantity: number, from: number, to: number, date?: string): UnitMove => ({
+const moved = (quantity: number, from: Place, to: Place, date?: string): UnitMove => ({
 	...day(date),
 	quantity,
+	kind: 'move',
 	from,
 	to
 });
-const usedUp = (quantity: number, from: number, date?: string): UnitMove => ({
+const usedUp = (quantity: number, from: Place, date?: string): UnitMove => ({
 	...day(date),
 	quantity,
-	from,
-	to: null
+	kind: 'remove',
+	from
 });
 
 describe('holdings', () => {
-	it('counts what came in, moved and was used up', () => {
+	it('counts what came in, was assigned, moved and used up', () => {
 		const moves = [
-			bought(16, CUPBOARD),
-			moved(4, CUPBOARD, CHARGER, '2026-03-01'),
+			bought(16, null),
+			moved(4, null, CHARGER, '2026-03-01'),
 			moved(2, CHARGER, REMOTE, '2026-03-02'),
-			usedUp(2, CHARGER, '2026-03-03')
+			usedUp(2, CHARGER, '2026-03-03'),
+			moved(1, REMOTE, null, '2026-03-04')
 		];
 		expect(holdings(moves)).toEqual(
 			new Map([
-				[CUPBOARD, 12],
-				[REMOTE, 2]
+				[null, 13],
+				[REMOTE, 1]
 			])
 		);
 	});
 });
 
 describe('shortfall', () => {
-	it('finds none while every holder keeps enough', () => {
-		expect(shortfall([bought(4, CHARGER), moved(4, CHARGER, REMOTE, '2026-03-01')])).toBe(null);
+	it('finds none while every place keeps enough', () => {
+		expect(shortfall([bought(4, null), moved(4, null, REMOTE, '2026-03-01')])).toBe(null);
 	});
 
-	it('finds a holder that gives more than it has', () => {
+	it('finds an object that gives more than it has', () => {
 		expect(shortfall([bought(2, CHARGER), moved(3, CHARGER, REMOTE, '2026-03-01')])).toEqual({
-			holder: CHARGER,
+			place: CHARGER,
+			date: '2026-03-01'
+		});
+	});
+
+	it('finds more assigned or used up than the stock has', () => {
+		expect(shortfall([bought(2, null), usedUp(3, null, '2026-03-01')])).toEqual({
+			place: null,
 			date: '2026-03-01'
 		});
 	});
@@ -62,14 +79,7 @@ describe('shortfall', () => {
 			moved(4, CHARGER, REMOTE, '2026-03-05'),
 			usedUp(1, CHARGER, '2026-03-03')
 		];
-		expect(shortfall(moves)).toEqual({ holder: CHARGER, date: '2026-03-05' });
-	});
-
-	it('finds the gap a deleted purchase leaves', () => {
-		const purchase = bought(4, CHARGER, '2026-03-01');
-		const used = usedUp(4, CHARGER, '2026-03-05');
-		expect(shortfall([purchase, used])).toBe(null);
-		expect(shortfall([used])).toEqual({ holder: CHARGER, date: '2026-03-05' });
+		expect(shortfall(moves)).toEqual({ place: CHARGER, date: '2026-03-05' });
 	});
 
 	it('ignores the order of moves within a day', () => {
@@ -78,36 +88,59 @@ describe('shortfall', () => {
 	});
 
 	it('counts moves from the start before dated ones', () => {
-		expect(shortfall([moved(2, CHARGER, REMOTE, '2026-03-01'), bought(2, CHARGER)])).toBe(null);
+		expect(shortfall([moved(2, null, REMOTE, '2026-03-01'), bought(2, null)])).toBe(null);
 	});
 });
 
-describe('along an association', () => {
-	const current: CurrentValues = new Map([
+describe('parseMove', () => {
+	const row = { stock: 7, quantity: 2 };
+
+	it('tells additions, removals and moves apart', () => {
+		expect(parseMove({ ...row, from: 'new', to: null })).toEqual({
+			stockId: 7,
+			quantity: 2,
+			kind: 'add',
+			to: null
+		});
+		expect(parseMove({ ...row, from: 3, to: 'gone' })).toEqual({
+			stockId: 7,
+			quantity: 2,
+			kind: 'remove',
+			from: 3
+		});
+		expect(parseMove({ ...row, from: null, to: { item: '+Kiste' } })).toEqual({
+			stockId: 7,
+			quantity: 2,
+			kind: 'move',
+			from: null,
+			to: '+Kiste'
+		});
+	});
+
+	it('refuses what is no move', () => {
+		expect(parseMove({ ...row, from: 'new', to: 'gone' })).toBe(null);
+		expect(parseMove({ ...row, from: null, to: null })).toBe(null);
+		expect(parseMove({ ...row, from: 3, to: { item: '' } })).toBe(null);
+		expect(parseMove({ ...row, quantity: 0, from: 3, to: null })).toBe(null);
+		expect(parseMove(null)).toBe(null);
+	});
+});
+
+describe('unitsInside', () => {
+	const current: CurrentValues = new Map<number, Record<string, string>>([
 		[CHARGER, { In: String(CUPBOARD) }],
-		[REMOTE, { In: '9' }]
+		[REMOTE, { In: String(CAR), Bei: String(CUPBOARD) }]
 	]);
-	const held = new Map([
+	const held = new Map<Place, number>([
+		[null, 5],
 		[CUPBOARD, 9],
 		[CHARGER, 4],
 		[REMOTE, 3]
 	]);
 
-	it('nests holders under the objects they are in', () => {
-		expect(unitTree(held, 'In', current)).toEqual([
-			{
-				id: CUPBOARD,
-				own: 9,
-				total: 13,
-				children: [{ id: CHARGER, own: 4, total: 4, children: [] }]
-			},
-			{ id: 9, own: 0, total: 3, children: [{ id: REMOTE, own: 3, total: 3, children: [] }] }
-		]);
-	});
-
-	it('counts what an object holds itself and what is in it', () => {
-		expect(unitsWithin(CUPBOARD, held, 'In', current)).toEqual({ own: 9, total: 13 });
-		expect(unitsWithin(9, held, 'In', current)).toEqual({ own: 0, total: 3 });
-		expect(unitsWithin(CHARGER, held, 'In', current)).toEqual({ own: 4, total: 4 });
+	it('counts what an object holds itself and what is in it, along any association', () => {
+		expect(unitsInside(CUPBOARD, held, ['In', 'Bei'], current)).toEqual({ own: 9, total: 16 });
+		expect(unitsInside(CAR, held, ['In', 'Bei'], current)).toEqual({ own: 0, total: 3 });
+		expect(unitsInside(CHARGER, held, ['In', 'Bei'], current)).toEqual({ own: 4, total: 4 });
 	});
 });

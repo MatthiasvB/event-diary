@@ -3,7 +3,7 @@ import { formatTarget } from '../domain/associations.ts';
 import { formatDate } from '../format.ts';
 import { t } from '../i18n.ts';
 import { openDiary } from './diarySchema.ts';
-import { Diary, view, type EventEntry } from './testing/harness.ts';
+import { Diary, UNASSIGNED, view, type EventEntry } from './testing/harness.ts';
 
 let d: Diary;
 
@@ -468,57 +468,71 @@ describe('associations', () => {
 });
 
 describe('stock', () => {
-	const stockIn = (holders: Record<string, number>) => ({ along: 'In', holders });
-	const units = (stock: string) => d.show(stock).stock?.holders;
+	const units = (stock: string) => d.show(stock).stock;
 	const swap = { objects: ['Fernbedienung'], type: 'Akkus gewechselt' };
+	const short = (place: string | null, date: string | null) =>
+		t.units.shortfall('Eneloop', place, date && formatDate(date));
 
 	beforeEach(() => {
-		d.object('Schrank', { listed: false });
-		d.object('Ladegerät', {
-			properties: { In: d.ref('Schrank') },
+		d.object('Auto', { listed: false });
+		d.object('Fernbedienung', {
+			properties: { In: d.ref('Auto') },
 			kinds: { In: { kind: 'object' } }
 		});
-		d.object('Fernbedienung');
-		d.object('Eneloop', { stock: 'In' });
-		d.moveUnits({ stock: 'Eneloop', quantity: 16, from: null, to: 'Schrank' });
-		d.moveUnits({
-			stock: 'Eneloop',
-			quantity: 4,
-			from: 'Schrank',
-			to: 'Ladegerät',
-			date: '2026-03-01'
-		});
+		d.object('Ladegerät');
+		d.object('Eneloop', { stock: { count: 16 } });
 	});
 
-	it('is counted where its units are, and moves with events', () => {
-		expect(d.show('Eneloop').stock).toEqual(stockIn({ Ladegerät: 4, Schrank: 12 }));
+	it('starts with its count, not assigned to any object', () => {
+		expect(units('Eneloop')).toEqual({ [UNASSIGNED]: 16 });
+		d.object('Leer', { stock: {} });
+		expect(units('Leer')).toEqual({});
+		expect(() => d.object('Krumm', { stock: { count: 1.5 } })).toThrow(t.units.badCount);
+	});
+
+	it('is assigned, moved with events, added to and used up', () => {
+		const eneloop = { stock: 'Eneloop' } as const;
+		d.moveUnits({ ...eneloop, quantity: 4, from: UNASSIGNED, to: 'Ladegerät', date: '2026-03-01' });
 		d.record({
 			...swap,
 			date: '2026-04-01',
-			moves: [{ stock: 'Eneloop', quantity: 2, from: 'Ladegerät', to: 'Fernbedienung' }]
+			moves: [{ ...eneloop, quantity: 2, from: 'Ladegerät', to: 'Fernbedienung' }]
 		});
-		expect(units('Eneloop')).toEqual({ Fernbedienung: 2, Ladegerät: 2, Schrank: 12 });
+		d.moveUnits({ ...eneloop, quantity: 8, from: 'new', to: UNASSIGNED, date: '2026-05-01' });
+		d.moveUnits({ ...eneloop, quantity: 1, from: UNASSIGNED, to: 'gone', date: '2026-05-02' });
+		expect(units('Eneloop')).toEqual({ [UNASSIGNED]: 19, Fernbedienung: 2, Ladegerät: 2 });
 
 		const { event } = d.event('Eneloop', '2026-04-01', 'Akkus gewechselt');
 		expect(event.objects.map((o) => o.name)).toEqual(['Fernbedienung']);
-		expect(event.moves.map((m) => [m.quantity, m.stock.name, m.from?.name, m.to?.name])).toEqual([
-			[2, 'Eneloop', 'Ladegerät', 'Fernbedienung']
+		expect(event.moves).toEqual([
+			{
+				stock: { id: d.objectId('Eneloop'), name: 'Eneloop' },
+				quantity: 2,
+				kind: 'move',
+				from: { id: d.objectId('Ladegerät'), name: 'Ladegerät' },
+				to: { id: d.objectId('Fernbedienung'), name: 'Fernbedienung' }
+			}
 		]);
 
 		d.edit(d.event('Fernbedienung', '2026-04-01', 'Akkus gewechselt'), {
 			...swap,
 			date: '2026-04-01',
-			moves: [{ stock: 'Eneloop', quantity: 2, from: 'Ladegerät', to: null }]
+			moves: [{ ...eneloop, quantity: 2, from: 'Ladegerät', to: 'gone' }]
 		});
-		expect(units('Eneloop')).toEqual({ Ladegerät: 2, Schrank: 12 });
+		expect(units('Eneloop')).toEqual({ [UNASSIGNED]: 19, Ladegerät: 2 });
 		d.deleteEvent(d.event('Fernbedienung', '2026-04-01', 'Akkus gewechselt').event.id);
-		expect(units('Eneloop')).toEqual({ Ladegerät: 4, Schrank: 12 });
+		expect(units('Eneloop')).toEqual({ [UNASSIGNED]: 19, Ladegerät: 4 });
 	});
 
-	it('refuses to leave an object short of units, also on an earlier day', () => {
-		const short = (holder: string, date: string | null) =>
-			t.units.shortfall('Eneloop', holder, date && formatDate(date));
+	it('refuses to leave a place short of units, also on an earlier day', () => {
 		const toRemote = { stock: 'Eneloop', from: 'Ladegerät', to: 'Fernbedienung' } as const;
+		d.moveUnits({
+			stock: 'Eneloop',
+			quantity: 4,
+			from: UNASSIGNED,
+			to: 'Ladegerät',
+			date: '2026-03-01'
+		});
 
 		expect(() => d.moveUnits({ ...toRemote, quantity: 5, date: '2026-04-01' })).toThrow(
 			short('Ladegerät', '2026-04-01')
@@ -527,53 +541,67 @@ describe('stock', () => {
 			d.record({ ...swap, date: '2026-02-01', moves: [{ ...toRemote, quantity: 1 }] })
 		).toThrow(short('Ladegerät', '2026-02-01'));
 		expect(timeline('Fernbedienung')).toEqual([]);
+		expect(() =>
+			d.moveUnits({
+				stock: 'Eneloop',
+				quantity: 13,
+				from: UNASSIGNED,
+				to: 'gone',
+				date: '2026-04-01'
+			})
+		).toThrow(short(null, '2026-04-01'));
 
 		d.record({ ...swap, date: '2026-04-01', moves: [{ ...toRemote, quantity: 4 }] });
 		expect(() => d.removeLastMove('Eneloop')).toThrow(short('Ladegerät', '2026-04-01'));
 		expect(() =>
-			d.moveUnits({ stock: 'Eneloop', quantity: 1, from: 'Schrank', to: 'Schrank' })
+			d.moveUnits({ stock: 'Eneloop', quantity: 1, from: 'Ladegerät', to: 'Ladegerät' })
 		).toThrow(t.units.sameHolder);
-		expect(units('Eneloop')).toEqual({ Fernbedienung: 4, Schrank: 12 });
 
 		const bought = { objects: ['Eneloop'], type: 'Gekauft', date: '2026-05-01' };
-		d.record({ ...bought, moves: [{ stock: 'Eneloop', quantity: 2, from: null, to: 'Schrank' }] });
-		d.moveUnits({ stock: 'Eneloop', quantity: 14, from: 'Schrank', to: null, date: '2026-06-01' });
+		d.record({
+			...bought,
+			moves: [{ stock: 'Eneloop', quantity: 2, from: 'new', to: UNASSIGNED }]
+		});
+		d.moveUnits({
+			stock: 'Eneloop',
+			quantity: 14,
+			from: UNASSIGNED,
+			to: 'gone',
+			date: '2026-06-01'
+		});
 		expect(() => d.deleteEvent(d.event('Eneloop', '2026-05-01', 'Gekauft').event.id)).toThrow(
-			short('Schrank', '2026-06-01')
+			short(null, '2026-06-01')
 		);
 		expect(units('Eneloop')).toEqual({ Fernbedienung: 4 });
 	});
 
-	it('rolls up along the association, and follows a rename of it', () => {
-		d.moveUnits({ stock: 'Eneloop', quantity: 1, from: 'Schrank', to: 'Fernbedienung' });
-		d.rename({ kind: 'key' }, 'In', 'Ort');
-		expect(d.show('Eneloop').stock).toEqual({
-			along: 'Ort',
-			holders: { Fernbedienung: 1, Ladegerät: 4, Schrank: 11 }
-		});
-		expect(history('Ladegerät', 'Ort')).toEqual([{ value: 'Schrank', since: null, by: null }]);
+	it('is counted on the objects holding it, and those they are in', () => {
+		d.moveUnits({ stock: 'Eneloop', quantity: 3, from: UNASSIGNED, to: 'Fernbedienung' });
+		d.moveUnits({ stock: 'Eneloop', quantity: 1, from: UNASSIGNED, to: 'Auto' });
+		expect(d.unitsAt('Fernbedienung')).toEqual({ Eneloop: { own: 3, total: 3 } });
+		expect(d.unitsAt('Auto')).toEqual({ Eneloop: { own: 1, total: 4 } });
+		expect(d.unitsAt('Ladegerät')).toEqual({});
 	});
 
 	it('keeps stock and items apart', () => {
+		d.moveUnits({ stock: 'Eneloop', quantity: 4, from: UNASSIGNED, to: 'Ladegerät' });
 		expect(() =>
-			d.editObject('Eneloop', { stock: 'In', properties: { In: d.ref('Schrank') } })
+			d.editObject('Eneloop', { stock: {}, properties: { In: d.ref('Ladegerät') } })
 		).toThrow(t.units.noAssociations);
 		expect(() => d.editObject('Eneloop', {})).toThrow(t.units.locked);
-		expect(() => d.editObject('Schrank', { listed: false, stock: 'In' })).toThrow(t.units.locked);
+		expect(() => d.editObject('Ladegerät', { stock: {} })).toThrow(t.units.locked);
 		d.object('Blume', { properties: { Farbe: 'blau' } });
-		expect(() => d.object('Farben', { stock: 'Farbe' })).toThrow(t.units.notAnAssociation('Farbe'));
-		expect(() => d.object('Farben', { stock: 'Neu', properties: { Neu: 'x' } })).toThrow(
-			t.units.noAssociations
+		d.object('Farben', { stock: {}, properties: { Farbe: 'bunt' } });
+		expect(() => d.kind('Farbe', { kind: 'object' })).toThrow(
+			t.units.stocksHaveValues('Farbe', ['Farben'])
 		);
-		expect(() => d.kind('In', { kind: 'text' })).toThrow(t.units.spreadAlong('In', ['Eneloop']));
 
 		d.object('Kiste', { properties: { In: d.ref('Eneloop') } });
 		expect(history('Kiste', 'In')).toBeUndefined();
 		expect(() => d.associate('Eneloop', 'In', ['Kiste'])).toThrow(t.errors.generic);
 
-		expect(() => d.delete('Schrank')).toThrow(/Eneloop/);
+		expect(() => d.delete('Ladegerät')).toThrow(/Eneloop/);
 		d.delete('Eneloop');
 		d.delete('Ladegerät');
-		d.delete('Schrank');
 	});
 });

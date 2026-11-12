@@ -11,7 +11,7 @@ it('shows as last event the one the timeline shows first, also on the same day',
 		name: 'X',
 		active: true,
 		listed: true,
-		stock: null,
+		stock: false,
 		notes: '',
 		attrs: []
 	});

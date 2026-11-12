@@ -16,9 +16,8 @@ import { associateWith, saveInitialValue } from '#lib/server/objectForm.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { associationKeys, sortProperties } from '#lib/server/fields.ts';
 import { pathOf, pointingTo } from '#lib/domain/associations.ts';
-import { unitsWithin, unitTree } from '#lib/domain/unitLedger.ts';
-import { stockOptions } from '#lib/server/objectOptions.ts';
-import { allHoldings, movesOf } from '#lib/server/units.ts';
+import { stockOptions, unitsHeldBy } from '#lib/server/objectOptions.ts';
+import { movesOf } from '#lib/server/units.ts';
 import { removeMove, saveMove } from '#lib/server/unitForm.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -38,23 +37,21 @@ export const load: PageServerLoad = ({ params }) => {
 	const history = attrHistory(d, object.id);
 	const associations = associationKeys(d);
 	const current = currentAttrs(d);
-	const held = allHoldings(d);
 	const stocks = stockOptions(d);
 	const units = object.stock
 		? {
 				kind: 'stock' as const,
-				tree: unitTree(held.get(object.id) ?? new Map(), object.stock.along, current),
+				places: (stocks.find((s) => s.id === object.id)?.places ?? []).map(({ place, count }) => ({
+					place,
+					count,
+					paths:
+						place === null
+							? []
+							: associations.map((key) => pathOf(place, key, current)).filter((p) => p.length)
+				})),
 				moves: movesOf(d, object.id)
 			}
-		: {
-				kind: 'item' as const,
-				held: stocks.flatMap((s) => {
-					const within = unitsWithin(object.id, held.get(s.id) ?? new Map(), s.along, current);
-					return within.total
-						? [{ stock: { id: s.id, name: s.name }, along: s.along, ...within }]
-						: [];
-				})
-			};
+		: { kind: 'item' as const, held: unitsHeldBy(d, object.id) };
 	return {
 		object,
 		history,

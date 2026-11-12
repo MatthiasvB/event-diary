@@ -1,5 +1,8 @@
 # 7. Stock is counted as a ledger of unit moves
 
+Superseded in part by [ADR 8](0008-unassigned-units.md): a stock no longer follows an
+association, and its units can be unassigned.
+
 ## Context
 
 Some things are only counted, not told apart: 16 rechargeable batteries, 3 in the remote, 4

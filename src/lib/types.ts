@@ -1,4 +1,4 @@
-import type { Sides, UnitMove } from './domain/unitLedger.ts';
+import type { Kinded, UnitMove } from './domain/unitLedger.ts';
 import type { NameChoice } from './fieldKinds.ts';
 import type { EventFile } from './files.ts';
 
@@ -50,8 +50,8 @@ export type DiaryObject = {
 	active: boolean;
 	/** Shown on the start page. */
 	listed: boolean;
-	/** Made of interchangeable units, spread over other objects along an association. */
-	stock: { along: string } | null;
+	/** Made of interchangeable units, counted and assigned to other objects. */
+	stock: boolean;
 	notes: string;
 	coverPhotoId: string | null;
 	/** Width / height. */
@@ -65,7 +65,7 @@ export type PropertyValue = { id: number; key: string; value: string } & (
 export type EventObject = { id: number; name: string };
 
 export type StockMove = UnitMove & { event: { id: number; typeName: string } | null };
-export type EventUnitMove = { stock: EventObject; quantity: number } & Sides<EventObject>;
+export type EventUnitMove = { stock: EventObject; quantity: number } & Kinded<EventObject>;
 
 /** `objects` has at least one, in the order of their names. */
 export type DiaryEvent = {

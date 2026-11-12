@@ -136,46 +136,47 @@ export const t = {
 		pick: 'Objekt wählen'
 	},
 	units: {
-		stock: 'Bestand aus gleichen Stücken',
+		stock: 'Gezählter Bestand',
 		stockHint:
-			'Für Dinge, die nur gezählt werden, z. B. Akkus. Ihre Stücke verteilen sich über eine Verknüpfung auf andere Objekte.',
-		along: 'Verteilt über',
-		alongRequired: 'Bitte angeben, über welche Verknüpfung sich die Stücke verteilen.',
-		notAnAssociation: (name: string) => `„${name}“ ist keine Verknüpfung zu Objekten.`,
-		noAssociations: 'Ein Bestand hat selbst keine Verknüpfungen. Seine Stücke werden verschoben.',
+			'Für Dinge, die nur gezählt werden, z. B. Akkus. Ihre Stücke können später Objekten zugeordnet werden.',
+		badCount: 'Bitte als Anzahl eine ganze Zahl ab 0 angeben.',
+		noAssociations: 'Ein Bestand hat selbst keine Verknüpfungen. Seine Stücke werden zugeordnet.',
 		locked:
-			'Das lässt sich nicht mehr umstellen: Es wurden schon Stücke verschoben, oder Objekte sind damit verknüpft.',
+			'Das lässt sich nicht mehr umstellen: Es wurden schon Stücke erfasst, oder Objekte sind damit verknüpft.',
 		stocksHaveValues: (key: string, names: string[]) =>
 			`„${key}“ kann keine Verknüpfung werden: ${quoted(names)} ${names.length === 1 ? 'ist ein Bestand' : 'sind Bestände'} mit einem Wert dafür.`,
-		spreadAlong: (key: string, names: string[]) =>
-			`„${key}“ muss eine Verknüpfung bleiben: Die Stücke von ${quoted(names)} verteilen sich darüber.`,
-		shortfall: (stock: string, holder: string, date: string | null) =>
-			`Das geht nicht: „${holder}“ hätte ${date ? `am ${date}` : 'dann'} weniger als null Stück „${stock}“.`,
+		shortfall: (stock: string, place: string | null, date: string | null) =>
+			`Das geht nicht: ${place === null ? `Von „${stock}“ wären` : `„${place}“ hätte`} ${date ? `am ${date}` : 'dann'} weniger als null Stück${place === null ? ' nicht zugeordnet' : ` „${stock}“`}.`,
 		incomplete: 'Bitte angeben, wie viele Stücke woher und wohin gehen.',
-		sameHolder: 'Woher und wohin sind dasselbe Objekt.',
+		sameHolder: 'Woher und wohin sind dasselbe.',
 		total: 'Bestand',
 		count: (n: number) => `${n} Stück`,
-		where: 'Verteilung',
+		here: 'Stück',
 		none: 'Noch keine Stücke erfasst.',
-		move: 'Stück verschieben',
-		moveHere: 'Stück hierher',
+		add: '+ Dazu',
+		use: '− Weg',
+		assign: 'Zuordnen',
+		moveHere: '+ Stück hierher',
+		addRow: '+ Stück',
 		stockName: 'Bestand',
 		quantity: 'Anzahl',
 		less: 'Eins weniger',
 		more: 'Eins mehr',
 		from: 'Woher',
 		to: 'Wohin',
-		added: 'Neu dazu',
+		new: 'Neu',
+		unassigned: 'Nicht zugeordnet',
 		usedUp: 'Verbraucht',
 		date: 'Datum',
 		fromStart: 'Ohne Datum gilt es von Anfang an.',
-		moves: 'Bewegungen',
+		moves: 'Verlauf',
 		withEvent: (type: string) => `mit „${type}“`,
 		of: (n: number, name: string) => `${n} × ${name}`,
 		own: (n: number) => (n ? `davon ${n} direkt` : 'weiter innen'),
-		remove: 'Entfernen',
-		confirmRemove: 'Diese Bewegung entfernen?'
+		removeMove: 'Entfernen',
+		confirmRemove: 'Diesen Eintrag entfernen?'
 	},
+
 	events: {
 		title: 'Ereignisse',
 		new: 'Ereignis erfassen',
