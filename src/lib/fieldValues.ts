@@ -10,10 +10,10 @@ export function suggestsValues(key: string) {
 	return !(page.data.withoutSuggestions as string[] | undefined)?.includes(key.trim());
 }
 
-export function objectName(id: number): string | undefined {
-	return (page.data.objectNames as Record<number, string> | undefined)?.[id];
+export function itemName(id: number): string | undefined {
+	return (page.data.itemNames as Record<number, string> | undefined)?.[id];
 }
 
 export function showValue(key: string, value: string) {
-	return displayValue(value, fieldKind(key), (v) => targetName(v, objectName));
+	return displayValue(value, fieldKind(key), (v) => targetName(v, itemName));
 }

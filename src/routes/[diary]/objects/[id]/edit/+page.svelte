@@ -13,7 +13,14 @@
 
 <h1>{t.objects.edit}</h1>
 {#key data.object.id}
-	<ObjectForm object={data.object} attrs={data.attrs} vocab={data.vocab} error={form?.error} />
+	<ObjectForm
+		object={data.object}
+		attrs={data.attrs}
+		vocab={data.vocab}
+		associations={data.associations}
+		stockLocked={data.stockLocked}
+		error={form?.error}
+	/>
 {/key}
 
 <form

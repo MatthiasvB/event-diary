@@ -44,6 +44,7 @@ function object(id: number, attrs: Record<string, string> = {}) {
 		name: `Objekt ${id}`,
 		active: true,
 		listed: true,
+		stock: null,
 		notes: '',
 		attrs: Object.entries(attrs).map(([key, value]) => ({ key, value }))
 	});
@@ -66,6 +67,7 @@ describe('rename and merge', () => {
 			date: '2026-09-01',
 			note: '',
 			fields: [{ key: 'Gattung', value: 'Catleya', target: 'event' }],
+			moves: [],
 			fileIds: []
 		});
 
@@ -87,6 +89,7 @@ describe('rename and merge', () => {
 				{ key: 'Produkt', value: 'Obi', target: 'event' },
 				{ key: 'Mittel', value: 'Flüssig', target: 'event' }
 			],
+			moves: [],
 			fileIds: []
 		});
 
@@ -107,6 +110,7 @@ describe('rename and merge', () => {
 			date: '2026-09-01',
 			note: '',
 			fields: [],
+			moves: [],
 			fileIds: []
 		});
 		setOverviewColumns(db, [{ label: 'Gedüngt', typeIds: [typo.id, right.id] }]);
@@ -157,7 +161,7 @@ describe('cover photo', () => {
 				.prepare("INSERT INTO files (id, file, mime) VALUES (?, ?, 'image/jpeg')")
 				.run(id, `${id}.jpg`);
 		const event = (date: string, fileIds: string[]) =>
-			createEvent(db, [1], { typeId: type.id, date, note: '', fields: [], fileIds });
+			createEvent(db, [1], { typeId: type.id, date, note: '', fields: [], moves: [], fileIds });
 
 		expect(getObject(db, 1)?.coverPhotoId).toBeNull();
 		photo('a');
@@ -184,6 +188,7 @@ describe('object attributes from events', () => {
 			date: '2026-09-20',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Südfenster', target: 'object', initial: KEEP }],
+			moves: [],
 			fileIds: []
 		});
 
@@ -208,6 +213,7 @@ describe('object attributes from events', () => {
 				date,
 				note: '',
 				fields: [{ key: 'Standort', value, target: 'object', initial }],
+				moves: [],
 				fileIds: []
 			});
 
@@ -223,6 +229,7 @@ describe('object attributes from events', () => {
 			date: '2026-03-01',
 			note: '',
 			fields: [{ key: 'Standort', value: 'Dachboden', target: 'object', initial: KEEP }],
+			moves: [],
 			fileIds: []
 		});
 		createEvent(db, [2], {
@@ -232,6 +239,7 @@ describe('object attributes from events', () => {
 			fields: [
 				{ key: 'Standort', value: 'Südfenster', target: 'object', initial: { kind: 'unknown' } }
 			],
+			moves: [],
 			fileIds: []
 		});
 		expect(attrHistory(db, 2).Standort).toHaveLength(3);
@@ -255,6 +263,7 @@ describe('object attributes from events', () => {
 					initial: { kind: 'set', value: 'Ostfenster' }
 				}
 			],
+			moves: [],
 			fileIds: []
 		});
 		const history = () => attrHistory(db, 1).Standort.map((h) => [h.value, h.since]);
@@ -282,6 +291,7 @@ describe('changes of properties', () => {
 			date,
 			note: '',
 			fields: [{ key: 'Substrat', value, target: 'object', initial }],
+			moves: [],
 			fileIds: []
 		});
 
@@ -331,6 +341,7 @@ describe('changes of properties', () => {
 				date,
 				note: '',
 				fields: [{ key: 'Substrat', value, target: 'event' }],
+				moves: [],
 				fileIds: []
 			});
 		detail(1, '2026-01-10', 'Moos');
@@ -346,6 +357,7 @@ describe('changes of properties', () => {
 				name: 'Objekt 2',
 				active: true,
 				listed: true,
+				stock: null,
 				notes: '',
 				attrs: [
 					{ key: 'Standort', value: 'Küche' },
@@ -401,10 +413,11 @@ describe('deleting an object', () => {
 			db.prepare("INSERT INTO files (id, file, mime) VALUES (?, ?, 'image/jpeg')").run(id, id);
 		}
 		const input = { typeId: type.id, note: '', fields: [] };
-		createEvent(db, [1], { ...input, date: '2026-09-01', fileIds: ['own'] });
+		createEvent(db, [1], { ...input, date: '2026-09-01', moves: [], fileIds: ['own'] });
 		const kept = createEvent(db, [1, 2], {
 			...input,
 			date: '2026-09-02',
+			moves: [],
 			fileIds: ['shared']
 		});
 
@@ -437,7 +450,7 @@ describe('deleting event types and categories', () => {
 		const move = ensureType(db, 'Umzug', { category: 'Pflege' });
 		const water = ensureType(db, 'Gießen', { category: 'Pflege' });
 		const bloom = ensureType(db, 'Blüte', { category: 'Beobachtung' });
-		const input = { note: '', fields: [], fileIds: [] };
+		const input = { note: '', fields: [], moves: [], fileIds: [] };
 		createEvent(db, [1], {
 			...input,
 			typeId: move.id,
@@ -487,7 +500,7 @@ describe('types of the same name in several categories', () => {
 		const care = ensureType(db, 'Umtopfen', { category: 'Pflege' });
 		const house = ensureType(db, 'Umtopfen', { category: 'Haus' });
 		const water = ensureType(db, 'Gießen', { category: 'Haus' });
-		const input = { note: '', fields: [], fileIds: [], date: '2026-09-01' };
+		const input = { note: '', fields: [], moves: [], fileIds: [], date: '2026-09-01' };
 		const moved = createEvent(db, [1], { ...input, typeId: house.id });
 
 		rename(db, { kind: 'category' }, 'Haus', 'Pflege');

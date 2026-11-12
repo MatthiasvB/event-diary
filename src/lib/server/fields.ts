@@ -5,8 +5,10 @@ import {
 	type FieldKinds,
 	type NameChoice
 } from '../fieldKinds.ts';
+import { t } from '../i18n.ts';
 import type { FieldTarget } from '../types.ts';
 import { transaction, type Db } from './db.ts';
+import { Refused } from './refusals.ts';
 
 export type Role = 'detail' | 'property';
 type FieldRow = { id: number; role: Role };
@@ -62,17 +64,27 @@ export function getFieldKinds(db: Db): FieldKinds {
 
 /**
  * An association's values become objects: the one of that name, or a new unlisted one when
- * there is none or more than one. Back as text, they become the objects' names.
+ * there is none or more than one. Back as text, they become the objects' names. Refused
+ * where a stock is in the way.
  */
 export function setFieldKind(db: Db, name: string, kind: FieldKind) {
 	transaction(db, () => {
 		const field = db.prepare('SELECT id, kind FROM fields WHERE name = ?').get(name) as
 			{ id: number; kind: FieldKind['kind'] } | undefined;
 		if (!field) return;
+		const stocks = (sql: string) =>
+			(db.prepare(sql).all(field.id) as { name: string }[]).map((r) => r.name);
 		if (kind.kind === 'object' && field.kind !== 'object') {
+			const holding = stocks(
+				`SELECT DISTINCT o.name FROM property_values a JOIN objects o ON o.id = a.object_id
+				WHERE a.field_id = ? AND o.stock ORDER BY o.name`
+			);
+			if (holding.length) throw new Refused(t.units.stocksHaveValues(name, holding));
 			useField(db, name, 'property');
 			valuesToObjects(db, field.id);
 		} else if (kind.kind !== 'object' && field.kind === 'object') {
+			const spread = stocks('SELECT name FROM objects WHERE stock_field_id = ? ORDER BY name');
+			if (spread.length) throw new Refused(t.units.spreadAlong(name, spread));
 			db.prepare(
 				`UPDATE property_values SET value = (SELECT name FROM objects WHERE id = target_id),
 				target_id = NULL WHERE field_id = ?`
@@ -94,9 +106,9 @@ function valuesToObjects(db: Db, fieldId: number) {
 		'UPDATE property_values SET value = NULL, target_id = ? WHERE field_id = ? AND value = ?'
 	);
 	for (const { value } of values) {
-		const [named, ...alike] = db.prepare('SELECT id FROM objects WHERE name = ?').all(value) as {
-			id: number;
-		}[];
+		const [named, ...alike] = db
+			.prepare('SELECT id FROM objects WHERE name = ? AND NOT stock')
+			.all(value) as { id: number }[];
 		const target =
 			named && !alike.length
 				? named
@@ -158,4 +170,12 @@ export function sortProperties(db: Db, names: string[]): string[] {
 		return i < 0 ? order.length : i;
 	};
 	return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'de'));
+}
+
+export function associationKeys(db: Db): string[] {
+	const kinds = getFieldKinds(db);
+	return sortProperties(
+		db,
+		Object.keys(kinds).filter((key) => kinds[key].kind === 'object')
+	);
 }

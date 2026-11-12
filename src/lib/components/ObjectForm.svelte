@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import Combobox from './Combobox.svelte';
 	import TextInput from './TextInput.svelte';
 	import FieldsEditor from './FieldsEditor.svelte';
 	import FileInput from './FileInput.svelte';
@@ -10,19 +11,39 @@
 	import { entry, type FieldEntry, type Vocabulary } from '#lib/types.ts';
 
 	type Props = {
-		object: { name: string; active: boolean; listed: boolean; notes: string };
+		object: {
+			name: string;
+			active: boolean;
+			listed: boolean;
+			stock: { along: string } | null;
+			notes: string;
+		};
 		attrs: { key: string; value: string }[];
 		vocab: Pick<Vocabulary, 'keys' | 'values'>;
+		/** The names of associations, which a stock's units can be spread along. */
+		associations: string[];
+		/** Units were moved, or other objects point to it. */
+		stockLocked?: boolean;
 		isNew?: boolean;
 		error?: string;
 	};
-	let { object, attrs, vocab, isNew = false, error }: Props = $props();
+	let {
+		object,
+		attrs,
+		vocab,
+		associations,
+		stockLocked = false,
+		isNew = false,
+		error
+	}: Props = $props();
 	const leave = leaveFormOnRedirect();
 
 	// Pages re-create the form with {#key} when its initial values change.
 	let fields = $state<FieldEntry[]>(
 		untrack(() => attrs.map((a) => entry('object', a.key, a.value)))
 	);
+	let stock = $state(untrack(() => object.stock !== null));
+	let along = $state(untrack(() => object.stock?.along ?? associations[0] ?? ''));
 	let files = $state<Upload[]>([]);
 	let photoDate = $state('');
 	let uploaded = $state<number | null>(null);
@@ -68,6 +89,24 @@
 			><input name="listed" type="checkbox" checked={object.listed} /> {t.objects.listed}</label
 		>
 		<p class="muted small">{t.objects.listedHint}</p>
+	</div>
+	<div class="stack listed">
+		<label class="check"
+			><input name="stock" type="checkbox" bind:checked={stock} disabled={stockLocked} />
+			{t.units.stock}</label
+		>
+		{#if stockLocked && stock}<input type="hidden" name="stock" value="on" />{/if}
+		<p class="muted small">{stockLocked ? t.units.locked : t.units.stockHint}</p>
+		{#if stock}
+			<label for="stock-along">{t.units.along}</label>
+			<Combobox
+				id="stock-along"
+				bind:value={along}
+				candidates={associations.map((value) => ({ value, count: 0, last: null }))}
+				required
+			/>
+			<input type="hidden" name="stockAlong" value={along} />
+		{/if}
 	</div>
 
 	<fieldset>

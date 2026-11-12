@@ -3,7 +3,8 @@ import { db } from '#lib/server/diary.ts';
 import { parseEventForm, saveNewEvent, validate } from '#lib/server/eventForm.ts';
 import { getEvent, lastFieldsByType } from '#lib/server/events.ts';
 import { photoType } from '#lib/server/eventTypes.ts';
-import { objectOptions } from '#lib/server/objectOptions.ts';
+import { objectOptions, stockOptions } from '#lib/server/objectOptions.ts';
+import { rowOf, type MoveRow } from '#lib/unitMoves.ts';
 import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
@@ -29,6 +30,7 @@ export const load: PageServerLoad = ({ url }) => {
 		date: today(),
 		note: '',
 		fields: [] as RecordedField[],
+		moves: [] as MoveRow[],
 		files: [] as EventFile[]
 	};
 
@@ -40,12 +42,14 @@ export const load: PageServerLoad = ({ url }) => {
 			typeName: from.typeName,
 			category: from.category,
 			note: from.note,
-			fields: fieldsFor(from, null)
+			fields: fieldsFor(from, null),
+			moves: from.moves.map(rowOf)
 		};
 	}
 
 	return {
 		objects,
+		stocks: stockOptions(d),
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
 		histories: allHistories(d),

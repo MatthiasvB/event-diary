@@ -9,6 +9,7 @@ import { getFieldKinds, learnChoices, propertyKeys, type ChosenName } from './fi
 import { deleteFiles, FILE_ID, filesExist } from './files.ts';
 import { resolveTargets } from './objects.ts';
 import { savedUnlessRefused, type Refusal } from './refusals.ts';
+import { parseMove, resolveMoves, type MoveDraft } from './unitForm.ts';
 
 export type EventPayload = {
 	objectIds: number[];
@@ -18,6 +19,7 @@ export type EventPayload = {
 	date: string;
 	note: string;
 	fields: FieldEntry[];
+	moves: MoveDraft[];
 	files: string[];
 	/** On an event of several objects: the one whose part alone is edited. */
 	only: number | null;
@@ -65,6 +67,7 @@ export function parseEventForm(form: FormData, db: Db): EventPayload {
 			if (!properties.has(key) && f?.target !== 'object') return [{ target: 'event', key, value }];
 			return [{ target: 'object', key, value, initial: parseInitial(f?.initial, kind) }];
 		}),
+		moves: list(raw.moves).flatMap((m) => parseMove(m ?? {}) ?? []),
 		files: [...new Set(list(raw.files).map(str))].filter((id) => FILE_ID.test(id)),
 		only: Number.isInteger(raw.only) && Number(raw.only) > 0 ? Number(raw.only) : null
 	};
@@ -99,8 +102,9 @@ export function saveNewEvent(db: Db, p: EventPayload): { id: number } | Refusal 
 	return savedUnlessRefused(db, () => {
 		const type = resolveType(db, p);
 		const fields = resolveFields(db, p.fields);
+		const moves = resolveMoves(db, p.moves);
 		return {
-			id: createEvent(db, p.objectIds, { ...p, fields, typeId: type.id, fileIds: p.files })
+			id: createEvent(db, p.objectIds, { ...p, fields, moves, typeId: type.id, fileIds: p.files })
 		};
 	});
 }
@@ -109,7 +113,8 @@ export function saveEditedEvent(db: Db, id: number, p: EventPayload): Refusal | 
 	const orphans = savedUnlessRefused(db, () => {
 		const type = resolveType(db, p);
 		const fields = resolveFields(db, p.fields);
-		return updateEvent(db, id, { ...p, fields, typeId: type.id, fileIds: p.files }, p.only);
+		const moves = resolveMoves(db, p.moves);
+		return updateEvent(db, id, { ...p, fields, moves, typeId: type.id, fileIds: p.files }, p.only);
 	});
 	if ('error' in orphans) return orphans;
 	deleteFiles(db, orphans);

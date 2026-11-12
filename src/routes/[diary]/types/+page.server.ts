@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { categoryImpact, deleteCategory } from '#lib/server/events.ts';
 import { listTypes } from '#lib/server/eventTypes.ts';
@@ -24,6 +24,7 @@ export const actions: Actions = {
 		if (!category || !listTypes(d).some((ty) => ty.category === category)) {
 			error(404, t.errors.notFound);
 		}
-		deleteCategory(d, category);
+		const refused = deleteCategory(d, category);
+		if (refused) return fail(400, refused);
 	}
 };

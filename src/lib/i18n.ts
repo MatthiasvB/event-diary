@@ -3,6 +3,8 @@ export const locale = 'de-DE';
 const n = (count: number, one: string, many: string) =>
 	count === 1 ? `1 ${one}` : `${count} ${many}`;
 
+const quoted = (names: string[]) => names.map((name) => `„${name}“`).join(', ');
+
 const confirmWithEvents = (what: string, impact: { events: number; files: number }) =>
 	`${what} endgültig löschen?` +
 	(impact.events
@@ -122,7 +124,7 @@ export const t = {
 			'Sonst nur über Verknüpfungen, die Auswahl und „Mehr“ erreichbar, z. B. für einen Schrank oder das Auto.',
 		unlisted: 'Nicht auf der Startseite',
 		stillReferenced: (names: string[]) =>
-			`Kann nicht gelöscht werden: ${names.map((n) => `„${n}“`).join(', ')} ${names.length === 1 ? 'ist' : 'sind'} damit verknüpft, jetzt oder früher. Setze es lieber auf inaktiv.`
+			`Kann nicht gelöscht werden: ${quoted(names)} ${names.length === 1 ? 'ist' : 'sind'} damit verknüpft, jetzt oder früher. Setze es lieber auf inaktiv.`
 	},
 	associations: {
 		cycle: 'Das ergäbe einen Kreis: Ein Objekt kann nicht in etwas sein, das selbst darin ist.',
@@ -132,6 +134,47 @@ export const t = {
 		choose: 'Objekte wählen',
 		newObject: (name: string) => `„${name}“ neu anlegen`,
 		pick: 'Objekt wählen'
+	},
+	units: {
+		stock: 'Bestand aus gleichen Stücken',
+		stockHint:
+			'Für Dinge, die nur gezählt werden, z. B. Akkus. Ihre Stücke verteilen sich über eine Verknüpfung auf andere Objekte.',
+		along: 'Verteilt über',
+		alongRequired: 'Bitte angeben, über welche Verknüpfung sich die Stücke verteilen.',
+		notAnAssociation: (name: string) => `„${name}“ ist keine Verknüpfung zu Objekten.`,
+		noAssociations: 'Ein Bestand hat selbst keine Verknüpfungen. Seine Stücke werden verschoben.',
+		locked:
+			'Das lässt sich nicht mehr umstellen: Es wurden schon Stücke verschoben, oder Objekte sind damit verknüpft.',
+		stocksHaveValues: (key: string, names: string[]) =>
+			`„${key}“ kann keine Verknüpfung werden: ${quoted(names)} ${names.length === 1 ? 'ist ein Bestand' : 'sind Bestände'} mit einem Wert dafür.`,
+		spreadAlong: (key: string, names: string[]) =>
+			`„${key}“ muss eine Verknüpfung bleiben: Die Stücke von ${quoted(names)} verteilen sich darüber.`,
+		shortfall: (stock: string, holder: string, date: string | null) =>
+			`Das geht nicht: „${holder}“ hätte ${date ? `am ${date}` : 'dann'} weniger als null Stück „${stock}“.`,
+		incomplete: 'Bitte angeben, wie viele Stücke woher und wohin gehen.',
+		sameHolder: 'Woher und wohin sind dasselbe Objekt.',
+		total: 'Bestand',
+		count: (n: number) => `${n} Stück`,
+		where: 'Verteilung',
+		none: 'Noch keine Stücke erfasst.',
+		move: 'Stück verschieben',
+		moveHere: 'Stück hierher',
+		stockName: 'Bestand',
+		quantity: 'Anzahl',
+		less: 'Eins weniger',
+		more: 'Eins mehr',
+		from: 'Woher',
+		to: 'Wohin',
+		added: 'Neu dazu',
+		usedUp: 'Verbraucht',
+		date: 'Datum',
+		fromStart: 'Ohne Datum gilt es von Anfang an.',
+		moves: 'Bewegungen',
+		withEvent: (type: string) => `mit „${type}“`,
+		of: (n: number, name: string) => `${n} × ${name}`,
+		own: (n: number) => (n ? `davon ${n} direkt` : 'weiter innen'),
+		remove: 'Entfernen',
+		confirmRemove: 'Diese Bewegung entfernen?'
 	},
 	events: {
 		title: 'Ereignisse',

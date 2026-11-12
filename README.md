@@ -100,6 +100,20 @@ now or in their history, can't be deleted. Turning a text property into an assoc
 makes each value an object: the one of that name, or a new unlisted one. Associations have
 no defaults on event types.
 
+**Stock** is for things that are only counted, like rechargeable batteries. An object marked
+_Bestand aus gleichen Stücken_ is spread along one association (_Verteilt über_, e.g. _In_)
+over other objects: 9 in the cupboard, 4 in the charger, 3 in the remote. Units are moved
+on the stock's page (_Stück verschieben_), from a holder's page (_Stück hierher_), or with
+an event (_Stück verschieben_ in the event form, e.g. on _Akkus gewechselt_). A move takes
+units from a holder or adds new ones, and puts them into an object or marks them used up.
+Without a date, a move counts from the start. Counts are kept as these moves, so the stock
+page shows where the units are, nested along the association (the remote inside the car),
+and every move with its date. The holder's page lists the units in it, including those
+further inside. No object may ever hold fewer than none: a move, an earlier dated one, an
+edited event or a deleted one that would cause that is refused and names the object and
+day. A stock has no associations of its own and is never the value of one. Its holders
+can't be deleted, and the switch to or from stock is locked once units have moved.
+
 Event types learn which fields they are used with. On the event type page you can edit
 them and set default values. Without a default, the value from the last use is suggested.
 

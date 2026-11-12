@@ -7,10 +7,17 @@ import { createObject } from './objects.ts';
 
 it('shows as last event the one the timeline shows first, also on the same day', () => {
 	const db = openDiary(':memory:');
-	const id = createObject(db, { name: 'X', active: true, listed: true, notes: '', attrs: [] });
+	const id = createObject(db, {
+		name: 'X',
+		active: true,
+		listed: true,
+		stock: null,
+		notes: '',
+		attrs: []
+	});
 	const water = ensureType(db, 'Gießen');
 	const fertilize = ensureType(db, 'Düngen');
-	const event = { note: '', fields: [], fileIds: [] };
+	const event = { note: '', fields: [], moves: [], fileIds: [] };
 	createEvent(db, [id], { ...event, typeId: fertilize.id, date: '2026-10-25' });
 	createEvent(db, [id], { ...event, typeId: water.id, date: '2026-10-26' });
 	createEvent(db, [id], { ...event, typeId: fertilize.id, date: '2026-10-26' });

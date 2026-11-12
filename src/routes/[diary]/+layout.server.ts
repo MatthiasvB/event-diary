@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { currentDiary, db } from '#lib/server/diary.ts';
 import { getFieldKinds, withoutSuggestions } from '#lib/server/fields.ts';
-import { objectNames } from '#lib/server/objects.ts';
+import { itemNames } from '#lib/server/objects.ts';
 import { FIELD_KINDS_DATA } from '#lib/fieldKinds.ts';
 import { t } from '#lib/i18n.ts';
 import type { LayoutServerLoad } from './$types';
@@ -16,6 +16,6 @@ export const load: LayoutServerLoad = ({ depends }) => {
 		diary,
 		fieldKinds: getFieldKinds(d),
 		withoutSuggestions: withoutSuggestions(d),
-		objectNames: objectNames(d)
+		itemNames: itemNames(d)
 	};
 };

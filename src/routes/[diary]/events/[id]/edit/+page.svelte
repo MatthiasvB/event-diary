@@ -25,6 +25,7 @@
 {#key data.event.id}
 	<EventForm
 		objects={data.objects}
+		stocks={data.stocks}
 		vocab={data.vocab}
 		lastFields={data.lastFields}
 		histories={data.histories}

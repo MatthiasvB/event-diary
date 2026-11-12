@@ -3,7 +3,8 @@ import { db } from '#lib/server/diary.ts';
 import { saveEditedObject } from '#lib/server/objectForm.ts';
 import { deleteObject, objectImpact } from '#lib/server/events.ts';
 import { currentAttrs, getObject, referrers } from '#lib/server/objects.ts';
-import { sortProperties } from '#lib/server/fields.ts';
+import { associationKeys, sortProperties } from '#lib/server/fields.ts';
+import { stockLocked } from '#lib/server/units.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { today } from '#lib/format.ts';
 import { t } from '#lib/i18n.ts';
@@ -22,6 +23,8 @@ export const load: PageServerLoad = ({ params }) => {
 	const vocab = vocabulary(d);
 	return {
 		object,
+		associations: associationKeys(d),
+		stockLocked: stockLocked(d, object.id),
 		impact: objectImpact(d, object.id),
 		referrers: referrers(d, object.id),
 		attrs: sortProperties(d, Object.keys(attrs)).map((key) => ({ key, value: attrs[key] })),
@@ -37,10 +40,8 @@ export const actions: Actions = {
 		redirect(303, `/${params.diary}/objects/${id}`);
 	},
 	delete: ({ params }) => {
-		const result = deleteObject(db(), objectOr404(params.id).id);
-		if ('referencedBy' in result) {
-			return fail(400, { error: t.objects.stillReferenced(result.referencedBy) });
-		}
+		const refused = deleteObject(db(), objectOr404(params.id).id);
+		if (refused) return fail(400, refused);
 		redirect(303, `/${params.diary}`);
 	}
 };

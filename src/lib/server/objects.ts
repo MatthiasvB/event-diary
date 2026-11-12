@@ -1,14 +1,17 @@
 import { formatTarget, parseTarget } from '../domain/associations.ts';
 import type { FieldKinds } from '../fieldKinds.ts';
 import type { DiaryObject, PropertyValue } from '../types.ts';
+import { t } from '../i18n.ts';
 import { transaction, type Db } from './db.ts';
 import { useField } from './fields.ts';
+import { Refused } from './refusals.ts';
 
 type Row = {
 	id: number;
 	name: string;
 	active: number;
 	listed: number;
+	stock_along: string | null;
 	notes: string;
 	cover_photo_id: string | null;
 	cover_width: number | null;
@@ -20,6 +23,7 @@ const fromRow = (r: Row): DiaryObject => ({
 	name: r.name,
 	active: !!r.active,
 	listed: !!r.listed,
+	stock: r.stock_along === null ? null : { along: r.stock_along },
 	notes: r.notes,
 	coverPhotoId: r.cover_photo_id,
 	coverRatio: r.cover_width && r.cover_height ? r.cover_width / r.cover_height : null
@@ -49,6 +53,7 @@ const FIRST_PHOTO = `(
 const SELECT_OBJECT = `
 	SELECT x.*, f.width AS cover_width, f.height AS cover_height FROM (
 		SELECT o.id, o.name, o.active, o.listed, o.notes,
+			(SELECT name FROM fields WHERE id = o.stock_field_id) AS stock_along,
 			coalesce(o.cover_photo_id, ${FIRST_PHOTO}) AS cover_photo_id
 		FROM objects o
 	) x LEFT JOIN files f ON f.id = x.cover_photo_id`;
@@ -110,8 +115,12 @@ export function currentAttrs(db: Db): Map<number, Record<string, string>> {
 	return result;
 }
 
-export function objectNames(db: Db): Record<number, string> {
-	const rows = db.prepare('SELECT id, name FROM objects').all() as { id: number; name: string }[];
+/** The objects that can be associated, and hold units of a stock. */
+export function itemNames(db: Db): Record<number, string> {
+	const rows = db.prepare('SELECT id, name FROM objects WHERE NOT stock').all() as {
+		id: number;
+		name: string;
+	}[];
 	return Object.fromEntries(rows.map((r) => [r.id, r.name]));
 }
 
@@ -134,16 +143,39 @@ export type ObjectInput = {
 	name: string;
 	active: boolean;
 	listed: boolean;
+	stock: { along: string } | null;
 	notes: string;
 	attrs: { key: string; value: string }[];
 };
+
+/** The association a stock's units are spread along. A new name becomes one. */
+function stockField(db: Db, stock: { along: string } | null): number | null {
+	if (!stock) return null;
+	const field = db
+		.prepare(
+			`INSERT INTO fields (name, role, kind) VALUES (?, 'property', 'object')
+			ON CONFLICT (name) DO UPDATE SET name = excluded.name RETURNING id, kind`
+		)
+		.get(stock.along) as { id: number; kind: string };
+	if (field.kind !== 'object') throw new Refused(t.units.notAnAssociation(stock.along));
+	return field.id;
+}
 
 export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
 	return transaction(db, () => {
 		const id = Number(
 			db
-				.prepare('INSERT INTO objects (name, active, listed, notes) VALUES (?, ?, ?, ?)')
-				.run(input.name, input.active ? 1 : 0, input.listed ? 1 : 0, input.notes).lastInsertRowid
+				.prepare(
+					`INSERT INTO objects (name, active, listed, stock_field_id, notes)
+					VALUES (?, ?, ?, ?, ?)`
+				)
+				.run(
+					input.name,
+					input.active ? 1 : 0,
+					input.listed ? 1 : 0,
+					stockField(db, input.stock),
+					input.notes
+				).lastInsertRowid
 		);
 		for (const a of input.attrs) {
 			if (a.value)
@@ -163,10 +195,14 @@ export function createObject(db: Db, input: Omit<ObjectInput, 'id'>): number {
  */
 export function updateObject(db: Db, input: ObjectInput, today: string) {
 	transaction(db, () => {
-		db.prepare('UPDATE objects SET name = ?, active = ?, listed = ?, notes = ? WHERE id = ?').run(
+		db.prepare(
+			`UPDATE objects SET name = ?, active = ?, listed = ?, stock_field_id = ?, notes = ?
+			WHERE id = ?`
+		).run(
 			input.name,
 			input.active ? 1 : 0,
 			input.listed ? 1 : 0,
+			stockField(db, input.stock),
 			input.notes,
 			input.id
 		);
@@ -206,24 +242,34 @@ export function resolveTargets<T extends { key: string; value: string }>(
 ): T[] {
 	return entries.flatMap((e) => {
 		if (kinds[e.key]?.kind !== 'object' || !e.value) return [e];
-		const target = parseTarget(e.value);
-		if (!target) return [];
-		if ('name' in target) {
-			const { id } = db
-				.prepare('INSERT INTO objects (name, listed) VALUES (?, 0) RETURNING id')
-				.get(target.name) as { id: number };
-			return [{ ...e, value: formatTarget({ id }) }];
-		}
-		return db.prepare('SELECT 1 FROM objects WHERE id = ?').get(target.id) ? [e] : [];
+		const id = resolveTarget(db, e.value);
+		return id === null ? [] : [{ ...e, value: formatTarget({ id }) }];
 	});
 }
 
-/** The names of the objects whose values, now or before, point to this one. */
+/** The item the value names, created if it is new. */
+export function resolveTarget(db: Db, value: string): number | null {
+	const target = parseTarget(value);
+	if (!target) return null;
+	if ('name' in target) {
+		const { id } = db
+			.prepare('INSERT INTO objects (name, listed) VALUES (?, 0) RETURNING id')
+			.get(target.name) as { id: number };
+		return id;
+	}
+	return db.prepare('SELECT 1 FROM objects WHERE id = ? AND NOT stock').get(target.id)
+		? target.id
+		: null;
+}
+
+/** The names of the objects whose values or units, now or before, point to this one. */
 export function referrers(db: Db, id: number): string[] {
 	const rows = db
 		.prepare(
-			`SELECT DISTINCT o.name FROM property_values a JOIN objects o ON o.id = a.object_id
-			WHERE a.target_id = ? ORDER BY o.name`
+			`SELECT DISTINCT o.name FROM objects o WHERE o.id IN (
+				SELECT object_id FROM property_values WHERE target_id = ?1
+				UNION SELECT object_id FROM unit_moves WHERE ?1 IN (from_id, to_id)
+			) ORDER BY o.name`
 		)
 		.all(id) as { name: string }[];
 	return rows.map((r) => r.name);

@@ -35,7 +35,8 @@ export const actions: Actions = {
 	delete: ({ params }) => {
 		const d = db();
 		if (!getType(d, Number(params.id))) error(404, t.errors.notFound);
-		deleteType(d, Number(params.id));
+		const refused = deleteType(d, Number(params.id));
+		if (refused) return fail(400, refused);
 		redirect(303, `/${params.diary}/types`);
 	}
 };

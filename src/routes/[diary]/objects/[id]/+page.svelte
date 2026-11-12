@@ -6,9 +6,11 @@
 	import AttrHistory from '#lib/components/AttrHistory.svelte';
 	import EventCard from '#lib/components/EventCard.svelte';
 	import Gallery from '#lib/components/Gallery.svelte';
+	import MoveUnits from '#lib/components/MoveUnits.svelte';
 	import ObjectPicker from '#lib/components/ObjectPicker.svelte';
 	import { formatDate, relativeDays } from '#lib/format.ts';
-	import { objectName, showValue } from '#lib/fieldValues.ts';
+	import type { UnitNode } from '#lib/domain/unitLedger.ts';
+	import { itemName, showValue } from '#lib/fieldValues.ts';
 	import { t } from '#lib/i18n.ts';
 	import { dropFiles } from '#lib/dropFiles.ts';
 	import { isMedia } from '#lib/files.ts';
@@ -20,10 +22,16 @@
 	const object = $derived(data.object);
 	let gallery = $state<Gallery>();
 	let coverHint = $state(false);
-	let adding = $state(false);
+	let adding = $state<'items' | 'units' | null>(null);
 	let toAdd = $state<number[]>([]);
 	const objectHref = (id: number) =>
 		resolve('/[diary]/objects/[id]', { diary: diaryId(), id: String(id) });
+	const eventHref = (id: number) =>
+		resolve('/[diary]/events/[id]/edit', { diary: diaryId(), id: String(id) });
+	const held = $derived(data.units.kind === 'item' ? data.units.held : []);
+	const associatedKeys = $derived([
+		...new Set([...data.associated.map((a) => a.key), ...held.map((h) => h.along)])
+	]);
 
 	let standalone = $state(false);
 	onMount(() => {
@@ -133,7 +141,7 @@
 						{#if data.paths[key]?.length}
 							{#each data.paths[key] as id, i (id)}
 								{#if i}<span class="muted separator">›</span>{/if}<a href={objectHref(id)}
-									>{objectName(id)}</a
+									>{itemName(id)}</a
 								>
 							{/each}
 						{:else}
@@ -159,19 +167,95 @@
 		</section>
 	{/if}
 
-	{#if data.associated.length || (canEdit() && data.associations.length)}
+	{#if data.units.kind === 'stock'}
+		{@const { tree, moves } = data.units}
+		{@const total = tree.reduce((n, node) => n + node.total, 0)}
+		<section class="stack units">
+			<h2>{t.units.total} <span class="muted small">{t.units.count(total)}</span></h2>
+			{#if tree.length}
+				<div>
+					<h3 class="muted small">{t.units.where} · {object.stock?.along}</h3>
+					{@render unitTree(tree)}
+				</div>
+			{:else}
+				<p class="muted">{t.units.none}</p>
+			{/if}
+			{#if canEdit()}
+				{#if adding === 'units'}
+					<MoveUnits
+						stocks={data.stocks}
+						fixed={{ stock: object.id }}
+						error={form?.error}
+						onclose={() => (adding = null)}
+					/>
+				{:else}
+					<div>
+						<button type="button" onclick={() => (adding = 'units')}>{t.units.move}</button>
+					</div>
+				{/if}
+			{/if}
+			{#if moves.length}
+				<details>
+					<summary class="muted small">{t.units.moves} · {moves.length}</summary>
+					<ul class="moves">
+						{#each moves as m (m.id)}
+							<li>
+								<span class="muted small">{m.date ? formatDate(m.date) : t.objects.initial}</span>
+								{m.quantity} · {m.from === null ? t.units.added : itemName(m.from)} →
+								{m.to === null ? t.units.usedUp : itemName(m.to)}
+								{#if m.event}
+									<a class="small" href={eventHref(m.event.id)}
+										>{t.units.withEvent(m.event.typeName)}</a
+									>
+								{:else if canEdit()}
+									<form
+										method="POST"
+										action="?/deleteMove"
+										use:enhance={({ cancel }) => {
+											if (!confirm(t.units.confirmRemove)) cancel();
+											return async ({ result, update }) => {
+												if (result.type === 'failure') alert(result.data?.error);
+												else await update();
+											};
+										}}
+									>
+										<input type="hidden" name="id" value={m.id} />
+										<button class="small link">{t.units.remove}</button>
+									</form>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</details>
+			{/if}
+		</section>
+	{:else if associatedKeys.length || (canEdit() && data.associations.length)}
 		<section class="stack associated">
 			<h2>{t.associations.here}</h2>
-			{#each data.associated as { key, ids } (key)}
+			{#each associatedKeys as key (key)}
+				{@const ids = data.associated.find((a) => a.key === key)?.ids ?? []}
 				<div>
 					<h3 class="muted small">{key}</h3>
 					<ul class="links">
-						{#each ids as id (id)}<li><a href={objectHref(id)}>{objectName(id)}</a></li>{/each}
+						{#each ids as id (id)}<li><a href={objectHref(id)}>{itemName(id)}</a></li>{/each}
+						{#each held.filter((h) => h.along === key) as h (h.stock.id)}
+							<li>
+								<a href={objectHref(h.stock.id)}>{t.units.of(h.total, h.stock.name)}</a>
+								{#if h.own !== h.total}<span class="muted small">{t.units.own(h.own)}</span>{/if}
+							</li>
+						{/each}
 					</ul>
 				</div>
 			{/each}
 			{#if canEdit() && data.associations.length}
-				{#if adding}
+				{#if adding === 'units'}
+					<MoveUnits
+						stocks={data.stocks}
+						fixed={{ to: object.id }}
+						error={form?.error}
+						onclose={() => (adding = null)}
+					/>
+				{:else if adding === 'items'}
 					<form
 						method="POST"
 						action="?/associate"
@@ -180,7 +264,7 @@
 							async ({ result, update }) => {
 								await update();
 								if (result.type === 'success') {
-									adding = false;
+									adding = null;
 									toAdd = [];
 								}
 							}}
@@ -191,17 +275,20 @@
 								{#each data.associations as key (key)}<option value={key}>{key}</option>{/each}
 							</select>
 						</label>
-						<ObjectPicker objects={data.objects} bind:selected={toAdd} />
+						<ObjectPicker objects={data.items} bind:selected={toAdd} />
 						{#each toAdd as id (id)}<input type="hidden" name="object" value={id} />{/each}
 						{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 						<div class="row">
 							<button class="primary" disabled={!toAdd.length}>{t.common.save}</button>
-							<button type="button" onclick={() => (adding = false)}>{t.common.cancel}</button>
+							<button type="button" onclick={() => (adding = null)}>{t.common.cancel}</button>
 						</div>
 					</form>
 				{:else}
-					<div>
-						<button type="button" onclick={() => (adding = true)}>+ {t.associations.add}</button>
+					<div class="row">
+						<button type="button" onclick={() => (adding = 'items')}>+ {t.associations.add}</button>
+						{#if data.stocks.length}
+							<button type="button" onclick={() => (adding = 'units')}>+ {t.units.moveHere}</button>
+						{/if}
 					</div>
 				{/if}
 			{/if}
@@ -264,7 +351,36 @@
 	</section>
 </div>
 
+{#snippet unitTree(nodes: UnitNode[])}
+	<ul class="links">
+		{#each nodes as node (node.id)}
+			<li>
+				<a href={objectHref(node.id)}>{itemName(node.id)}</a>
+				<strong>{node.total}</strong>
+				{#if node.children.length && node.own}<span class="muted small"
+						>{t.units.own(node.own)}</span
+					>{/if}
+				{#if node.children.length}{@render unitTree(node.children)}{/if}
+			</li>
+		{/each}
+	</ul>
+{/snippet}
+
 <style>
+	.units {
+		gap: 0.6rem;
+	}
+	.units h3 {
+		margin: 0 0 0.2rem;
+		font-weight: normal;
+	}
+	.moves {
+		margin: 0.4rem 0 0;
+		padding-left: 1.2rem;
+	}
+	.moves form {
+		display: inline;
+	}
 	.associated {
 		gap: 0.6rem;
 	}

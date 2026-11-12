@@ -46,6 +46,7 @@ export const actions: Actions = {
 	deleteEvent: async ({ request }) => {
 		const id = Number((await request.formData()).get('id'));
 		if (!Number.isInteger(id) || id <= 0) return fail(400);
-		deleteEvent(db(), id);
+		const refused = deleteEvent(db(), id);
+		if (refused) return fail(400, refused);
 	}
 };

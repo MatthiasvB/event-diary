@@ -45,6 +45,7 @@
 {/if}
 
 {#if form?.message}<p class="notice">{form.message}</p>{/if}
+{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 
 {#snippet renameForm(from: string, to: string, label: string, primary = false)}
 	<form method="POST" action="?/rename" use:enhance>

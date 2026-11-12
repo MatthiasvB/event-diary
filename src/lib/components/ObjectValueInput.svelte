@@ -15,7 +15,7 @@
 	let { value = $bindable(''), candidates, placeholder, label }: Props = $props();
 
 	const labels = $derived(
-		distinctLabels((page.data.objectNames as Record<number, string> | undefined) ?? {})
+		distinctLabels((page.data.itemNames as Record<number, string> | undefined) ?? {})
 	);
 	const ids = $derived(new Map([...labels].map(([id, l]) => [l, id])));
 	const used = $derived(new Map(candidates.map((c) => [c.value, c])));

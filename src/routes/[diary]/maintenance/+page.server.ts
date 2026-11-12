@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
-import { transaction } from '#lib/server/db.ts';
+import { savedUnlessRefused } from '#lib/server/refusals.ts';
 import { rename, vocabulary, type ValueKind } from '#lib/server/vocab.ts';
 import { getFieldKinds, setFieldKind, setSuggestValues } from '#lib/server/fields.ts';
 import { FIELD_KINDS, kindFrom, kindOf } from '#lib/fieldKinds.ts';
@@ -62,10 +62,11 @@ export const actions: Actions = {
 		const kind = FIELD_KINDS.find((k) => k === form.get('kind'));
 		if (!key || !kind) return fail(400);
 		const d = db();
-		transaction(d, () => {
+		const refused = savedUnlessRefused(d, () => {
 			setFieldKind(d, key, kindFrom(kind, String(form.get('unit') ?? '')));
 			setSuggestValues(d, key, form.get('suggest') === 'on');
 		});
+		if (refused) return fail(400, refused);
 		return { message: t.fieldKinds.saved(key) };
 	},
 	rename: async ({ request }) => {
@@ -74,6 +75,9 @@ export const actions: Actions = {
 		const from = String(form.get('from') ?? '');
 		const to = String(form.get('to') ?? '').trim();
 		if (!what || !from || !to) return fail(400);
-		return { message: t.maintenance.done(rename(db(), what, from, to)) };
+		const d = db();
+		const renamed = savedUnlessRefused(d, () => rename(d, what, from, to));
+		if (typeof renamed !== 'number') return fail(400, renamed);
+		return { message: t.maintenance.done(renamed) };
 	}
 };

@@ -6,7 +6,7 @@
 	import { t } from '#lib/i18n.ts';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	const groups = $derived(
 		[...Map.groupBy(data.types, (ty) => ty.category)].sort(([a], [b]) =>
@@ -19,6 +19,7 @@
 
 <h1>{t.types.title}</h1>
 <p class="muted small">{t.types.renameHint}</p>
+{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 
 {#each groups as [category, types = []] (category)}
 	<div class="spread heading">

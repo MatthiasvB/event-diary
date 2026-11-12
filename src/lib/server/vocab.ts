@@ -166,6 +166,10 @@ function renameKey(db: Db, from: string, to: string): number {
 		source.id
 	);
 	db.prepare('DELETE FROM event_type_fields WHERE field_id = ?').run(source.id);
+	db.prepare('UPDATE objects SET stock_field_id = ? WHERE stock_field_id = ?').run(
+		target.id,
+		source.id
+	);
 	// The kind goes along, unless the name merged into already has one. The earlier position
 	// of the two is kept.
 	db.prepare(

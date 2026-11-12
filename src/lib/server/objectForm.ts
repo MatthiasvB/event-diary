@@ -18,6 +18,7 @@ import {
 	type ObjectInput
 } from './objects.ts';
 import { savedUnlessRefused, type Refusal } from './refusals.ts';
+import { stockLocked } from './units.ts';
 
 /** Stores what is chosen for new property names right away. */
 export function parseObjectForm(
@@ -39,12 +40,23 @@ export function parseObjectForm(
 		name: get('name'),
 		active: form.get('active') === 'on',
 		listed: form.get('listed') === 'on',
+		stock: form.get('stock') === 'on' ? { along: get('stockAlong') } : null,
 		notes: get('notes'),
 		attrs: keys
 			.map((key, i) => ({ key, value: storedValue(values[i] ?? '', kindOf(kinds, key)) }))
 			.filter((a) => a.key)
 	};
-	return { input, error: input.name ? null : t.objects.nameRequired };
+	const associated = input.attrs.some(
+		(a) => a.value && (kindOf(kinds, a.key).kind === 'object' || a.key === input.stock?.along)
+	);
+	const error = !input.name
+		? t.objects.nameRequired
+		: input.stock && !input.stock.along
+			? t.units.alongRequired
+			: input.stock && associated
+				? t.units.noAssociations
+				: null;
+	return { input, error };
 }
 
 /** Photos sent along become a photo event, on their capture date if known. */
@@ -66,6 +78,7 @@ export function saveNewObject(form: FormData, db: Db, today: string): { id: numb
 				date: isValidDate(photoDate) ? photoDate : today,
 				note: '',
 				fields: [],
+				moves: [],
 				fileIds
 			});
 		}
@@ -81,6 +94,8 @@ export function saveEditedObject(
 ): Refusal | null {
 	const { input, error } = parseObjectForm(form, db);
 	if (error) return { error };
+	const switched = !getObject(db, id)?.stock !== !input.stock;
+	if (switched && stockLocked(db, id)) return { error: t.units.locked };
 	return savedUnlessRefused(db, () => {
 		const attrs = resolveTargets(db, getFieldKinds(db), input.attrs);
 		updateObject(db, { ...input, id, attrs }, today);
@@ -96,9 +111,11 @@ export function associateWith(
 	objectIds: number[],
 	today: string
 ): Refusal | null {
-	if (kindOf(getFieldKinds(db), key).kind !== 'object') return { error: t.errors.generic };
+	if (kindOf(getFieldKinds(db), key).kind !== 'object' || getObject(db, holderId)?.stock !== null) {
+		return { error: t.errors.generic };
+	}
 	return savedUnlessRefused(db, () => {
-		for (const id of objectIds.filter((id) => getObject(db, id))) {
+		for (const id of objectIds.filter((id) => getObject(db, id)?.stock === null)) {
 			setProperty(db, id, key, formatTarget({ id: holderId }), today);
 		}
 		return null;

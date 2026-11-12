@@ -26,9 +26,11 @@ import {
 	withoutSuggestions
 } from '../fields.ts';
 import { associateWith, saveEditedObject, saveInitialValue, saveNewObject } from '../objectForm.ts';
-import { attrHistory, forgetInitialValue, listObjects, objectNames, setCover } from '../objects.ts';
+import { attrHistory, forgetInitialValue, listObjects, itemNames, setCover } from '../objects.ts';
 import { getOverviewColumns, objectStats, setOverviewColumns } from '../overview.ts';
 import { parseTypeForm } from '../typeForm.ts';
+import { removeMove, saveMove } from '../unitForm.ts';
+import { allHoldings, movesOf } from '../units.ts';
 import { rename, vocabulary, type ValueKind } from '../vocab.ts';
 
 /** A plain value keeps the value before the change as it is. `before: null` means not recorded. */
@@ -48,8 +50,14 @@ export type EventEntry = {
 	changes?: Record<string, Change>;
 	kinds?: Record<string, FieldKind>;
 	withoutSuggestions?: string[];
+	moves?: UnitsEntry[];
 	files?: string[];
 };
+
+/** Units of a stock, by the names of the objects. `null` is new units, or used up. */
+export type UnitsEntry = { stock: string; quantity: number } & (
+	{ from: string; to: string | null } | { from: null; to: string }
+);
 
 export type ObjectEntry = {
 	properties?: Record<string, string>;
@@ -57,6 +65,8 @@ export type ObjectEntry = {
 	withoutSuggestions?: string[];
 	active?: boolean;
 	listed?: boolean;
+	/** The association its units are spread along. */
+	stock?: string;
 	notes?: string;
 };
 
@@ -175,12 +185,35 @@ export class Diary {
 	}
 
 	deleteEvent(id: number) {
-		deleteEvent(this.db, id);
+		const refused = deleteEvent(this.db, id);
+		if (refused) throw new Error(refused.error);
+	}
+
+	/** As a stock's page moves units, without an event. */
+	moveUnits(entry: UnitsEntry & { date?: string }) {
+		const form = new FormData();
+		const move = this.moveRow(entry);
+		form.set('stock', String(move.stock));
+		form.set('quantity', String(move.quantity));
+		form.set('from', move.from === null ? '' : String(move.from));
+		form.set('to', move.to ?? '');
+		form.set('date', entry.date ?? '');
+		const refused = saveMove(form, this.db);
+		if (refused) throw new Error(refused.error);
+	}
+
+	/** The latest move of the stock that has no event. */
+	removeLastMove(stock: string) {
+		const stockId = this.objectId(stock);
+		const move = movesOf(this.db, stockId).find((m) => m.event === null);
+		if (!move) throw new Error(`No move of ${stock}`);
+		const refused = removeMove(this.db, stockId, move.id);
+		if (refused) throw new Error(refused.error);
 	}
 
 	delete(object: string) {
-		const result = deleteObject(this.db, this.objectId(object));
-		if ('referencedBy' in result) throw new Error(`Still in use: ${result.referencedBy}`);
+		const refused = deleteObject(this.db, this.objectId(object));
+		if (refused) throw new Error(refused.error);
 	}
 
 	/** As the holder's page adds objects to it. */
@@ -261,6 +294,10 @@ export class Diary {
 		form.set('name', name);
 		if (entry.active ?? true) form.set('active', 'on');
 		if (entry.listed ?? true) form.set('listed', 'on');
+		if (entry.stock !== undefined) {
+			form.set('stock', 'on');
+			form.set('stockAlong', entry.stock);
+		}
 		form.set('notes', entry.notes ?? '');
 		for (const [key, value] of Object.entries(entry.properties ?? {})) {
 			form.append('attrKey', key);
@@ -268,6 +305,15 @@ export class Diary {
 			form.append('attrChoice', json(choiceFor(entry, key)));
 		}
 		return form;
+	}
+
+	private moveRow(entry: UnitsEntry) {
+		return {
+			stock: this.objectId(entry.stock),
+			quantity: entry.quantity,
+			from: entry.from === null ? null : this.objectId(entry.from),
+			to: entry.to === null ? null : this.ref(entry.to)
+		};
 	}
 
 	private eventForm(entry: EventEntry, only: number | null) {
@@ -305,6 +351,7 @@ export class Diary {
 				date: entry.date,
 				note: entry.note ?? '',
 				fields,
+				moves: (entry.moves ?? []).map((m) => this.moveRow(m)),
 				files: (entry.files ?? []).map((name) => this.fileId(name)),
 				only
 			})
@@ -335,7 +382,7 @@ export function view(db: Db) {
 		).map((f) => [f.id, f.original_name])
 	);
 	const kinds = getFieldKinds(db);
-	const names = objectNames(db);
+	const names = itemNames(db);
 	const shown = (key: string, value: string) =>
 		kinds[key]?.kind === 'object' ? (targetName(value, (id) => names[id]) ?? value) : value;
 	const events = listEvents(db, { limit: 1_000_000 });
@@ -376,6 +423,16 @@ export function view(db: Db) {
 			.sort((a, b) => a.value.localeCompare(b.value));
 	const columns = getOverviewColumns(db);
 	const stats = objectStats(db, columns);
+	const held = allHoldings(db);
+	const stockOf = (o: { id: number; stock: { along: string } | null }) =>
+		o.stock && {
+			along: o.stock.along,
+			holders: Object.fromEntries(
+				[...(held.get(o.id) ?? [])]
+					.map(([id, count]) => [names[id] ?? `? ${id}`, count] as const)
+					.sort(([a], [b]) => a.localeCompare(b))
+			)
+		};
 	const photoType = findPhotoType(db);
 	const vocab = vocabulary(db);
 	const categories = [
@@ -389,6 +446,7 @@ export function view(db: Db) {
 				name: o.name,
 				active: o.active,
 				listed: o.listed,
+				stock: stockOf(o),
 				notes: o.notes,
 				cover: o.coverPhotoId && (files.get(o.coverPhotoId) ?? null),
 				coverRatio: o.coverRatio,

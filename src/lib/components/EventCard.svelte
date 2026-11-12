@@ -124,6 +124,17 @@
 		</ul>
 	{/if}
 
+	{#if event.moves.length}
+		<ul class="fields">
+			{#each event.moves as m, i (i)}
+				<li>
+					<span class="muted">{t.units.of(m.quantity, m.stock.name)}:</span>
+					{m.from?.name ?? t.units.added} → {m.to?.name ?? t.units.usedUp}
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
 	{#if event.note}
 		<p class="note" class:collapsed={!expanded} {@attach measureNote}>{event.note}</p>
 		{#if long}
@@ -186,6 +197,10 @@
 				class="above"
 				use:enhance={({ cancel }) => {
 					if (!confirm(t.events.confirmDelete(event.typeName, formatDate(event.date)))) cancel();
+					return async ({ result, update }) => {
+						if (result.type === 'failure') alert(result.data?.error);
+						else await update();
+					};
 				}}
 			>
 				<input type="hidden" name="id" value={event.id} />

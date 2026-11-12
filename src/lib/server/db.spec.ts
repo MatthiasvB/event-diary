@@ -140,6 +140,47 @@ it('makes room for associations in a diary of version 13, keeping every value', 
 	db.close();
 });
 
+it('makes room for stock in a diary of version 14, keeping every object and value', async () => {
+	const fixture = path.join(import.meta.dirname, 'testing', 'diary-v14.sql');
+	const file = oldDatabase(
+		path.join(dirs.dbDir, 'diaries', 'x.sqlite'),
+		fs.readFileSync(fixture, 'utf8')
+	);
+	const rows = (db: Db) => ({
+		objects: all(db, 'SELECT id, name, active, notes, cover_photo_id, listed FROM objects'),
+		values: all(
+			db,
+			'SELECT id, object_id, field_id, value, target_id, since, event_id FROM property_values'
+		)
+	});
+	const old = new DatabaseSync(file);
+	const before = rows(old);
+	old.close();
+
+	await migrateDb(file, DIARY_SCHEMA, dirs);
+	const db = openDiary(file);
+	const after = rows(db);
+	expect(after.objects).toEqual(before.objects);
+	expect(after.values).toEqual(before.values);
+	expect(all(db, 'SELECT DISTINCT stock FROM objects')).toEqual([{ stock: 0 }]);
+	db.exec(`INSERT INTO fields (id, name, role, kind) VALUES (99, 'In', 'property', 'object');
+		INSERT INTO objects (id, name, stock_field_id) VALUES (98, 'Akku', 99);`);
+	const pointAt = (holder: number, target: number) => () =>
+		db.exec(`INSERT INTO property_values (object_id, field_id, target_id)
+			VALUES (${holder}, 99, ${target})`);
+	expect(pointAt(98, 1)).toThrow(/FOREIGN KEY/);
+	expect(pointAt(1, 98)).toThrow(/FOREIGN KEY/);
+	const move = (stock: number, to: number) => () =>
+		db.exec(`INSERT INTO unit_moves (object_id, quantity, to_id) VALUES (${stock}, 1, ${to})`);
+	expect(move(1, 2)).toThrow(/FOREIGN KEY/);
+	expect(move(98, 98)).toThrow(/FOREIGN KEY/);
+	expect(move(98, 1)).not.toThrow();
+	expect(() => db.exec('UPDATE objects SET stock_field_id = NULL WHERE id = 98')).toThrow(
+		/FOREIGN KEY/
+	);
+	db.close();
+});
+
 function diaryWithEvent() {
 	const db = openDiary(':memory:');
 	db.exec(`

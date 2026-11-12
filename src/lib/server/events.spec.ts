@@ -7,12 +7,19 @@ import { createObject } from './objects.ts';
 it('searches event type names and notes, ignoring case and umlauts', () => {
 	const db = openDiary(':memory:');
 	for (const name of ['A', 'B']) {
-		createObject(db, { name, active: true, listed: true, notes: '', attrs: [] });
+		createObject(db, { name, active: true, listed: true, stock: null, notes: '', attrs: [] });
 	}
 	const log = ensureType(db, 'Log', { category: 'Sonstiges' });
 	const fertilize = ensureType(db, 'Düngen');
 	const add = (object: number, typeId: number, note: string) =>
-		createEvent(db, [object], { typeId, date: '2026-10-26', note, fields: [], fileIds: [] });
+		createEvent(db, [object], {
+			typeId,
+			date: '2026-10-26',
+			note,
+			fields: [],
+			moves: [],
+			fileIds: []
+		});
 	const cellar = add(1, log.id, 'Kellerdecke betoniert, Lüftung verlegt');
 	const fed = add(1, fertilize.id, '');
 	const other = add(2, log.id, 'Lüftungsrohr im Bad zersägt');

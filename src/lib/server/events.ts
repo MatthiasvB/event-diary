@@ -11,6 +11,7 @@ import { transaction, type Db } from './db.ts';
 import { roleOf, useField } from './fields.ts';
 import { deleteFiles } from './files.ts';
 import { normalize } from '../suggest.ts';
+import { t } from '../i18n.ts';
 import {
 	attrHistory,
 	forgetInitialValue,
@@ -19,6 +20,8 @@ import {
 	referrers,
 	setInitialValue
 } from './objects.ts';
+import { savedUnlessRefused, type Refusal } from './refusals.ts';
+import { addMove, eventMoves, type NewMove } from './units.ts';
 
 type Row = {
 	id: number;
@@ -55,7 +58,11 @@ export function listEvents(db: Db, f: EventFilter = {}): DiaryEvent[] {
 		where.push(sql);
 		params.push(value);
 	};
-	add('e.id IN (SELECT event_id FROM event_objects WHERE object_id = ?)', f.objectId);
+	add(
+		`e.id IN (SELECT event_id FROM (SELECT event_id, object_id FROM event_objects
+			UNION ALL SELECT event_id, object_id FROM unit_moves) WHERE object_id = ?)`,
+		f.objectId
+	);
 	add('e.type_id = ?', f.typeId);
 	add('c.name = ?', f.category);
 	add('e.date >= ?', f.from);
@@ -135,6 +142,8 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 		}
 	}
 
+	const moves = eventMoves(db, ids);
+
 	const links = db
 		.prepare(
 			`SELECT ef.event_id, f.id, f.mime, f.original_name AS name
@@ -154,6 +163,7 @@ function withDetails(db: Db, rows: Row[]): DiaryEvent[] {
 		date: r.date,
 		note: r.note,
 		fields: fields.get(r.id) ?? [],
+		moves: moves.get(r.id) ?? [],
 		files: files.get(r.id) ?? []
 	}));
 }
@@ -169,13 +179,18 @@ export type EventInput = {
 	date: string;
 	note: string;
 	fields: FieldEntry[];
+	moves: StockUnitsMove[];
 	fileIds: string[];
 };
+
+export type StockUnitsMove = NewMove & { stockId: number };
 
 function writeDetails(db: Db, eventId: number, objectIds: number[], input: EventInput) {
 	db.prepare('DELETE FROM event_details WHERE event_id = ?').run(eventId);
 	db.prepare('DELETE FROM property_values WHERE event_id = ?').run(eventId);
 	db.prepare('DELETE FROM event_files WHERE event_id = ?').run(eventId);
+	db.prepare('DELETE FROM unit_moves WHERE event_id = ?').run(eventId);
+	for (const { stockId, ...move } of input.moves) addMove(db, stockId, move, { eventId });
 	const detail = db.prepare(
 		'INSERT OR REPLACE INTO event_details (event_id, field_id, value) VALUES (?, ?, ?)'
 	);
@@ -239,7 +254,7 @@ export function updateEvent(
 	return transaction(db, () => {
 		if (only !== null && ownsPart(db, id, only)) {
 			db.prepare('DELETE FROM event_objects WHERE event_id = ? AND object_id = ?').run(id, only);
-			createEvent(db, input.objectIds, input);
+			createEvent(db, input.objectIds, { ...input, moves: [] });
 			return [];
 		}
 		const before = filesOf(db, [id]);
@@ -301,9 +316,12 @@ function impact(db: Db, { where, param }: Selection): Impact {
 		.get(param) as Impact;
 }
 
-/** Object attributes the events set fall back to their previous value by ON DELETE CASCADE. */
-function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
-	const orphans = transaction(db, () => {
+/**
+ * Object attributes the events set fall back to their previous value by ON DELETE CASCADE.
+ * Refused when units the events moved are needed later.
+ */
+function deleteEvents(db: Db, { where, param }: Selection, then = () => {}): Refusal | null {
+	const orphans = savedUnlessRefused(db, () => {
 		const before = (
 			db
 				.prepare(
@@ -316,16 +334,18 @@ function deleteEvents(db: Db, { where, param }: Selection, then = () => {}) {
 		then();
 		return orphaned(db, before);
 	});
+	if ('error' in orphans) return orphans;
 	deleteFiles(db, orphans);
+	return null;
 }
 
 /** With `only`, that object leaves the event, and the event stays for the others. */
-export function deleteEvent(db: Db, id: number, only: number | null = null) {
+export function deleteEvent(db: Db, id: number, only: number | null = null): Refusal | null {
 	if (only !== null && ownsPart(db, id, only)) {
 		db.prepare('DELETE FROM event_objects WHERE event_id = ? AND object_id = ?').run(id, only);
-		return;
+		return null;
 	}
-	deleteEvents(db, ofEvent(id));
+	return deleteEvents(db, ofEvent(id));
 }
 
 export const objectImpact = (db: Db, id: number) => impact(db, ofObject(id));
@@ -334,23 +354,26 @@ export const objectImpact = (db: Db, id: number) => impact(db, ofObject(id));
  * Events it shares with other objects stay for those. Refused while the values of other
  * objects point to it, now or in their history.
  */
-export function deleteObject(db: Db, id: number): { deleted: true } | { referencedBy: string[] } {
+export function deleteObject(db: Db, id: number): Refusal | null {
 	const referencedBy = referrers(db, id);
-	if (referencedBy.length) return { referencedBy };
-	deleteEvents(db, ofObject(id), () => db.prepare('DELETE FROM objects WHERE id = ?').run(id));
-	return { deleted: true };
+	if (referencedBy.length) return { error: t.objects.stillReferenced(referencedBy) };
+	return deleteEvents(db, ofObject(id), () =>
+		db.prepare('DELETE FROM objects WHERE id = ?').run(id)
+	);
 }
 
 export const typeImpact = (db: Db, id: number) => impact(db, ofType(id));
 
-export function deleteType(db: Db, id: number) {
-	deleteEvents(db, ofType(id), () => db.prepare('DELETE FROM event_types WHERE id = ?').run(id));
+export function deleteType(db: Db, id: number): Refusal | null {
+	return deleteEvents(db, ofType(id), () =>
+		db.prepare('DELETE FROM event_types WHERE id = ?').run(id)
+	);
 }
 
 export const categoryImpact = (db: Db, category: string) => impact(db, ofCategory(category));
 
-export function deleteCategory(db: Db, category: string) {
-	deleteEvents(db, ofCategory(category), () =>
+export function deleteCategory(db: Db, category: string): Refusal | null {
+	return deleteEvents(db, ofCategory(category), () =>
 		db
 			.prepare(
 				'DELETE FROM event_types WHERE category_id = (SELECT id FROM categories WHERE name = ?)'

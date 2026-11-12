@@ -2,7 +2,8 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { parseEventForm, saveEditedEvent, validate } from '#lib/server/eventForm.ts';
 import { deleteEvent, getEvent, lastFieldsByType } from '#lib/server/events.ts';
-import { objectOptions } from '#lib/server/objectOptions.ts';
+import { objectOptions, stockOptions } from '#lib/server/objectOptions.ts';
+import { rowOf } from '#lib/unitMoves.ts';
 import { allHistories } from '#lib/server/objects.ts';
 import { vocabulary } from '#lib/server/vocab.ts';
 import { t } from '#lib/i18n.ts';
@@ -30,6 +31,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		event,
 		part,
 		objects: objectOptions(d),
+		stocks: stockOptions(d),
 		vocab: vocabulary(d),
 		lastFields: lastFieldsByType(d),
 		histories: allHistories(d),
@@ -40,6 +42,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 			date: event.date,
 			note: event.note,
 			fields: fieldsFor(event, part),
+			moves: event.moves.map(rowOf),
 			files: event.files
 		}
 	};
@@ -61,7 +64,8 @@ export const actions: Actions = {
 		const d = db();
 		const event = eventOr404(params.id);
 		const part = partOf(event, (await request.formData()).get('object'));
-		deleteEvent(d, event.id, part);
+		const refused = deleteEvent(d, event.id, part);
+		if (refused) return fail(400, refused);
 		redirect(303, `/${params.diary}/objects/${part ?? event.objects[0].id}`);
 	}
 };

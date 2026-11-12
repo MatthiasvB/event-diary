@@ -7,11 +7,13 @@
 	import FileInput from './FileInput.svelte';
 	import MediaThumb from './MediaThumb.svelte';
 	import ObjectPicker from './ObjectPicker.svelte';
+	import UnitMoveFields from './UnitMoveFields.svelte';
 	import { formatDate, shiftDays, today } from '#lib/format.ts';
 	import { t } from '#lib/i18n.ts';
 	import { leaveFormOnRedirect } from '#lib/leaveForm.ts';
 	import { isMedia, type EventFile } from '#lib/files.ts';
 	import { uploadFiles, type Upload } from '#lib/upload.ts';
+	import { newRow, type MoveRow, type StockOption } from '#lib/unitMoves.ts';
 	import {
 		entry,
 		type EventType,
@@ -29,11 +31,13 @@
 		date: string;
 		note: string;
 		fields: RecordedField[];
+		moves: MoveRow[];
 		files: EventFile[];
 	};
 
 	type Props = {
 		objects: ObjectOption[];
+		stocks: StockOption[];
 		vocab: Vocabulary;
 		lastFields: Record<number, RecordedField[]>;
 		histories: Record<number, Record<string, PropertyValue[]>>;
@@ -49,6 +53,7 @@
 
 	let {
 		objects,
+		stocks,
 		vocab,
 		lastFields,
 		histories,
@@ -78,6 +83,8 @@
 	let note = $state(start.note);
 	let fields = $state(start.fields);
 	let keptFiles = $state(start.files);
+	let nextRow = 0;
+	let moves = $state(start.moves.map((move) => ({ id: nextRow++, move })));
 	let category = $state(start.category ?? '');
 	let categoryChosen = $state(!!start.typeName);
 	let milestone = $state(false);
@@ -148,6 +155,18 @@
 		return [...proposed, ...extra];
 	}
 
+	const movesShown = $derived(stocks.length > 0 && !(part && !applyToBatch));
+
+	function addMove() {
+		const isStock = (id: number) => stocks.some((s) => s.id === id);
+		const [only] = objectIds.length === 1 ? objectIds : [];
+		const move = newRow(stocks, {
+			stock: objectIds.find(isStock),
+			to: only !== undefined && !isStock(only) ? only : undefined
+		});
+		moves.push({ id: nextRow++, move });
+	}
+
 	function onExifDate(d: string) {
 		exifDate = d;
 		if (photoMode && !dateTouched) date = d;
@@ -193,6 +212,7 @@
 				date,
 				note,
 				fields,
+				moves: movesShown ? moves.map((m) => m.move) : [],
 				files: [...keptFiles.map((f) => f.id), ...newFiles],
 				only: part && !applyToBatch ? part.objectId : null
 			})
@@ -289,6 +309,25 @@
 		/>
 	</fieldset>
 
+	{#if movesShown}
+		<fieldset class="stack">
+			<legend>{t.units.move}</legend>
+			{#each moves as row, i (row.id)}
+				<div class="move stack">
+					<UnitMoveFields bind:move={moves[i].move} {stocks} />
+					<div>
+						<button
+							type="button"
+							class="small"
+							onclick={() => (moves = moves.filter((m) => m !== row))}>{t.units.remove}</button
+						>
+					</div>
+				</div>
+			{/each}
+			<div><button type="button" class="small" onclick={addMove}>+ {t.units.move}</button></div>
+		</fieldset>
+	{/if}
+
 	<label>
 		{t.events.note}
 		<textarea bind:value={note} rows="3"></textarea>
@@ -375,6 +414,11 @@
 	button[aria-pressed='true'] {
 		background: var(--accent);
 		color: var(--accent-text);
+	}
+	.move {
+		padding: 0.6rem;
+		border-radius: 10px;
+		background: var(--surface-2);
 	}
 	.new-type {
 		padding: 0.6rem;
