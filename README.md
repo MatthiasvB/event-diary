@@ -52,7 +52,9 @@ It is mobile first, installable as a PWA on the phone's home screen, and has a G
   Einstellungen_. Names not placed there follow alphabetically.
 - **Ereignisse**: all events, filtered by object, type, category and date range.
 - **Mehr → Daten pflegen**: rename or merge values (categories, event types, field names,
-  values). Similar spellings are listed automatically ("Catleya" → "Cattleya").
+  values). Similar spellings are listed automatically ("Catleya" → "Cattleya"). A field
+  name without any values (0×) can be deleted there. Event types that propose it then stop
+  proposing it.
 - **Kinds of values**: properties and event details are plain text by default. A new name
   can get its kind right where it is first entered, or later under _Daten pflegen → Namen
   von Angaben/Eigenschaften_. A name can be a date (entered as

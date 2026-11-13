@@ -2,7 +2,12 @@ import { fail } from '@sveltejs/kit';
 import { db } from '#lib/server/diary.ts';
 import { savedUnlessRefused } from '#lib/server/refusals.ts';
 import { rename, vocabulary, type ValueKind } from '#lib/server/vocab.ts';
-import { getFieldKinds, setFieldKind, setSuggestValues } from '#lib/server/fields.ts';
+import {
+	deleteUnusedField,
+	getFieldKinds,
+	setFieldKind,
+	setSuggestValues
+} from '#lib/server/fields.ts';
 import { FIELD_KINDS, kindFrom, kindOf } from '#lib/fieldKinds.ts';
 import { nearDuplicates, type Candidate } from '#lib/suggest.ts';
 import { t } from '#lib/i18n.ts';
@@ -68,6 +73,12 @@ export const actions: Actions = {
 		});
 		if (refused) return fail(400, refused);
 		return { message: t.fieldKinds.saved(key) };
+	},
+	deleteField: async ({ request }) => {
+		const key = String((await request.formData()).get('key') ?? '');
+		if (!key) return fail(400);
+		if (!deleteUnusedField(db(), key)) return fail(400, { error: t.maintenance.nameInUse(key) });
+		return { message: t.maintenance.nameDeleted(key) };
 	},
 	rename: async ({ request }) => {
 		const form = await request.formData();

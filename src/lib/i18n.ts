@@ -289,7 +289,12 @@ export const t = {
 		renameTo: 'Neuer Name',
 		uses: (n: number) => `${n}×`,
 		done: (n: number) => `${n} Einträge angepasst.`,
-		willMerge: (to: string) => `„${to}“ existiert bereits – die Werte werden zusammengeführt.`
+		willMerge: (to: string) => `„${to}“ existiert bereits – die Werte werden zusammengeführt.`,
+		unusedName: 'Dieser Name hat keine Werte und kann gelöscht werden.',
+		confirmDeleteName: (name: string) =>
+			`„${name}“ löschen? Ereignistypen, die es vorschlagen, schlagen es dann nicht mehr vor.`,
+		nameDeleted: (name: string) => `„${name}“ gelöscht.`,
+		nameInUse: (name: string) => `„${name}“ hat Werte und kann nicht gelöscht werden.`
 	},
 	photos: {
 		dropHint: 'oder Fotos hierher ziehen',

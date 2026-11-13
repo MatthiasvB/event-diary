@@ -34,7 +34,9 @@ export function parseObjectForm(
 	const chosen = form.getAll('attrChoice').map(String);
 	const kinds = learnChoices(
 		db,
-		chosenNames(keys.map((key, i) => ({ key, chosen: chosen[i], target: 'object' })))
+		chosenNames(
+			keys.flatMap((key, i) => (values[i] ? [{ key, chosen: chosen[i], target: 'object' }] : []))
+		)
 	);
 	const input = {
 		name: get('name'),

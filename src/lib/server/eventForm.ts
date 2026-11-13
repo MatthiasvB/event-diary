@@ -49,7 +49,7 @@ function parseInitial(raw: unknown, kind: FieldKind): InitialChoice {
 export function parseEventForm(form: FormData, db: Db): EventPayload {
 	const raw = JSON.parse(String(form.get('payload') ?? '{}')) as Record<string, unknown>;
 	const list = (v: unknown) => (Array.isArray(v) ? v : []);
-	const kinds = learnChoices(db, chosenNames(list(raw.fields)));
+	const kinds = learnChoices(db, chosenNames(list(raw.fields).filter((f) => str(f?.value))));
 	const properties = propertyKeys(db);
 	const payload: EventPayload = {
 		objectIds: [...new Set(list(raw.objectIds).map(Number))].filter(

@@ -274,6 +274,27 @@ describe('fields', () => {
 	});
 });
 
+describe('names', () => {
+	it('are only kept with a value, and can be deleted while they have none', () => {
+		d.object('A', { properties: { Ort: '' }, kinds: { Ort: { kind: 'object' } } });
+		d.record({
+			objects: ['A'],
+			type: 'Gießen',
+			date: '2026-05-01',
+			details: { Menge: '' },
+			kinds: { Menge: { kind: 'number', unit: 'ml' } }
+		});
+		expect(view(d.db).kinds).toEqual({});
+
+		d.saveType('Gießen', { fields: [{ key: 'Dünger', target: 'event' }] });
+		d.object('B', { properties: { Farbe: 'blau' } });
+		expect(d.deleteName('Farbe')).toBe(false);
+		expect(d.deleteName('Dünger')).toBe(true);
+		expect(type('Gießen')?.fields).toEqual([]);
+		expect(d.show('B').properties).toEqual({ Farbe: [{ value: 'blau', since: null, by: null }] });
+	});
+});
+
 describe('suggestions', () => {
 	it('can be turned off for a new name right where it is entered', () => {
 		d.object('A', { properties: { Preis: '8 €' }, withoutSuggestions: ['Preis'] });

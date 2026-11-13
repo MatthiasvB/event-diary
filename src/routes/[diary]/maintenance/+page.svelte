@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Combobox from '#lib/components/Combobox.svelte';
 	import TextInput from '#lib/components/TextInput.svelte';
 	import { FIELD_KINDS, kindOf, unitOf } from '#lib/fieldKinds.ts';
@@ -17,6 +18,9 @@
 
 	let chosenKind = $state<Record<string, string>>({});
 	const kindOfKey = (key: string) => kindOf(data.fieldKinds, key);
+
+	// Without JavaScript the page shows the action's URL, so it keeps the current view.
+	const action = (name: string) => `${page.url.search || '?'}&/${name}`;
 
 	function href(kind: string, key = data.key) {
 		const q = new URLSearchParams(kind === 'value' && key ? { kind, key } : { kind });
@@ -48,7 +52,7 @@
 {#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 
 {#snippet renameForm(from: string, to: string, label: string, primary = false)}
-	<form method="POST" action="?/rename" use:enhance>
+	<form method="POST" action={action('rename')} use:enhance>
 		<input type="hidden" name="kind" value={data.kind} />
 		<input type="hidden" name="key" value={data.key ?? ''} />
 		<input type="hidden" name="from" value={from} />
@@ -107,7 +111,7 @@
 					{@const kind = kindOfKey(c.value)}
 					<form
 						method="POST"
-						action="?/saveField"
+						action={action('saveField')}
 						class="row field-kind"
 						use:enhance={() =>
 							async ({ update }) =>
@@ -145,6 +149,20 @@
 						</label>
 						<button class="small">{t.common.save}</button>
 					</form>
+					{#if c.count === 0}
+						<form
+							method="POST"
+							action={action('deleteField')}
+							class="stack delete-name"
+							use:enhance={({ cancel }) => {
+								if (!confirm(t.maintenance.confirmDeleteName(c.value))) cancel();
+							}}
+						>
+							<input type="hidden" name="key" value={c.value} />
+							<p class="muted small">{t.maintenance.unusedName}</p>
+							<div><button class="small danger">{t.common.delete}</button></div>
+						</form>
+					{/if}
 				{/if}
 			</details>
 		</li>
@@ -163,6 +181,13 @@
 	}
 	summary {
 		cursor: pointer;
+	}
+	.delete-name {
+		margin-top: 0.8rem;
+		gap: 0.3rem;
+	}
+	.delete-name p {
+		margin: 0;
 	}
 	.rename {
 		margin-top: 0.6rem;

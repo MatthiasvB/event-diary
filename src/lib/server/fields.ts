@@ -184,3 +184,20 @@ export function associationKeys(db: Db): string[] {
 		Object.keys(kinds).filter((key) => kinds[key].kind === 'object')
 	);
 }
+
+/** Only a name without values goes. Event types stop proposing it. Returns whether it went. */
+export function deleteUnusedField(db: Db, name: string): boolean {
+	return transaction(db, () => {
+		const field = db
+			.prepare(
+				`SELECT id FROM fields f WHERE name = ?
+				AND NOT EXISTS (SELECT 1 FROM event_details WHERE field_id = f.id)
+				AND NOT EXISTS (SELECT 1 FROM property_values WHERE field_id = f.id)`
+			)
+			.get(name) as { id: number } | undefined;
+		if (!field) return false;
+		db.prepare('DELETE FROM event_type_fields WHERE field_id = ?').run(field.id);
+		db.prepare('DELETE FROM fields WHERE id = ?').run(field.id);
+		return true;
+	});
+}

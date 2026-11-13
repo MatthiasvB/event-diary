@@ -17,6 +17,7 @@ import {
 } from '../events.ts';
 import { findPhotoType, listTypes, updateType } from '../eventTypes.ts';
 import {
+	deleteUnusedField,
 	getFieldKinds,
 	propertyKeys,
 	setFieldKind,
@@ -281,6 +282,10 @@ export class Diary {
 
 	suggestions(key: string, on: boolean) {
 		setSuggestValues(this.db, key, on);
+	}
+
+	deleteName(key: string): boolean {
+		return deleteUnusedField(this.db, key);
 	}
 
 	rename(what: ValueKind, from: string, to: string): number {
